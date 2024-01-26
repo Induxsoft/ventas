@@ -1,25 +1,35 @@
 #include "dkli.dkh"
 #!
-program
+program "instalador"
 {
     #include "functions.dkh"
     #include "serialize.dkh"
     #include "dbr.dkh"
     #include "dbm.dkl"
+    #include "dbr.vars.dkl"
+    #include "dbr.security.dkl"
+    #include "dbr.apps.dkl"
 
     // PREPARACIÓN DE VARIABLES
     ref args = commandline("=")
     src = _get(@_run_settings,"$SourceCodeFile")
 
     path_install = dir.name(src)
-    path_ddm = path.concat(path_install, "ddm")
-    path_initial_data = path.concat(path_install, "initial_data")
-    model_name = file.name(dir.name(path_install)) + ".ddm"
-    model_file = path.concat(path_ddm, model_name)
+    path_ddm = path.concat(path_install,"ddm")
+    path_initial_data = path.concat(path_install,"initial_data")
+    path_app_info = path.concat(path_install,"app_info")
 
     qname = trim(@@(args,"$db"))
     if qname == "" { qname = trim(@@(args,"$bd")) }
     if qname == "" { do rise_error(99,"Debe de indicar un nombre cualificado de conexión `db`.") }
+
+    categories_file = path.concat(path_app_info,"sys_app_category.csv")
+    catalogs_file = path.concat(path_app_info,"sys_app_catalog.csv")
+    shortcuts_file = path.concat(path_app_info,"sys_app_shortcut.csv")
+    sitem_file = path.concat(path_initial_data,"sitem.csv")
+
+    model_name = file.name(dir.name(path_install)) + ".ddm"
+    model_file = path.concat(path_ddm, model_name)
 
     // Archivos de datos iniciales (Orden de instalación)
     ref files_to_import = from.json('[]')
@@ -42,34 +52,9 @@ program
         }
     }
 
-    /**
-    * Importar datos iniciales del paquete desde archivos csv.
-    * El nombre del archivo debe coincidir con el nombre de la tabla destino.
-    */
-    installData::&db,fsrc
-    {
-        table_name = file.justname(fsrc)
-        ref list_records = CsvRead(fsrc,"")
-
-        for m = 0; m < list.count(list_records)
-        {
-            ref record = list.obj(list_records,m)
-            ref fields = list.create_from_fields(record)
-
-            for n = 0; n < list.count(fields)
-            {
-                field = list.str(fields,n)
-                if @@(record,field) == "\\N" || @@(record,field) == "\\0" { record<field+"*"> : @null }
-            }
-
-            do dbr.insert(db,table_name,record)
-
-            exception{ if not(contains(last_error(), "Duplicate entry")){ do print(last_error()) } }
-        }
-    }
-
     //* ======================================== [ EJECUCIÓN DEL PROGRAMA ]
 
+    //#region Instalar modelo (.ddm) del paquete.
     if not(file.exists(model_file)) { do rise_error(99,"No se encontró el modelo: _install/ddm/" + model_name) }
 
     fext = file.extension(model_file)
@@ -82,7 +67,6 @@ program
     ref database = dbr.open(qname)
     if not(dbr.is_open(database)) { do rise_error(99,"No fue posible abrir la conexión. Verifique el nombre cualificado de conexión.") }
 
-    // Instalar modelo del paquete.
     if not(dbm.existLogTables(database))
     {
         do dbm.inferModel(qname)
@@ -92,10 +76,11 @@ program
     do print("\nINSTALANDO MODELO")
     if not(dbm.installModel(database,model_name,data_model)) { do rise_error(99,"No se instaló el modelo") }
     
-    // Importar datos iniciales
+    do reconnect(database,qname)
+    //#endregion
+    
     if dir.exists(path_initial_data) && list.count(files_to_import) > 0
     {
-        do reconnect(database,qname)
         do print("\nIMPORTANDO DATOS INICIALES")
 
         for i = 0; i < list.count(files_to_import)
@@ -103,39 +88,51 @@ program
             file = path.concat(path_initial_data,trim(list.str(files_to_import,i)))
             if file.exists(file)
             {
-                do print(file.justname(file))
-                do installData(database,file)
+                ref CsvData = CsvRead(file,"")
+                table_name = file.justname(file)
+                do dbr.vars.ImportList(database,CsvData,table_name)
             }
         }
     }
+
+    if file.exists(categories_file)
+    {
+        do print("\nESTABLECIENDO CATEGORIAS")
+
+        ref categoriesData = CsvRead(categories_file,"")
+        do dbr.apps.category.import(database,categoriesData)
+    }
+
+    if file.exists(catalogs_file)
+    {
+        do print("\nESTABLECIENDO APLICACIONES")
+
+        ref catalogsData = CsvRead(catalogs_file,"")
+        do dbr.apps.import(database,catalogsData)
+    }
+
+    if file.exists(shortcuts_file)
+    {
+        do print("\nESTABLECIENDO SHORTCUTS")
+
+        ref shortcutsData = CsvRead(shortcuts_file,"")
+        do dbr.apps.shortcut.import(database,shortcutsData)
+    }
+
+    if file.exists(sitem_file)
+    {
+        do print("\nIMPORTANDO PRIVILEGIOS")
+
+        ref sitemData = CsvRead(sitem_file,"")
+        do dbr.vars.ImportPrivs(database,sitemData)
+    }
     
-    // Asignar permisos al grupo de administradores.
     if list.count(permissions_to_import) > 0
     {
-        do reconnect(database,qname)
-        do print("\nNUEVOS PERMISOS AL GRUPO DE ADMINISTRADORES")
+        do print("\nNUEVOS PRIVILEGIOS AL GRUPO DE ADMINISTRADORES")
 
-        gpoAdmins = dbr.rec(database,"select sys_pk from usergroup where groupid='Administradores' or groupid='Administrators' or groupid='Admins';",@null)
-        if gpoAdmins <= 0 { do rise_error(99,"No pudo encontrarse el grupo de Administradores.") }
-
-        for i = 0; i < list.count(permissions_to_import)
-        {
-            itemId = trim(list.str(permissions_to_import,i))
-            using profile_item
-            {
-                @"sys_pk": 0
-                @"sys_guid": uuid()
-                @"sys_timestamp*": now()
-                @"sys_dtcreated*": now()
-                @"sys_recver": 0
-                @"usergroup": gpoAdmins
-                @"item": dbr.num(database,"select sys_pk from sitem where itemid='"+itemId+"'",@null)
-            }
-            do dbr.insert(database,"profile",profile_item)
-            do print(itemId)
-            
-            exception{ if not(contains(last_error(), "Duplicate entry")){ do print(last_error()) } }
-        }
+        admins_groupid = dbr.security.admins(database)
+        do dbr.security.assign(database,admins_groupid,permissions_to_import)
     }
 
     if dbr.is_open(database){ do dbr.close(database) }
