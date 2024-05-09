@@ -9,13 +9,46 @@ module ":Venta"
     @create_fields = "*"
     @update_fields = "*"
     
-    @create_exclude_fields = "sys_lastuser,descuento1,descuento2,impuesto1,impuesto2,impuesto3,impuesto4,subtotal"
-    @update_exclude_fields = "sys_pk,sys_guid,sys_dtcreated,sys_user,descuento1,descuento2,impuesto1,impuesto2,impuesto3,impuesto4,subtotal"
+    @create_exclude_fields = "sys_lastuser,descuento1,descuento2,impuesto1,impuesto2,impuesto3,impuesto4,subtotal,serie,folio,_detalle"
+    @update_exclude_fields = "sys_pk,sys_guid,sys_dtcreated,sys_user,descuento1,descuento2,impuesto1,impuesto2,impuesto3,impuesto4,subtotal,serie,folio,_detalle,documento,referencia,ifolio"
     
     @create_alias_fields = ""
     @update_alias_fields = ""
 
     @list_query = @qry_list_venta
+
+    buscarCliente::&db,&params
+    {
+        if trim(@@(params,"$id")) != "" || trim(@@(params,"$icliente")) != ""
+        {
+            conditions = "(cte.sys_pk = IFNULL(@id,@icliente) OR cte.sys_guid = IFNULL(@id,@icliente))"
+            return dbr.rec(db,ftext(@qry_buscar_cliente),params)
+        }
+        if trim(@@(params,"$search")) != ""
+        {
+            conditions = "NOT IFNULL(cte.sys_deleted,0)
+            AND (
+                cte.codigo LIKE CONCAT('%',@search,'%')
+                OR cte.nombre LIKE CONCAT('%',@search,'%')
+            )"
+            return dbr.list(db,ftext(@qry_buscar_cliente),params)
+        }
+        return list.create()
+    }
+
+    buscarProducto::&db,&params
+    {
+        do Venta.setZonaImpuesto(db,params)
+        
+        conditions = "NOT IFNULL(p.sys_deleted,0) AND (p.codigo LIKE CONCAT('%',@search,'%') OR p.descripcion LIKE CONCAT('%',@search,'%'))"
+        return dbr.list(db,ftext(@qry_buscar_producto),params)
+    }
+
+    obtenerCliente::&db,id
+    {
+        new params { @"id": id }
+        return Venta.buscarCliente(db,params)
+    }
 
     obtenerFultimo::&db,&params
     {
@@ -28,11 +61,33 @@ module ":Venta"
         return dbr.list(db,@qry_list_series,params)
     }
 
+    setZonaImpuesto::&db,&params
+    {
+        /**
+        * Zona de impuesto
+        * 1 => 1 = cInterior
+        * 2 => -1 = cFrontera
+        */
+        
+        zimpuesto = parse.num(dbr.vars.getd(db,"ventas_zimpuesto","1"))
+        if zimpuesto > 1 { zimpuesto = -1 }
+        params<"zimpuesto"> : zimpuesto
+    }
+
     prepareView::&db,&params,&data
     {
         namespace "Venta"
-        
+
         isNew = (@@(params,"$_entity_id") == "_new")
+
+        if field.exist(data,"form")
+        {
+            data<"dtcliente*"> : obtenerCliente(db,@@(data,"#form/icliente"))
+        }
+        else if field.exist(data,"entity")
+        {
+            data<"dtcliente*"> : obtenerCliente(db,@@(data,"#entity/icliente"))
+        }
 
         data<"list_doc_vnt*"> : dbr.list(db,@qry_docs_venta,@null)
         data<"list_divisas*"> : dbr.list(db,@qry_list_divisas,@null)
@@ -129,6 +184,13 @@ module ":Venta"
         @list_query = ftext(@list_query)
     }
 
+    updateAmounts::&db,vnt_sys_pk
+    {
+        new params { @"_entity_id": vnt_sys_pk }
+        ref amounts = dbr.rec(db,@qry_imp_venta,params)
+        do dbr.update(db,"venta",amounts,ftext("#<@keyfield> = @_entity_id"),params)
+    }
+
     list::&db,&params
     {
         namespace "Venta"
@@ -147,6 +209,9 @@ module ":Venta"
 
     read::&db,&params
     {
+        if not(isset("@read_entity_only")){ @read_entity_only = @false }
+        if @read_entity_only { return entity.read(db,params) }
+
         new data
         {
             @"entity*": entity.read(db,params)
@@ -163,8 +228,97 @@ module ":Venta"
         return data
     }
 
+    create::&db,&params,&data
+    {
+        namespace "Venta"
+        @use_transaction = @false
+        @read_entity_only = @true
+
+        doctype = @@(data,"#documento")
+        serie = trim(@@(data,"$serie"))
+        folio = abs(@@(data,"#folio"))
+        ref_size = dbr.vars.getd(db,"ventas_fix_ref_size",6)
+
+        if @@(data,"#statusadministrativo") == @stt_adm_cancelado { do rise_error(500,"Estado inválido") }
+
+        do dbr.begin(db)
+
+        iblock = dbr.folios.id_block(db,doctype,serie)
+
+        if folio > 0 { folio = dbr.folios.set_new(db,iblock,folio,3) }
+        else { folio = dbr.folios.set_new(db,iblock,dbr.folios.get_new(db,iblock),3) }
+        ref dtfolio = dbr.folios.info(db,iblock,folio)
+
+        ref venta = record.copy(data,"*")
+        ref _detalle = from.json(@@(venta,"_detalle"))
+
+        using venta
+        {
+            @"sys_user": @@(@http_context, "$session/user/uid")
+            @"auditado": @false
+            @"contabilizado": @false
+            @"fecha*": if(@@(data,"fecha")!="", str2dt(@@(data,"fecha")), @null)
+            @"fentrega*": if(@@(data,"fentrega")!="", str2dt(@@(data,"fentrega")), @null)
+            @"vencimiento*": if(@@(data,"vencimiento")!="", str2dt(@@(data,"vencimiento")), @null)
+            @"notas": trim(@@(data,"$notas"))
+            @"referencia": serie + padleft(str(folio),ref_size,"0")
+            @"ifolio": @@(dtfolio,"#sys_pk")
+            @"formapago": @fp_na
+            @"statusentrega": @stt_ent_xentregar
+            @"statusfacturacion": @stt_fac_na
+            @"statusfinanciero": @stt_fin_na
+            @"_detalle*" : _detalle
+        }
+
+        using @childs
+        {
+            member "_detalle"
+            {
+                @"joinfield": "fk_venta_detalle"
+                @"keyfield": "sys_pk"
+                @"table": "dventa"
+                @"select_query": "SELECT NULL"
+                @"fields": "cantidad,descuento1,descuento2,factor,impuesto1,impuesto2,impuesto3,impuesto4,notas,precio,status,tipocambio,unidad,xfacturar,xsalir,documento,ialmacen,iproducto"
+            }
+        }
+        
+        ref entity = entity.create(db,params,venta)
+        do updateAmounts(db,@@(entity,"#sys_pk"))
+        
+        do dbr.commit(db)
+
+        exception{ do catch(db,params,data) }
+    }
+
+    update::&db,&params,&data
+    {
+        namespace "Venta"
+        
+        @use_transaction = @true
+
+        do rise_error(0,to.json(data))
+
+        exception{ do catch(db,params,data) }
+    }
+
     delete::&db,&params
     {
         do rise_error(500,"Acción no implementada")
+    }
+
+    catch::&db,&params,&data
+    {
+        do errordet(@false)
+        if dbr.in_transaction(db) { do dbr.rollback(db) }
+
+        ref FormData = record.copy(data,"*")
+        code = last_error_code()
+        error = last_error()
+
+        do record.clear(data)
+        data<"form*"> : FormData
+
+        do Venta.prepareView(db,params,data)
+        do rise_error(code,error)
     }
 }

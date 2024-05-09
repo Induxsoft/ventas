@@ -57,6 +57,8 @@ module ""
     @JS_VENTA = "/$/ventas/js/venta.js"
 
     //* ======================================== [ _PACKAGE ]
+    @URL_BUSCAR_CLIENTE = "/!/ventas/venta/?_view=buscar-cliente&search=@search"
+    @URL_BUSCAR_PRODUCTO = "/!/ventas/venta/?_view=buscar-producto&search=@search"
     @URL_OBTENER_FULTIMO = "/!/ventas/venta/?_view=obtener-fultimo&iblock=@iblock"
     @URL_OBTENER_SERIES = "/!/ventas/venta/?_view=obtener-series&doctype=@doctype"
 

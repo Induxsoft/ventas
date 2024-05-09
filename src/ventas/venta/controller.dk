@@ -6,12 +6,12 @@ module "VentaController"
     {
         case "buscar-producto"
         {
-            // code...
+            point @list to Venta.buscarProducto
             break
         }
         case "buscar-cliente"
         {
-            // code...
+            point @list to Venta.buscarCliente
             break
         }
         case "obtener-fultimo"
@@ -30,6 +30,8 @@ module "VentaController"
             point @read to Venta.read
             point @blank to Venta.blank
             
+            point @create to Venta.create
+            point @update to Venta.update
             point @delete to Venta.delete
             break
         }

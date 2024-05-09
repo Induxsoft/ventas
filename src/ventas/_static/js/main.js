@@ -71,7 +71,7 @@ function hideControls(elementsId=[], value=true)
     });
 }
 
-function fillSelect(id, kf, vf, url, params={}, fo={})
+function fillSelect(id, kf, vf, url, params={}, fo={}, callback=null)
 {
     const select = document.getElementById(id);
 
@@ -94,6 +94,7 @@ function fillSelect(id, kf, vf, url, params={}, fo={})
             option.value = obj[kf];
             option.text = obj[vf];
             if (obj[kf] === selected) option.selected = true;
+            if (callback) callback(option,obj);
 
             select.appendChild(option);
         });

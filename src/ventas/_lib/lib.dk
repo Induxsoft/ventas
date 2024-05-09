@@ -22,18 +22,23 @@ module "Funciones de propósito general:lib"
     {
         new record
         {
-            @"sys_pk": 0
-            @"sys_guid": uuid()
-            @"sys_dtcreated*": now()
-            @"sys_timestamp*": now()
+            @"sys_pk": 0 // Clave primaria para la tabla (alcance local)
+            @"sys_guid": uuid() // GUID que puede usarse como clave primaria de alcance global
+            @"sys_dtcreated*": now() // Fecha y hora de creación del registro
+            @"sys_timestamp*": now() // Fecha y hora de la última actualización del registro (marca de tiempo con precisión hasta segundos)
             @"sys_info": ""
-            @"sys_user": ""
-            @"sys_lastuser": ""
-            @"sys_exported": @false
-            @"sys_dtexported*": @null
-            @"sys_recver": 0
-            @"sys_deleted": @false
-            @"sys_lock": 0
+            @"sys_user": "" // UserId del usuario logueado que creo el registro.
+            @"sys_lastuser": "" // UserId del usuario logueado que modifico el registro.
+            @"sys_exported": @false // Indica si el registro ha sido exportado por las utilidades de transporte de datos
+            @"sys_dtexported*": @null // Indica la fecha en que se exportó por última vez
+            @"sys_recver": 0 // Número de versión de instancia de registro
+            @"sys_deleted": @false // Indica si la fila está marcada como eliminada
+            /**
+            * Clave foránea que indica si se ha establecido un bloqueo pesimista sobre la fila.
+            * Este campo admite valores Nulos que significan que el registro no está bloqueado.
+            * No se admiten duplicados
+            */
+            @"sys_lock*": @null
         }
         return record
     }

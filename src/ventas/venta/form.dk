@@ -120,14 +120,14 @@ module "form.dk"
         act_btn_cls = "btn btn-sm border-secondary induxsoft-corners btn-main-action no-print"
         
         #$
-        button(class="#<act_btn_cls>" type="button" id="btn_submit"){$"#<@ICON_SAVE>"}
+        button(class="#<act_btn_cls>" type="button" id="btn_submit" "data-stt-adm"="#<@stt_adm_abierto>" title="Guardar como borrador"){$"#<@ICON_SAVE>"}
         #!
     }
     point print_buttons to fn_print_buttons
 
     new nav_config
     {
-        @"title": "Nuevo documento"
+        @"title": ifstr(isNew, "Nuevo documento", @@(entity,"$referencia"))
         @"buttons*": print_buttons
         @"urlexit": "../"
         member @"hidden" { @"print": @true }
@@ -143,9 +143,9 @@ module "form.dk"
         
         div(id="work_area" class="container-section")
         {
-            div(class="#<ifstr(@('error/message')!='','alert alert-danger','')> overflow-auto"){$"#<@('error/message')>"}
+            div(class="alert alert-danger overflow-auto mb-2 #<ifstr(@('$error/message')!='','','d-none')>" id="frm_alerts"){$"#<@('error/message')>"}
 
-            form(method="POST" action="./" id="form-venta")
+            form(method="POST" action="./" id="frm_venta")
             {
                 input(type="hidden" name="sys_pk" value="#<@@(entity, '#sys_pk')>")
                 input(type="hidden" name="sys_recver" value="#<@@(entity, '#sys_recver')>")
@@ -168,7 +168,7 @@ module "form.dk"
                             div(class="col-lg-12 col-md-12 col-sm-12")
                             {
                                 label(class="form-label fw-bold" "for"="ik_cliente"){$"Cliente:"}
-                                "input-key"(name="ref_cliente" id="ik_cliente" "data-key"="sys_pk" "data-search"="codigo" "data-text"="nombre" "data-source"="#<@URL_BUSCAR_CLIENTE>" "data-value"="#<to.json(dtcliente)>" columns="codigo,nombre,dtipo" colcaptions="Código,Nombre,Tipo" required="true" "control-styles"="#<ik_sm_style>"){$""}
+                                "input-key"(name="icliente" id="ik_cliente" "data-key"="sys_pk" "data-search"="codigo" "data-text"="nombre" "data-source"="#<@URL_BUSCAR_CLIENTE>" "data-value"="#<to.json(dtcliente)>" columns="codigo,nombre,dtipo" colcaptions="Código,Nombre,Tipo" required="true" "control-styles"="#<ik_sm_style>"){$""}
                             }
                             div(class="col-lg-3 col-md-3 col-sm-4 col-6")
                             {
@@ -211,7 +211,7 @@ module "form.dk"
                                 do uie.dbSelect(sel_divisa)
                                 ##
                             }
-                            div(class="col-lg-3 col-md-3 col-sm-4 col-4")
+                            div(class="col-lg-2 col-md-3 col-sm-4 col-4")
                             {
                                 label(class="form-label" "for"="txt_tipocambio"){$"T. Cambio:"}
                                 input(class="form-control form-control-sm rounded-0" type="number" name="tipocambio" value="#<lib.form('tipocambio','nm',entity)>" min="1" step="0.000001" id="txt_tipocambio")
@@ -246,8 +246,8 @@ module "form.dk"
             {
                 small(class="flex-grow-1 text-muted"){$"Seleccione los productos en la cuadrícula"}
 
-                button(class="btn btn-sm d-flex align-items-center justify-content-center gap-2 no-shadow" type="button" id="btn-add-row" title="Agregar fila"){$"#<@ICON_ADD_ROW>"}
-                button(class="btn btn-sm d-flex align-items-center justify-content-center gap-2 no-shadow" type="button" id="btn-del-row" title="Eliminar fila"){$"#<@ICON_REMOVE_ROW>"}
+                button(class="btn btn-sm d-flex align-items-center justify-content-center gap-2 no-shadow" type="button" id="btn_add_row" title="Agregar fila"){$"#<@ICON_ADD_ROW>"}
+                button(class="btn btn-sm d-flex align-items-center justify-content-center gap-2 no-shadow" type="button" id="btn_del_row" title="Eliminar fila"){$"#<@ICON_REMOVE_ROW>"}
             }
             div(class="alert alert-danger rounded-0 mb-1 py-0 d-none" role="alert" id="tbl_alerts"){$""}
             div(class="" id="div_tbl_productos" style="width:auto; min-width:100%; max-height:55vh; display:flex;")
@@ -282,8 +282,8 @@ module "form.dk"
             div(class="d-flex justify-content-between w-100 bg-light p-2 border")
             {
                 b{$"Subtotal: " span(id="lbl_subtotal"){$""}}
-                b{$"Descuento: " span(id="lbl_descuento"){$""}}
-                b{$"Impuesto: " span(id="lbl_impuesto"){$""}}
+                b{$"Descuentos: " span(id="lbl_descuentos"){$""}}
+                b{$"Impuestos: " span(id="lbl_impuestos"){$""}}
                 b{$"Total: " span(id="lbl_total"){$""}}
             }
         }
@@ -300,6 +300,8 @@ module "form.dk"
             document.addEventListener("DOMContentLoaded", () => {
                 venta.url_get_fultimo = "#<@URL_OBTENER_FULTIMO>";
                 venta.url_get_series = "#<@URL_OBTENER_SERIES>";
+                venta.formId = "frm_venta";
+                venta.tableId = "tbl_productos";
                 venta.init();
             });
         '}

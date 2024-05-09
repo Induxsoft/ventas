@@ -1,0 +1,40 @@
+[
+    {
+        "id": "ventas",
+        "caption": "Ventas",
+        "help": "Variables del paquete: ventas",
+        "vars": [
+            {
+                "varname": "ventas_fix_ref_size",
+                "vardefault": "6",
+                "varvalue": "6",
+                "varcaption": "Tamaño de la referencia",
+                "varhelp": "Cantidad de '0' alineados a la izquierda del identificador numérico para la referencia.",
+                "vartype": "int",
+                "varinput": {
+                    "control": "number"
+                }
+            },
+            {
+                "varname": "ventas_zimpuesto",
+                "vardefault": "1",
+                "varvalue": "1",
+                "varcaption": "Zona de impuestos",
+                "varhelp": "Configuración de la zona para el cálculo de impuestos de los productos.",
+                "vartype": "int",
+                "varinput": {
+                    "control": "select",
+                    "source":{
+                        "type":"list",
+                        "values":[
+                            {"id":"1", "const":"cInterior"},
+                            {"id":"2", "const":"cFrontera"}
+                        ],
+                        "keyfield":"id",
+                        "showfield":"const"
+                    }
+                }
+            }
+        ]
+    }
+]
