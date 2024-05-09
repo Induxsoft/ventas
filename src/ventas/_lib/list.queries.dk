@@ -1,0 +1,41 @@
+#include "dkli.dkh"
+#!
+module "Lista de consultas MySQL"
+{
+    @qry_list_venta = "
+    SELECT
+        vnt.sys_pk,
+        doc.const AS cdocumento,
+        vnt.referencia,
+        DATE_FORMAT(vnt.fecha,'%Y-%m-%d') AS fecha,
+        cte.nombre AS cliente,
+        IFNULL(DATE_FORMAT(vnt.vencimiento,'%Y-%m-%d'),'') AS vencimiento,
+        dvs.codigo AS cdivisa,
+        vnt.tipocambio,
+        IFNULL(vnt.subtotal,0) AS subtotal,
+        ((((((IFNULL(vnt.subtotal,0) - IFNULL(vnt.descuento1,0)) - IFNULL(vnt.descuento2,0)) + IFNULL(vnt.impuesto1,0)) + IFNULL(vnt.impuesto2,0)) + IFNULL(vnt.impuesto3,0)) + IFNULL(vnt.impuesto4,0)) AS total,
+        sfin.const AS stt_fin,
+        fp.const AS forma_pago,
+        sadm.const AS stt_adm
+    FROM venta AS vnt
+        INNER JOIN cliente AS cte ON vnt.icliente = cte.sys_pk
+        INNER JOIN divisa AS dvs ON vnt.idivisa = dvs.sys_pk
+        INNER JOIN cdocumentos AS doc ON vnt.documento = doc.id
+        INNER JOIN cformaspago AS fp ON vnt.formapago = fp.id
+        INNER JOIN cstatusfinancieros AS sfin ON vnt.statusfinanciero = sfin.id
+        INNER JOIN cstatusadministrativos AS sadm ON vnt.statusadministrativo = sadm.id
+    WHERE NOT IFNULL(vnt.sys_deleted,0)
+        #<conditions>
+    ORDER BY vnt.fecha ASC
+    LIMIT #<@default_max_rows>
+    "
+
+    @qry_venta = ""
+
+    @qry_dventa = ""
+
+    @qry_docs_venta = "SELECT a.id, a.const FROM cdocumentos AS a INNER JOIN cfg_doc_ventas AS b ON a.id = b.documento ORDER BY a.id ASC"
+    @qry_list_series = "SELECT sys_pk, serie FROM blockdocumentos WHERE NOT IFNULL(sys_deleted,0) AND activo AND documento = @doctype"
+    @qry_list_divisas = "SELECT sys_pk, codigo, tcambio, CONCAT(codigo,' - ',descripcion) AS tdivisa FROM divisa WHERE NOT IFNULL(sys_deleted,0)"
+    @qry_list_cconsumo = "SELECT sys_pk, codigo, descripcion, ialmacen, precio, CONCAT(codigo,' - ',descripcion) AS tcconsumo FROM cconsumo WHERE NOT IFNULL(sys_deleted,0)"
+}

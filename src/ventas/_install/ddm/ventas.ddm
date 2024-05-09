@@ -592,6 +592,11 @@ model "erp.ventas"
         @"uf_fechainhabilitacion" datetime
         @"uf_sat_proser" string(50) required
         @"uf_sat_uniproser" string(50) required
+
+        index "producto_sys_info"
+        {
+            field "sys_info"
+        }
     }
 
     //* ======================================== [ ENTIDADES PRINCIPALES ]
@@ -677,7 +682,38 @@ model "erp.ventas"
         @"fk_venta_detalle" ref:"venta" required
     }
 
+    entity "cfg_doc_ventas"
+    {
+        @"documento" ref:"cdocumentos" key required
+        @"directa" bool
+        @"afecta" bool
+        @"consolida" bool
+        @"reserva" bool
+        @"inversa" bool
+        @"consigna" bool
+        @"fac_consigna" bool
+    }
+
+    entity "cfg_doc_ventas_consolida"
+    {
+        @"documento" ref:"cdocumentos" required
+        @"acepta" ref:"cdocumentos" required
+
+        index "cfg_doc_ventas_consolida_unique" unique
+        {
+            field "documento"
+            field "acepta"
+        }
+    }
+
     //* ======================================== [ ... ]
+    // Permisos disponibles
+    entity "sitem" : "TableModel"
+    {
+        @"description" string(250)
+        @"itemid" string(32) unique required
+        @"itemparent" ref:"sitem"
+    }
     // Información de la aplicación
     entity "sys_app_catalog"
     {
@@ -703,5 +739,25 @@ model "erp.ventas"
         @"_blank" bool
         @"appid" ref:"sys_app_catalog"
         @"cat" ref:"sys_app_category"
+    }
+    // Tipos de elementos de la aplicación
+    entity "sys_app_item_type"
+    {
+        @"id" string(32) key
+        @"title" string(255) required
+    }
+    // Acciones Generales o Especificas de elementos de la aplicación
+    entity "sys_app_item_action"
+    {
+        @"id" string(32) key
+        @"title" string(255) required
+        @"shorttitle" string(25) 
+        @"icon16x16" string(1024) required
+        @"href" string(1024) required
+        @"_blank" bool
+        @"appid" ref : "sys_app_catalog"
+        @"itemtype" ref : "sys_app_item_type"
+        @"req_context_item_id" bool
+        @"act_type" string(15) //Cadena con el tipo de acción: 'action' o 'report'
     }
 }

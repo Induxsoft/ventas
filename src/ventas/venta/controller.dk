@@ -1,0 +1,37 @@
+#include "dkli.dkh"
+#!
+module "VentaController"
+{
+    switch @@(@http_context,"$request/get/_view")
+    {
+        case "buscar-producto"
+        {
+            // code...
+            break
+        }
+        case "buscar-cliente"
+        {
+            // code...
+            break
+        }
+        case "obtener-fultimo"
+        {
+            point @list to Venta.obtenerFultimo
+            break
+        }
+        case "obtener-series"
+        {
+            point @list to Venta.obtenerSeries
+            break
+        }
+        default
+        {
+            point @list to Venta.list
+            point @read to Venta.read
+            point @blank to Venta.blank
+            
+            point @delete to Venta.delete
+            break
+        }
+    }
+}

@@ -1,0 +1,170 @@
+#include "dkli.dkh"
+#!
+module ":Venta"
+{
+    @table_name = "venta"
+    @keyfield = "sys_pk"
+    @sys_fields = "sys_pk,sys_guid,sys_dtcreated,sys_timestamp,sys_info,sys_user,sys_lastuser,sys_exported,sys_dtexported,sys_recver,sys_deleted,sys_lock"
+
+    @create_fields = "*"
+    @update_fields = "*"
+    
+    @create_exclude_fields = "sys_lastuser,descuento1,descuento2,impuesto1,impuesto2,impuesto3,impuesto4,subtotal"
+    @update_exclude_fields = "sys_pk,sys_guid,sys_dtcreated,sys_user,descuento1,descuento2,impuesto1,impuesto2,impuesto3,impuesto4,subtotal"
+    
+    @create_alias_fields = ""
+    @update_alias_fields = ""
+
+    @list_query = @qry_list_venta
+
+    obtenerFultimo::&db,&params
+    {
+        new data { @"fultimo": dbr.folios.get_new(db,@@(params,"#iblock")) }
+        return data
+    }
+
+    obtenerSeries::&db,&params
+    {
+        return dbr.list(db,@qry_list_series,params)
+    }
+
+    prepareView::&db,&params,&data
+    {
+        namespace "Venta"
+        
+        isNew = (@@(params,"$_entity_id") == "_new")
+
+        data<"list_doc_vnt*"> : dbr.list(db,@qry_docs_venta,@null)
+        data<"list_divisas*"> : dbr.list(db,@qry_list_divisas,@null)
+        data<"list_cconsumo*"> : dbr.list(db,@qry_list_cconsumo,@null)
+
+        ref first_doc_vnt = list.obj(@@(data,"&list_doc_vnt"),0)
+        params<"doctype"> : @@(first_doc_vnt,"#id")
+        data<"list_series*"> : obtenerSeries(db,params)
+    }
+
+    prepareList::&db,&params,&data
+    {
+        data<"list_doc_vnt*"> : dbr.list(db,@qry_docs_venta,@null)
+        data<"list_stt_fin*"> : dbr.list(db,"SELECT id, const FROM cstatusfinancieros ORDER BY id ASC",@null)
+        data<"list_stt_adm*"> : dbr.list(db,"SELECT id, const FROM cstatusadministrativos ORDER BY id ASC",@null)
+    }
+
+    evaluateListFilters::&params
+    {
+        if not(field.exist(params,"fil_doc_vnt")){ params<"fil_doc_vnt"> : -1 }
+        if not(field.exist(params,"fil_stt_fin")){ params<"fil_stt_fin"> : -1 }
+        if not(field.exist(params,"fil_stt_adm")){ params<"fil_stt_adm"> : -1 }
+
+        conditions = ""
+
+        if @@(params,"#fil_doc_vnt") > 0 { conditions = conditions + " AND vnt.documento = @fil_doc_vnt" }
+        if @@(params,"#fil_stt_fin") >= 0 { conditions = conditions + " AND vnt.statusfinanciero = @fil_stt_fin" }
+        if @@(params,"#fil_stt_adm") >= 0 { conditions = conditions + " AND vnt.statusadministrativo = @fil_stt_adm" }
+        if trim(@@(params,"$fil_text")) != "" {
+            conditions = conditions + " AND (vnt.referencia LIKE CONCAT('%',@fil_text,'%') OR cte.nombre LIKE CONCAT('%',@fil_text,'%'))"
+        }
+
+        // filter-date-range [start]
+        new vnt_date_fields
+        {
+            @"1": "vnt.fecha" // Emisión
+            @"2": "vnt.vencimiento" // Vencimiento
+        }
+        fdr_field = @@(vnt_date_fields,str(@@(params,"#fil_fdr_field")))
+
+        switch @@(params,"$fdr_mode")
+        {
+            case "month"
+            {
+                curr_ndt = ndatetime.now()
+                curr_year = ndatetime.year(curr_ndt)
+                curr_month = ndatetime.month(curr_ndt)
+                curr_day = ndatetime.day(curr_ndt)
+
+                if not(field.exist(params,"fdr_year")) { params<"fdr_year"> : curr_year }
+                if not(field.exist(params,"fdr_month")) { params<"fdr_month"> : curr_month }
+
+                conditions = conditions + " AND YEAR(#<fdr_field>) = @fdr_year AND MONTH(#<fdr_field>) = @fdr_month"
+                break
+            }
+            case "lastdays"
+            {
+                if not(field.exist(params,"fdr_range")) { params<"fdr_range"> : 30 } // Últimos 30 días
+
+                conditions = conditions + " AND DATE(#<fdr_field>) BETWEEN ADDDATE(DATE(NOW()), INTERVAL -@fdr_range DAY) AND DATE(NOW())"
+                break
+            }
+            case "range"
+            {
+                if not(field.exist(params,"fdr_from"))
+                {
+                    curr_ndt = ndatetime.now()
+                    subt_ndt = ndatetime.add(curr_ndt, -30, "d")
+                    ult_30_days = ndatetime.tostr(subt_ndt, "yyyy-MM-dd")
+
+                    params<"fdr_from"> : ult_30_days
+                }
+                if not(field.exist(params,"fdr_to")) { params<"fdr_to"> : hoy("yyyy-MM-dd") }
+
+                if trim(@@(params,"$fdr_from")) != "" && trim(@@(params,"$fdr_to")) != ""
+                {
+                    conditions = conditions + " AND DATE(#<fdr_field>) BETWEEN @fdr_from AND @fdr_to"
+                }
+                else if trim(@@(params,"$fdr_from")) != "" && trim(@@(params,"$fdr_to")) == ""
+                {
+                    conditions = conditions + " AND DATE(#<fdr_field>) >= @fdr_from"
+                }
+                else if trim(@@(params,"$fdr_from")) == "" && trim(@@(params,"$fdr_to")) != ""
+                {
+                    conditions = conditions + " AND DATE(#<fdr_field>) <= @fdr_to"
+                }
+
+                break
+            }
+        }
+        // filter-date-range [end]
+
+        conditions = ftext(conditions)
+        @list_query = ftext(@list_query)
+    }
+
+    list::&db,&params
+    {
+        namespace "Venta"
+
+        do evaluateListFilters(params)
+        new data
+        {
+            @"data*": entity.list(db,params)
+            @"itemactions*": dbr.apps.itemactions(db,"DET01C","action","",0)
+            @"itemreports*": dbr.apps.itemactions(db,"DET01C","report","",0)
+        }
+        do prepareList(db,params,data)
+
+        return data
+    }
+
+    read::&db,&params
+    {
+        new data
+        {
+            @"entity*": entity.read(db,params)
+        }
+        do Venta.prepareView(db,params,data)
+
+        return data
+    }
+
+    blank::&db,&params
+    {
+        new data {}
+        do Venta.prepareView(db,params,data)
+        return data
+    }
+
+    delete::&db,&params
+    {
+        do rise_error(500,"Acción no implementada")
+    }
+}

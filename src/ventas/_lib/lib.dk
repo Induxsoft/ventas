@@ -1,0 +1,175 @@
+#include "dkli.dkh"
+#pattern function "function '$name' ()"
+#!
+module "Funciones de propósito general:lib"
+{
+    function hoy(fmt)
+    {
+        return date_str(now(),str(fmt))
+    }
+
+    function between(value, min, max)
+    {
+        return value >= min && value <= max
+    }
+
+    function record_combine(&obj1,&obj2)
+    {
+        return record.copyexin(obj2,obj1,"*",",","",":")
+    }
+
+    function newrec()
+    {
+        new record
+        {
+            @"sys_pk": 0
+            @"sys_guid": uuid()
+            @"sys_dtcreated*": now()
+            @"sys_timestamp*": now()
+            @"sys_info": ""
+            @"sys_user": ""
+            @"sys_lastuser": ""
+            @"sys_exported": @false
+            @"sys_dtexported*": @null
+            @"sys_recver": 0
+            @"sys_deleted": @false
+            @"sys_lock": 0
+        }
+        return record
+    }
+
+    function date_format(str,fmt)
+    {
+        fecha = trim(str(str))
+        formato = trim(str(fmt))
+
+        if fecha == "" { return "" }
+        if formato == "" { formato = "yyyy-MM-ddTHH:mm:ss" }
+
+        ref datetime = str2dt(fecha)
+        fecha = date_str(datetime,formato)
+
+        return fecha
+
+        exception
+        {
+            // do rise_error(99,"Debe proporcionar una cadena de fecha con un formato válido.")
+            do clear_exceptions()
+            return ""
+        }
+    }
+
+    function list_years(yearsBack,yearsForward)
+    {
+        ndt = ndatetime.now()
+        yearFrom = ndatetime.add(ndt, ((yearsBack + 1) * -1), "y")
+        
+        ref list = list.create()
+        date = yearFrom
+
+        for i = 1; i < yearsBack + (yearsForward + 2)
+        {
+            date = ndatetime.add(date,1,'y')
+            do list.add(list, ndatetime.year(date))
+        }
+        return list
+    }
+
+    function curr_url()
+    {
+        if not(isset("@http_context")) && isset("@crud_context") { ref @http_context = ifnull(@@(@crud_context,"&http"),record.create()) }
+        ref parameters = ifnull(@@(@http_context,"&request/get"),record.create())
+
+        v12_params = "_pack,_program,_entities_type,_entity_id,_view,_operation"
+        ref v12params = record.copy(parameters,v12_params)
+
+        v12_path = "/!/_pack/_program/_entity_id/_view/"
+        go foreach.fstr(key:key, value:value) with(v12params)
+        {
+            v12_path = replace(v12_path,key,value)
+        }
+        v12_path = replace(v12_path,"//","/")
+
+        http_args = "?"
+        go foreach.fstr(key:key, value:value) with(parameters)
+        {
+            if not(containsword(key,v12_params)) { http_args = http_args + key + "=" + value + "&" }
+        }
+        http_args = rremove(http_args,1)
+
+        return path.concat(v12_path,http_args)
+    }
+
+    function form(name,type,&obj)
+    {
+        name = trim(str(name))
+        if isnull(obj) { ref obj:record.create() }
+
+        switch str(type)
+        {
+            case "tx"
+            {
+                text = trim(@("$./form/"+name))
+                if text == "" { text = trim(@("$input/"+name)) }
+                if text == "" { text = trim(@@(obj,"$"+name)) }
+                return text
+            }
+            case "nm"
+            {
+                value = @("#./form/"+name)
+                if value <= 0 { value = @("#input/"+name) }
+                if value <= 0 { value = @@(obj,"#"+name) }
+                return value
+            }
+            case "ch"
+            {
+                bool = trim(@("$./form/"+name))
+                if bool == "" { bool = trim(@("$input/"+name)) }
+                if bool == "" { bool = trim(@@(obj,"$"+name)) }
+                
+                return ifstr(parse.bool(bool),"checked","")
+            }
+            case "rd"
+            {
+                bool = trim(@("$./form/"+name))
+                if bool == "" { bool = trim(@("$input/"+name)) }
+                if bool == "" { bool = trim(@@(obj,"$"+name)) }
+                
+                return ifstr(parse.bool(bool),"checked","")
+            }
+            case "dt"
+            {
+                fecha = trim(@("$./form/"+name))
+                if fecha == "" { fecha = trim(@("$input/"+name)) }
+                if fecha == "" { fecha = trim(@@(obj,"$"+name)) }
+                if fecha == "" { fecha = date_str(now(),"yyyy-MM-dd") }
+                return fecha
+            }
+            case "dtm"
+            {
+                fecha = trim(@("$./form/"+name))
+                if fecha == "" { fecha = trim(@("$input/"+name)) }
+                if fecha == "" { fecha = trim(@@(obj,"$"+name)) }
+                if fecha == "" { fecha = date_str(now(),"yyyy-MM-dd HH:mm:ss") }
+                return fecha
+            }
+            default { return "" }
+        }
+    }
+
+    function AppExist(&db,packId)
+    {
+        new p { @"id": packId }
+        ref InstalledApps = dbr.list(db,"SELECT * FROM sys_app_catalog WHERE pack_id = @id;",p)
+        exist = (list.count(InstalledApps) > 0)
+        return exist
+
+        exception{ return @false }
+    }
+
+    function GetPkUsr(&db,usrId)
+    {
+        new params { @"id": usrId }
+        return dbr.num(db,"SELECT usr.sys_pk FROM tuser AS usr LEFT JOIN sys_session AS ss ON usr.sys_pk = ss.iuser WHERE usr.sys_guid = @id OR usr.userid = @id OR ss.sys_guid = @id",params)
+    }
+}

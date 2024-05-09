@@ -1,0 +1,307 @@
+#include "dkli.dkh"
+#!
+module "form.dk"
+{
+    #include "functions.dkh"
+    #include "serialize.dkh"
+    #include "uielements.v12.dkl"
+    #include "../_lib/config.dk"
+    #include "../_lib/lib.dk"
+	#include "../_lib/icons.dk"
+
+    do @context.begin(@crud_context)
+
+    ref @_GET = ifnull(@("&parameters"),record.create())
+    ref entity = ifnull(@("&./entity"),record.create())
+    ref detail = ifnull(@("&./detail"),list.create())
+    ref dtcliente = ifnull(@("&./dtcliente"),record.create())
+
+	@_entities_type = @("$parameters/_entities_type")
+	@_entity_id = @("$parameters/_entity_id")
+
+	isNew = (@_entity_id == "_new")
+
+    ik_sm_style = "
+    #input_search_container, #input_description_container,
+    #button_search_container, #button_clear_container {
+        height: calc(1.5em + .5rem + 2px) !important;
+        padding: .25rem .5rem !important;
+        font-size: .875rem !important;
+    }
+    "
+
+    function fixEdtDataArray(&list,length)
+    {
+        add = (length - list.count(list))
+        repeat add
+        {
+            do list.add(list,record.create())
+        }
+    }
+
+    do fixEdtDataArray(detail,10)
+
+    new sel_documento
+    {
+        @"datatable*": ifnull(@("&./list_doc_vnt"),list.create())
+        @"id": "sel_documento"
+        new member "attributes"
+        {
+            @"class": "form-select form-select-sm rounded-0"
+            @"name": "documento"
+            @"required": ""
+        }
+        @"value_field": "id"
+        @"text_field": "const"
+        @"selected": lib.form("documento","nm",entity)
+    }
+
+    new sel_serie
+    {
+        @"datatable*": ifnull(@("&./list_series"),list.create())
+        @"id": "sel_serie"
+        new member "attributes"
+        {
+            @"class": "form-select form-select-sm rounded-0"
+            @"style": "max-width:6rem;"
+            @"name": "serie"
+            @"required": ""
+        }
+        @"value_field": "serie"
+        @"text_field": "serie"
+        new member "attr_options"
+        {
+            @"data-iblock": "#<@@(row,'#sys_pk')>"
+        }
+        @"selected": lib.form('serie','nm',@null)
+    }
+
+    new sel_divisa
+    {
+        @"datatable*": ifnull(@("&./list_divisas"),list.create())
+        @"id": "sel_divisa"
+        new member "attributes"
+        {
+            @"class": "form-select form-select-sm rounded-0"
+            @"name": "idivisa"
+            @"required": ""
+        }
+        @"value_field": "sys_pk"
+        @"text_field": "tdivisa"
+        new member "attr_options"
+        {
+            @"data-codigo": "#<@@(row,'$codigo')>"
+            @"data-tcambio": "#<@@(row,'#tcambio')>"
+        }
+        @"selected": lib.form("idivisa","nm",entity)
+    }
+
+    new sel_cconsumo
+    {
+        @"datatable*": ifnull(@("&./list_cconsumo"),list.create())
+        @"id": "sel_cconsumo"
+        new member "attributes"
+        {
+            @"class": "form-select form-select-sm rounded-0"
+            @"name": "icconsumo"
+            @"required": ""
+        }
+        @"value_field": "sys_pk"
+        @"text_field": "tcconsumo"
+        new member "attr_options"
+        {
+            @"data-almacen": "#<@@(row,'#ialmacen')>"
+        }
+        @"selected": lib.form("icconsumo","nm",entity)
+    }
+
+    fn_print_buttons::
+    {
+        act_btn_cls = "btn btn-sm border-secondary induxsoft-corners btn-main-action no-print"
+        
+        #$
+        button(class="#<act_btn_cls>" type="button" id="btn_submit"){$"#<@ICON_SAVE>"}
+        #!
+    }
+    point print_buttons to fn_print_buttons
+
+    new nav_config
+    {
+        @"title": "Nuevo documento"
+        @"buttons*": print_buttons
+        @"urlexit": "../"
+        member @"hidden" { @"print": @true }
+    }
+
+    #$
+    div(class="container")
+    {
+        #!
+        do uie.printV12FormBar(nav_config)
+        #$
+        link(href="#<@CSS_MAIN>" rel="stylesheet")
+        
+        div(id="work_area" class="container-section")
+        {
+            div(class="#<ifstr(@('error/message')!='','alert alert-danger','')> overflow-auto"){$"#<@('error/message')>"}
+
+            form(method="POST" action="./" id="form-venta")
+            {
+                input(type="hidden" name="sys_pk" value="#<@@(entity, '#sys_pk')>")
+                input(type="hidden" name="sys_recver" value="#<@@(entity, '#sys_recver')>")
+
+                nav(class="")
+                {
+                    div(class="nav nav-tabs mb-2" id="nav-tab" role="tablist")
+                    {
+                        button(class="nav-link py-1 active" type="button" role="tab" id="nav-general-tab" "data-bs-toggle"="tab" "data-bs-target"="#nav-general" "aria-controls"="nav-general" "aria-selected"="true"){$"General"}
+                        button(class="nav-link py-1" type="button" role="tab" id="nav-mrdata-tab" "data-bs-toggle"="tab" "data-bs-target"="#nav-mrdata" "aria-controls"="nav-mrdata" "aria-selected"="false"){$"Más datos"}
+                        button(class="nav-link py-1" type="button" role="tab" id="nav-transportacion-tab" "data-bs-toggle"="tab" "data-bs-target"="#nav-transportacion" "aria-controls"="nav-transportacion" "aria-selected"="false"){$"Transportación"}
+                    }
+                }
+                div(class="tab-content")
+                {
+                    div(class="tab-pane fade show active" id="nav-general" role="tabpanel" "aria-labelledby"="nav-general-tab")
+                    {
+                        div(class="row gx-2")
+                        {
+                            div(class="col-lg-12 col-md-12 col-sm-12")
+                            {
+                                label(class="form-label fw-bold" "for"="ik_cliente"){$"Cliente:"}
+                                "input-key"(name="ref_cliente" id="ik_cliente" "data-key"="sys_pk" "data-search"="codigo" "data-text"="nombre" "data-source"="#<@URL_BUSCAR_CLIENTE>" "data-value"="#<to.json(dtcliente)>" columns="codigo,nombre,dtipo" colcaptions="Código,Nombre,Tipo" required="true" "control-styles"="#<ik_sm_style>"){$""}
+                            }
+                            div(class="col-lg-3 col-md-3 col-sm-4 col-6")
+                            {
+                                label(class="form-label fw-bold" "for"="sel_documento"){$"Documento:"}
+                                ##
+                                do uie.dbSelect(sel_documento)
+                                ##
+                            }
+                            div(class="col-lg-3 col-md-3 col-sm-4 col-6")
+                            {
+                                label(class="form-label fw-bold" "for"="txt_referencia"){$"Referencia:"}
+                                div(class="input-group input-group-sm")
+                                {
+                                    ##
+                                    do uie.dbSelect(sel_serie)
+                                    ##
+                                    input(class="form-control form-control-sm rounded-0 text-end" type="number" name="folio" value="" id="txt_folio" min="1" step="1" placeholder="<A>")
+                                    button(class="btn btn-light btn-sm rounded-0 border" type="button" id="btn_get_folio" title="Obtener folio disponible para la serie seleccionada"){$"#<@ICON_HDOTS>"}
+                                }
+                            }
+                            div(class="col-lg-2 col-md-3 col-sm-4 col-4")
+                            {
+                                label(class="form-label fw-bold" "for"="txt_fecha"){$"Fecha:"}
+                                input(class="form-control form-control-sm rounded-0" type="date" name="fecha" value="#<lib.form('fecha','dt',entity)>" id="txt_fecha" required="")
+                            }
+                            div(class="col-lg-2 col-md-3 col-sm-4 col-4")
+                            {
+                                label(class="form-label" "for"="txt_fentrega"){$"F. Entrega:"}
+                                input(class="form-control form-control-sm rounded-0" type="date" name="fentrega" value="#<lib.form('fentrega','dt',entity)>" id="txt_fentrega")
+                            }
+                            div(class="col-lg-2 col-md-3 col-sm-4 col-4")
+                            {
+                                label(class="form-label" "for"="txt_fvencimiento"){$"F. Vencimiento:"}
+                                input(class="form-control form-control-sm rounded-0" type="date" name="vencimiento" value="#<lib.form('vencimiento','dt',entity)>" id="txt_fvencimiento")
+                            }
+                            div(class="col-lg-3 col-md-3 col-sm-4 col-8")
+                            {
+                                label(class="form-label fw-bold" "for"="sel_divisa"){$"Divisa:"}
+                                ##
+                                do uie.dbSelect(sel_divisa)
+                                ##
+                            }
+                            div(class="col-lg-3 col-md-3 col-sm-4 col-4")
+                            {
+                                label(class="form-label" "for"="txt_tipocambio"){$"T. Cambio:"}
+                                input(class="form-control form-control-sm rounded-0" type="number" name="tipocambio" value="#<lib.form('tipocambio','nm',entity)>" min="1" step="0.000001" id="txt_tipocambio")
+                            }
+                            div(class="col-lg-3 col-md-3 col-sm-4")
+                            {
+                                label(class="form-label fw-bold" "for"="sel_cconsumo"){$"Centro de consumo:"}
+                                ##
+                                do uie.dbSelect(sel_cconsumo)
+                                ##
+                            }
+                        }
+                    }
+
+                    div(class="tab-pane fade" id="nav-mrdata" role="tabpanel" "aria-labelledby"="nav-mrdata-tab")
+                    {
+                        div(class="row")
+                        {
+                            div(class="col-12")
+                            {
+                                label(class="form-label" "for"="txt_notas"){$"Notas:"}
+                                textarea(class="form-control rounded-0" name="notas" id="txt_notas" rows="5" maxlength="32000"){ $"#<lib.form('notas','tx',entity)>" }
+                            }
+                        }
+                    }
+                    
+                    div(class="tab-pane fade" id="nav-transportacion" role="tabpanel" "aria-labelledby"="nav-transportacion-tab"){$""}
+                }
+            }
+
+            div(class="d-flex justify-content-end align-items-center border-top gap-1 px-2 my-2" id="tbl_action_bar")
+            {
+                small(class="flex-grow-1 text-muted"){$"Seleccione los productos en la cuadrícula"}
+
+                button(class="btn btn-sm d-flex align-items-center justify-content-center gap-2 no-shadow" type="button" id="btn-add-row" title="Agregar fila"){$"#<@ICON_ADD_ROW>"}
+                button(class="btn btn-sm d-flex align-items-center justify-content-center gap-2 no-shadow" type="button" id="btn-del-row" title="Eliminar fila"){$"#<@ICON_REMOVE_ROW>"}
+            }
+            div(class="alert alert-danger rounded-0 mb-1 py-0 d-none" role="alert" id="tbl_alerts"){$""}
+            div(class="" id="div_tbl_productos" style="width:auto; min-width:100%; max-height:55vh; display:flex;")
+            {
+                "edit-table"(id="tbl_productos" data="#<to.json(detail)>" "auto-confirm"="true" style="width:100%;"
+                "row-height"="1.2rem"
+                "control-styles"="
+                    tr th { font-size:.9rem; outline:none !important; font-weight:500 !important; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; -o-text-overflow:ellipsis; }
+                    tr td { font-size:.8rem; }
+                    #__table_input { font-size:unset !important; }
+                ")
+                {
+                    "edit-thead"
+                    {
+                        "edit-tr"
+                        {
+                            "edit-th"(type="Text" field="codigo" button="true"){$"Código"}
+                            "edit-th"(type="Text" field="descripcion" button="true"){$"Descripción"}
+                            "edit-th"(type="Select" field="unidad" options="{}"){$"Unidad"}
+                            "edit-th"(type="Number" field="precio" textalign="end" format="true" thousandssep="true" decs="4"){$"Precio"}
+                            "edit-th"(type="Number" field="cantidad" textalign="center"){$"Cantidad"}
+                            "edit-th"(type="NoEditable" field="subtotal" textalign="end" format="true" thousandssep="true" decs="4"){$"Subtotal"}
+                            "edit-th"(type="Number" field="descuentos" textalign="end" format="true" thousandssep="true" decs="4"){$"Descuentos"}
+                            "edit-th"(type="NoEditable" field="impuestos" textalign="end" format="true" thousandssep="true" decs="4"){$"Impuestos"}
+                            "edit-th"(type="NoEditable" field="importe" textalign="end" format="true" thousandssep="true" decs="4"){$"Importe"}
+                            "edit-th"(type="Memo" field="notas"){$"Notas"}
+                        }
+                    }
+                }
+            }
+
+            div(class="d-flex justify-content-between w-100 bg-light p-2 border")
+            {
+                b{$"Subtotal: " span(id="lbl_subtotal"){$""}}
+                b{$"Descuento: " span(id="lbl_descuento"){$""}}
+                b{$"Impuesto: " span(id="lbl_impuesto"){$""}}
+                b{$"Total: " span(id="lbl_total"){$""}}
+            }
+        }
+
+        div
+        {
+            "input-key"(id="ik_producto" "data-key"="sys_pk" "data-search"="codigo" "data-text"="descripcion" "data-source"="#<@URL_BUSCAR_PRODUCTO>" columns="codigo,descripcion" colcaptions="Código,Descripción" "box-title-text"="Seleccione un producto" "control-styles"="#container{display:none !important;}"){$""}
+        }
+
+        script(src="#<@JS_MAIN>"){$""}
+        script(src="#<@JS_VENTA>"){$""}
+        script(type="text/javascript")
+        {$'
+            document.addEventListener("DOMContentLoaded", () => {
+                venta.url_get_fultimo = "#<@URL_OBTENER_FULTIMO>";
+                venta.url_get_series = "#<@URL_OBTENER_SERIES>";
+                venta.init();
+            });
+        '}
+    }
+}

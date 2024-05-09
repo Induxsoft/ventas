@@ -1,0 +1,64 @@
+#include "dkli.dkh"
+#!
+module ""
+{
+    if not(isset("@http_context")) && isset("@crud_context") { ref @http_context = @@(@crud_context,"&http") }
+	
+	@curr_ndt = ndatetime.now()
+    @curr_year = ndatetime.year(@curr_ndt)
+    @curr_month = ndatetime.month(@curr_ndt)
+    @curr_day = ndatetime.day(@curr_ndt)
+
+    // cdocumentos (documentos de venta)
+    @cCotizacion = 1
+    @cPedido = 2
+    @cRemision = 3
+    @cFactura = 4
+    @cNotaCredito = 5
+    @cTicket = 6
+    // cstatusadministrativos
+	@stt_adm_na = 0
+	@stt_adm_abierto = 1
+	@stt_adm_cerrado = 2
+	@stt_adm_procesado = 3
+	@stt_adm_cancelado = 99
+    // cstatusfacturacion
+    @stt_fac_na = 0
+    @stt_fac_xfacturar = 1
+    @stt_fac_parcialmente_facturado = 2
+    @stt_fac_facturado = 3
+    // cstatusfinancieros
+    @stt_fin_na = 0
+    @stt_fin_con_adeudo = 1
+    @stt_fin_saldado = 2
+    @stt_fin_consignado = 3
+    // cstatusentrega
+    @stt_ent_na = 0
+    @stt_ent_xentregar = 1
+    @stt_ent_entregado = 3
+    // cstatusdetalleventa
+    @stt_dventa_na = 0
+    @stt_dventa_xentregar = 1
+    @stt_dventa_entregado = 2
+    @stt_dventa_facturado = 3
+    @stt_dventa_devuelto = 4
+    // cformaspago
+    @fp_na = 0
+    @fp_contado = 1
+    @fp_credito = 2
+    @fp_financiado = 3
+    @fp_consignado = 4
+
+    @default_max_rows = 250 // limite de registros para las vistas de lista
+
+    //* ======================================== [ _STATIC RESOURCES ]
+    @CSS_MAIN = "/$/ventas/css/main.css"   
+    @JS_MAIN = "/$/ventas/js/main.js"
+    @JS_VENTA = "/$/ventas/js/venta.js"
+
+    //* ======================================== [ _PACKAGE ]
+    @URL_OBTENER_FULTIMO = "/!/ventas/venta/?_view=obtener-fultimo&iblock=@iblock"
+    @URL_OBTENER_SERIES = "/!/ventas/venta/?_view=obtener-series&doctype=@doctype"
+
+    //* ======================================== [ AUTHORIZATIONS ]
+}
