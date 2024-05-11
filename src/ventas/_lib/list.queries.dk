@@ -30,9 +30,84 @@ module "Lista de consultas MySQL"
     LIMIT #<@default_max_rows>
     "
 
-    @qry_venta = ""
+    @qry_venta = "
+    SELECT
+        vnt.sys_pk,
+        vnt.sys_recver,
+        vnt.documento,
+        vnt.referencia,
+        DATE_FORMAT(vnt.fecha,'%Y-%m-%d') AS fecha,
+        IFNULL(DATE_FORMAT(vnt.fentrega,'%Y-%m-%d'),'') AS fentrega,
+        IFNULL(DATE_FORMAT(vnt.vencimiento,'%Y-%m-%d'),'') AS vencimiento,
+        vnt.tipocambio,
+        vnt.idivisa,
+        vnt.icconsumo,
+        vnt.icliente,
+        vnt.statusadministrativo,
+        vnt.statusentrega,
+        vnt.statusfacturacion,
+        vnt.statusfinanciero,
+        s.serie,
+        f.folio,
+        adm.const AS stt_adm,
+        ent.const AS stt_ent,
+        fac.const AS stt_fac,
+        fin.const AS stt_fin
+    FROM venta AS vnt
+        INNER JOIN foliosdocumentos AS f ON vnt.ifolio = f.sys_pk
+        INNER JOIN blockdocumentos AS s ON f.block = s.sys_pk
+        LEFT JOIN cstatusadministrativos AS adm ON vnt.statusadministrativo = adm.id
+        LEFT JOIN cstatusentrega AS ent ON vnt.statusentrega = ent.id
+        LEFT JOIN cstatusfacturacion AS fac ON vnt.statusfacturacion = fac.id
+        LEFT JOIN cstatusfinancieros AS fin ON vnt.statusfinanciero = fin.id
+    WHERE vnt.#<@keyfield> = @_entity_id
+    "
 
-    @qry_dventa = ""
+    @qry_dventa = "
+    SELECT
+        p.codigo,
+        p.descripcion,
+        dt.unidad,
+        dt.precio,
+        dt.cantidad,
+        (dt.precio * dt.cantidad) AS subtotal,
+        (dt.descuento1 + dt.descuento2) AS descuentos,
+        (dt.impuesto1 + dt.impuesto2 + dt.impuesto3 + dt.impuesto4) AS impuestos,
+        (((((((dt.precio * dt.cantidad) - dt.descuento1) - dt.descuento2) + dt.impuesto1) + dt.impuesto2) + dt.impuesto3) + dt.impuesto4) AS importe,
+        dt.notas,
+
+        dt.descuento1,
+        dt.descuento2,
+        dt.factor,
+        dt.impuesto1,
+        dt.impuesto2,
+        dt.impuesto3,
+        dt.impuesto4,
+        dt.status,
+        dt.tipocambio,
+        dt.xfacturar,
+        dt.xsalir,
+        dt.ialmacen,
+        dt.iproducto,
+
+        (CONVERT(REPLACE(SUBSTRING_INDEX(i.i1compra, '|', @zimpuesto),'%',''), DECIMAL) / 100) AS i1_tasa,
+        (CONVERT(REPLACE(SUBSTRING_INDEX(i.i1compra, '|', @zimpuesto),'%',''), DECIMAL) / 100) AS i2_tasa,
+        (CONVERT(REPLACE(SUBSTRING_INDEX(i.i3compra, '|', @zimpuesto),'%',''), DECIMAL) / 100) AS i3_tasa,
+        (CONVERT(REPLACE(SUBSTRING_INDEX(i.i4compra, '|', @zimpuesto),'%',''), DECIMAL) / 100) AS i4_tasa,
+        TRIM(p.unidad) AS unidada,
+        TRIM(IFNULL(p.unidadb,'')) AS unidadb,
+        TRIM(IFNULL(p.unidadc,'')) AS unidadc,
+        TRIM(IFNULL(p.unidadd,'')) AS unidadd,
+        TRIM(IFNULL(p.unidade,'')) AS unidade,
+        IFNULL(p.factorb,0) AS factorb,
+        IFNULL(p.factorc,0) AS factorc,
+        IFNULL(p.factord,0) AS factord,
+        IFNULL(p.factore,0) AS factore
+    FROM dventa AS dt
+        INNER JOIN producto AS p ON dt.iproducto = p.sys_pk
+        INNER JOIN cfgimpuesto AS i ON p.impuestos = i.sys_pk
+    WHERE dt.fk_venta_detalle = IFNULL(@_entity_id,@sys_pk)
+    "
 
     @qry_imp_venta = "
     SELECT

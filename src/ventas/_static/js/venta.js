@@ -1,8 +1,8 @@
 var venta =
 {
-    formId:"", form:null, tableId:"", table:null,
-    url_exit:"", url_get_fultimo:"", url_get_series:"",
-    last_unit:"",
+    formId:"", form:null, tableId:"", table:null, _GET:{},
+    url_exit:"", url_get_fultimo:"", url_get_series:"", url_change_status:"",
+    last_unit:"", last_tcambio:1, is_new:false,
 
     init()
     {
@@ -12,12 +12,21 @@ var venta =
         const sel_cconsumo = document.getElementById("sel_cconsumo");
         const txt_folio = document.getElementById("txt_folio");
         const txt_tipocambio = document.getElementById("txt_tipocambio");
-        const btn_submit = document.getElementById("btn_submit");
         const btn_get_folio = document.getElementById("btn_get_folio");
+        const btn_guardar = document.getElementById("btn_guardar");
+        const btn_reabrir = document.getElementById("btn_reabrir");
+        const btn_cerrar = document.getElementById("btn_cerrar");
+        const btn_procesar = document.getElementById("btn_procesar");
+        const btn_cancelar = document.getElementById("btn_cancelar");
         this.form = document.getElementById(this.formId);
         this.table = document.getElementById(this.tableId);
+        this.is_new = (this._GET["_entity_id"] === "_new");
 
-        if (btn_get_folio) btn_get_folio.addEventListener("click", () => { this.getFolio() });
+        if (ik_cliente) ik_cliente.change_event = (data) => {
+            sel_divisa.value = data.idivisa;
+            txt_tipocambio.value = data.tcambio;
+            trigger(txt_tipocambio,"change");
+        }
 
         if (sel_documento) sel_documento.addEventListener("change", () => {
             let params = { doctype:sel_documento.value }
@@ -29,23 +38,28 @@ var venta =
         if (sel_divisa) sel_divisa.addEventListener("change", () => {
             const opt_divisa = sel_divisa.options[sel_divisa.selectedIndex];
             txt_tipocambio.value = Number(opt_divisa.getAttribute("data-tcambio") ?? "1");
+            trigger(txt_tipocambio,"change");
         });
 
-        if (ik_cliente) ik_cliente.change_event = (data) => {
-            sel_divisa.value = data.idivisa;
-            txt_tipocambio.value = data.tcambio;
-        }
-
         if (sel_cconsumo) sel_cconsumo.addEventListener("change", (e) => this.changeIAlmacenOfProducts(sel_cconsumo));
-
-        if (btn_submit) btn_submit.addEventListener("click", (e) => this.submit(btn_submit));
+        if (txt_tipocambio) txt_tipocambio.addEventListener("change", (e) => this.changeTipoCambioOfProducts(txt_tipocambio));
+        if (btn_get_folio) btn_get_folio.addEventListener("click", () => { this.getFolio() });
+        if (btn_guardar) btn_guardar.addEventListener("click", (e) => this.submit(btn_guardar));
+        if (btn_reabrir) btn_reabrir.addEventListener("click", (e) => this.changeStatus(btn_reabrir));
+        if (btn_cerrar) btn_cerrar.addEventListener("click", (e) => this.submit(btn_cerrar));
+        if (btn_procesar) btn_procesar.addEventListener("click", (e) => this.changeStatus(btn_procesar));
+        if (btn_cancelar) btn_cancelar.addEventListener("click", (e) => this.changeStatus(btn_cancelar));
 
         this.setKeyboardShortcuts();
         this.setEventTable();
         this.tableSummary();
 
-        trigger(sel_divisa,"change");
-        // ik_cliente.setValue(ik_cliente.getValue());
+        if (this.is_new)
+        {
+            trigger(sel_divisa,"change");
+            trigger(sel_documento,"change");
+            // ik_cliente.setValue(ik_cliente.getValue());
+        }
     },
 
     setKeyboardShortcuts()
@@ -56,7 +70,7 @@ var venta =
                 e.preventDefault();
                 (this.url_exit !== "")
                     ? window.location.href = this.url_exit
-                    : window.open("/","_top");
+                    : window.location.href = "../";
             }
             if (e.key === "F5") {
                 e.preventDefault();
@@ -145,6 +159,38 @@ var venta =
         InduxsoftCrudlModel.InvokeService(endpoint, fd, onSuccess, onFailure, method, false, true, "", true);
     },
 
+    changeStatus(relbtn)
+    {
+        if (!this.url_change_status) return;
+
+        let form_fields = this.form.elements;
+        let new_stt_adm = Number(relbtn.getAttribute("data-stt-adm"));
+
+        let fd = new FormData();
+        fd.append("sys_pk",form_fields["sys_pk"]);
+        fd.append("sys_recver",form_fields["sys_recver"]);
+        fd.append("statusadministrativo",new_stt_adm);
+        
+        let endpoint = this.url_change_status.replace("@iventa",fd.get("sys_pk"));
+        let method = (Number(fd.get("sys_pk")) > 0) ? "PATCH" : "POST";
+
+        const onSuccess = (data) => {
+            if (data.message) {
+                alert(data.message);
+                return;
+            }
+
+            console.log(data);
+        }
+        
+        const onFailure = (error) => {
+            let content = error.message ?? JSON.stringify(error);
+            show_alert("#frm_alerts", content, 6);
+        }
+
+        InduxsoftCrudlModel.InvokeService(endpoint, fd, onSuccess, onFailure, method, false, true, "", true);
+    },
+
     changeIAlmacenOfProducts(sel_cconsumo)
     {
         const opt_cconsumo = sel_cconsumo.options[sel_cconsumo.selectedIndex];
@@ -152,11 +198,33 @@ var venta =
         let ialmacen = Number(opt_cconsumo.getAttribute("data-almacen"));
         
         for (let i = 0; i < dtarray.length; i++) {
-            const product = dtarray[i];
-            if (Object.keys(product??{}).length < this.table.Columns.length) continue;
+            const producto = dtarray[i];
+            if (Object.keys(producto??{}).length < this.table.Columns.length) continue;
 
-            product["ialmacen"] = ialmacen;
+            producto["ialmacen"] = ialmacen;
         }
+    },
+
+    changeTipoCambioOfProducts(txt_tipocambio)
+    {
+        let tcambio = Number(txt_tipocambio.value);
+        let dtarray = this.table?.DataArray ?? [];
+        if (tcambio <= 0 || this.last_tcambio === tcambio) return;
+
+        for (let i = 0; i < dtarray.length; i++) {
+            const producto = dtarray[i];
+            if (Object.keys(producto??{}).length < this.table.Columns.length) continue;
+
+            let precio = Math.mul(producto.precio,this.last_tcambio);
+            precio = Math.div(precio,tcambio);
+
+            producto["precio"] = precio;
+            producto["tipocambio"] = tcambio;
+
+            this.edtProduct(producto,i);
+        }
+
+        this.last_tcambio = tcambio;
     },
 
     tableSummary()

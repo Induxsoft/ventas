@@ -24,6 +24,15 @@ module "VentaController"
             point @list to Venta.obtenerSeries
             break
         }
+        case "procesar"
+        {
+            @form_view = "form.procesar.dk"
+            break
+        }
+        case "cancelar"
+        {
+            @form_view = "form.cancelar.dk"
+        }
         default
         {
             point @list to Venta.list

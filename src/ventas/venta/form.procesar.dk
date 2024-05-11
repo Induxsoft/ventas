@@ -1,0 +1,18 @@
+#include "dkli.dkh"
+#!
+module "form.procesar.dk"
+{
+    #include "functions.dkh"
+    #include "serialize.dkh"
+
+    do @context.begin(@crud_context)
+
+    #$
+    div(class="container")
+    {
+        h1{$"Procesar documento de venta"}
+    }
+    #!
+
+    do @context.end()
+}

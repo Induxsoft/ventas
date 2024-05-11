@@ -63,4 +63,8 @@ module ""
     @URL_OBTENER_SERIES = "/!/ventas/venta/?_view=obtener-series&doctype=@doctype"
 
     //* ======================================== [ AUTHORIZATIONS ]
+    @VNT_LISTAR = "/!/ventas/venta/"
+    @VNT_EDITAR = "/!/ventas/venta/@iventa/"
+    @VNT_PROCESAR = "/!/ventas/venta/@iventa/procesar/"
+    @VNT_CANCELAR = "/!/ventas/venta/@iventa/cancelar/"
 }

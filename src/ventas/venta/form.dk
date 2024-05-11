@@ -19,7 +19,10 @@ module "form.dk"
 	@_entities_type = @("$parameters/_entities_type")
 	@_entity_id = @("$parameters/_entity_id")
 
-	isNew = (@_entity_id == "_new")
+	is_new = (@_entity_id == "_new")
+    cur_stt_adm = @@(entity,"#statusadministrativo")
+    
+    @enable_editing = (cur_stt_adm == @stt_adm_na || cur_stt_adm == @stt_adm_abierto)
 
     ik_sm_style = "
     #input_search_container, #input_description_container,
@@ -55,6 +58,7 @@ module "form.dk"
         @"text_field": "const"
         @"selected": lib.form("documento","nm",entity)
     }
+    if not(is_new){ sel_documento<"attributes/disabled"> : "" }
 
     new sel_serie
     {
@@ -73,7 +77,7 @@ module "form.dk"
         {
             @"data-iblock": "#<@@(row,'#sys_pk')>"
         }
-        @"selected": lib.form('serie','nm',@null)
+        @"selected": lib.form('serie','tx',entity)
     }
 
     new sel_divisa
@@ -120,14 +124,18 @@ module "form.dk"
         act_btn_cls = "btn btn-sm border-secondary induxsoft-corners btn-main-action no-print"
         
         #$
-        button(class="#<act_btn_cls>" type="button" id="btn_submit" "data-stt-adm"="#<@stt_adm_abierto>" title="Guardar como borrador"){$"#<@ICON_SAVE>"}
+        button(class="#<act_btn_cls>" type="button" id="btn_guardar" "data-stt-adm"="#<@stt_adm_abierto>" title="Guardar como borrador"){$"#<@ICON_SAVE>"}
+        button(class="#<act_btn_cls>" type="button" id="btn_reabrir" "data-stt-adm"="#<@stt_adm_abierto>" title="Re-abrir documento"){$"#<@ICON_UNLOCK>"}
+        button(class="#<act_btn_cls>" type="button" id="btn_cerrar" "data-stt-adm"="#<@stt_adm_cerrado>" title="Guardar y cerrar documento"){$"#<@ICON_LOCK>"}
+        button(class="#<act_btn_cls>" type="button" id="btn_procesar" "data-stt-adm"="#<@stt_adm_procesado>" title="Procesar documento"){$"#<@ICON_PROCESS>"}
+        button(class="#<act_btn_cls>" type="button" id="btn_cancelar" "data-stt-adm"="#<@stt_adm_cancelado>" title="Cancelar documento"){$"#<@ICON_TRASH>"}
         #!
     }
     point print_buttons to fn_print_buttons
 
     new nav_config
     {
-        @"title": ifstr(isNew, "Nuevo documento", @@(entity,"$referencia"))
+        @"title": ifstr(is_new, "Nuevo documento", @@(entity,"$referencia"))
         @"buttons*": print_buttons
         @"urlexit": "../"
         member @"hidden" { @"print": @true }
@@ -141,7 +149,7 @@ module "form.dk"
         #$
         link(href="#<@CSS_MAIN>" rel="stylesheet")
         
-        div(id="work_area" class="container-section")
+        div(class="container-section #<ifstr(not(@enable_editing),'disabled-all','')>" id="work_area")
         {
             div(class="alert alert-danger overflow-auto mb-2 #<ifstr(@('$error/message')!='','','d-none')>" id="frm_alerts"){$"#<@('error/message')>"}
 
@@ -149,6 +157,14 @@ module "form.dk"
             {
                 input(type="hidden" name="sys_pk" value="#<@@(entity, '#sys_pk')>")
                 input(type="hidden" name="sys_recver" value="#<@@(entity, '#sys_recver')>")
+
+                div(class="d-flex gap-2 #<ifstr(is_new,'d-none','')>")
+                {
+                    small{b{$"Edo. administrativo: "} $"#<@@(entity,'$stt_adm')>"}
+                    small{b{$"Edo. entrega: "} $"#<@@(entity,'$stt_ent')>"}
+                    small{b{$"Edo. facturación: "} $"#<@@(entity,'$stt_fac')>"}
+                    small{b{$"Edo. financiero: "} $"#<@@(entity,'$stt_fin')>"}
+                }
 
                 nav(class="")
                 {
@@ -177,15 +193,16 @@ module "form.dk"
                                 do uie.dbSelect(sel_documento)
                                 ##
                             }
-                            div(class="col-lg-3 col-md-3 col-sm-4 col-6")
+                            fieldset(class="col-lg-3 col-md-3 col-sm-4 col-6" "#<ifstr(is_new,'','disabled')>"="")
                             {
                                 label(class="form-label fw-bold" "for"="txt_referencia"){$"Referencia:"}
                                 div(class="input-group input-group-sm")
                                 {
                                     ##
                                     do uie.dbSelect(sel_serie)
+                                    folio = ifstr(is_new, "", @@(entity,"#folio"))
                                     ##
-                                    input(class="form-control form-control-sm rounded-0 text-end" type="number" name="folio" value="" id="txt_folio" min="1" step="1" placeholder="<A>")
+                                    input(class="form-control form-control-sm rounded-0 text-end" type="number" name="folio" value="#<folio>" id="txt_folio" min="1" step="1" placeholder="<A>")
                                     button(class="btn btn-light btn-sm rounded-0 border" type="button" id="btn_get_folio" title="Obtener folio disponible para la serie seleccionada"){$"#<@ICON_HDOTS>"}
                                 }
                             }
@@ -286,11 +303,11 @@ module "form.dk"
                 b{$"Impuestos: " span(id="lbl_impuestos"){$""}}
                 b{$"Total: " span(id="lbl_total"){$""}}
             }
-        }
 
-        div
-        {
-            "input-key"(id="ik_producto" "data-key"="sys_pk" "data-search"="codigo" "data-text"="descripcion" "data-source"="#<@URL_BUSCAR_PRODUCTO>" columns="codigo,descripcion" colcaptions="Código,Descripción" "box-title-text"="Seleccione un producto" "control-styles"="#container{display:none !important;}"){$""}
+            div
+            {
+                "input-key"(id="ik_producto" "data-key"="sys_pk" "data-search"="codigo" "data-text"="descripcion" "data-source"="#<@URL_BUSCAR_PRODUCTO>" columns="codigo,descripcion" colcaptions="Código,Descripción" "box-title-text"="Seleccione un producto" "control-styles"="#container{display:none !important;}"){$""}
+            }
         }
 
         script(src="#<@JS_MAIN>"){$""}
@@ -300,8 +317,10 @@ module "form.dk"
             document.addEventListener("DOMContentLoaded", () => {
                 venta.url_get_fultimo = "#<@URL_OBTENER_FULTIMO>";
                 venta.url_get_series = "#<@URL_OBTENER_SERIES>";
+                venta.url_exit = "#<@VNT_LISTAR>";
                 venta.formId = "frm_venta";
                 venta.tableId = "tbl_productos";
+                venta._GET = #<to.json(@("&parameters"))>;
                 venta.init();
             });
         '}

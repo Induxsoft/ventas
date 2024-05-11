@@ -16,6 +16,8 @@ module ":Venta"
     @update_alias_fields = ""
 
     @list_query = @qry_list_venta
+    @read_query = @qry_venta
+    @childs_query = @qry_dventa
 
     buscarCliente::&db,&params
     {
@@ -78,24 +80,25 @@ module ":Venta"
     {
         namespace "Venta"
 
-        isNew = (@@(params,"$_entity_id") == "_new")
+        icliente = 0
+        idocumento = 0
 
-        if field.exist(data,"form")
-        {
-            data<"dtcliente*"> : obtenerCliente(db,@@(data,"#form/icliente"))
+        if field.exist(data,"form") {
+            icliente = @@(data,"#form/icliente")
+            idocumento = @@(data,"#form/documento")
         }
-        else if field.exist(data,"entity")
-        {
-            data<"dtcliente*"> : obtenerCliente(db,@@(data,"#entity/icliente"))
+        else if field.exist(data,"entity") {
+            icliente = @@(data,"#entity/icliente")
+            idocumento = @@(data,"#entity/documento")
         }
 
+        params<"doctype"> : idocumento
+
+        data<"dtcliente*"> : ifnull(obtenerCliente(db,icliente),record.create())
         data<"list_doc_vnt*"> : dbr.list(db,@qry_docs_venta,@null)
         data<"list_divisas*"> : dbr.list(db,@qry_list_divisas,@null)
         data<"list_cconsumo*"> : dbr.list(db,@qry_list_cconsumo,@null)
-
-        ref first_doc_vnt = list.obj(@@(data,"&list_doc_vnt"),0)
-        params<"doctype"> : @@(first_doc_vnt,"#id")
-        data<"list_series*"> : obtenerSeries(db,params)
+        data<"list_series*"> : dbr.list(db,@qry_list_series,params)
     }
 
     prepareList::&db,&params,&data
@@ -191,18 +194,96 @@ module ":Venta"
         do dbr.update(db,"venta",amounts,ftext("#<@keyfield> = @_entity_id"),params)
     }
 
+    changeStatus::&db,&params,&data
+    {
+        @use_transaction = @true
+        @read_entity_only = @true
+
+        do Venta.validateStatus(db,params,data)
+        using data
+        {
+            @"sys_lastuser": @@(@http_context, "$session/user/uid")
+        }
+        ref entity = entity.update(db,params,data)
+
+        new response
+        {
+            @"entity*": entity
+            @"url_redir": replace(@url_redir,"@iventa",@@(entity,"#sys_pk"))
+        }
+
+        return response
+    }
+
+    validateStatus::&db,&params,&data
+    {
+        if trim(@@(params,"$_entity_id")) == "" { params<"_entity_id"> : @@(data,@keyfield) }
+
+        @url_redir = @VNT_LISTAR
+        
+        cur_stt_adm = dbr.num(db,ftext("SELECT statusadministrativo FROM venta WHERE #<@keyfield> = @_entity_id"),params)
+        new_stt_adm = @@(data,"#statusadministrativo")
+
+        switch cur_stt_adm
+        {
+            case @stt_adm_na
+            {
+                if new_stt_adm == @stt_adm_na || new_stt_adm == @stt_adm_abierto || new_stt_adm == @stt_adm_cerrado { @url_redir = @VNT_EDITAR }
+                else if new_stt_adm == @stt_adm_procesado {
+                    data<"statusadministrativo"> : @stt_adm_cerrado
+                    @url_redir = @VNT_PROCESAR
+                }
+                else if new_stt_adm = @stt_adm_cancelado {
+                    data<"statusadministrativo"> : @stt_adm_cerrado
+                    @url_redir = @VNT_CANCELAR
+                }
+                break
+            }
+            case @stt_adm_abierto
+            {
+                if new_stt_adm == @stt_adm_na { do rise_error(500,"Estado inválido, no es posible actualizar.") }
+
+                if new_stt_adm == @stt_adm_abierto || new_stt_adm == @stt_adm_cerrado { @url_redir = @VNT_EDITAR }
+                else if new_stt_adm == @stt_adm_procesado {
+                    data<"statusadministrativo"> : @stt_adm_cerrado
+                    @url_redir = @VNT_PROCESAR
+                }
+                else if new_stt_adm = @stt_adm_cancelado {
+                    data<"statusadministrativo"> : @stt_adm_cerrado
+                    @url_redir = @VNT_CANCELAR
+                }
+                break
+            }
+            case @stt_adm_cerrado
+            {
+                if new_stt_adm == @stt_adm_na || new_stt_adm == @stt_adm_cerrado { do rise_error(500,"Estado inválido, no es posible actualizar.") }
+
+                if new_stt_adm == @stt_adm_abierto { @url_redir = @VNT_EDITAR }
+                else if new_stt_adm == @stt_adm_procesado { @url_redir = @VNT_PROCESAR }
+                else if new_stt_adm == @stt_adm_cancelado { @url_redir = @VNT_CANCELAR }
+                break
+            }
+            case @stt_adm_procesado
+            {
+                if new_stt_adm != @stt_adm_cancelado { do rise_error(500,"Estado inválido, no es posible actualizar.") }
+                @url_redir = @VNT_CANCELAR
+                break
+            }
+            case @stt_adm_cancelado { do rise_error(500,"Documento cancelado, no es posible actualizar.") }
+            default { do rise_error(500,"Estado Inválido.") }
+        }
+    }
+
     list::&db,&params
     {
-        namespace "Venta"
-
-        do evaluateListFilters(params)
+        do Venta.evaluateListFilters(params)
         new data
         {
             @"data*": entity.list(db,params)
             @"itemactions*": dbr.apps.itemactions(db,"DET01C","action","",0)
             @"itemreports*": dbr.apps.itemactions(db,"DET01C","report","",0)
         }
-        do prepareList(db,params,data)
+        do Venta.prepareList(db,params,data)
 
         return data
     }
@@ -212,9 +293,12 @@ module ":Venta"
         if not(isset("@read_entity_only")){ @read_entity_only = @false }
         if @read_entity_only { return entity.read(db,params) }
 
+        do Venta.setZonaImpuesto(db,params)
+
         new data
         {
             @"entity*": entity.read(db,params)
+            @"detail*": dbr.list(db,@childs_query,params)
         }
         do Venta.prepareView(db,params,data)
 
@@ -231,6 +315,7 @@ module ":Venta"
     create::&db,&params,&data
     {
         namespace "Venta"
+
         @use_transaction = @false
         @read_entity_only = @true
 
@@ -277,7 +362,7 @@ module ":Venta"
                 @"joinfield": "fk_venta_detalle"
                 @"keyfield": "sys_pk"
                 @"table": "dventa"
-                @"select_query": "SELECT NULL"
+                @"select_query": @childs_query
                 @"fields": "cantidad,descuento1,descuento2,factor,impuesto1,impuesto2,impuesto3,impuesto4,notas,precio,status,tipocambio,unidad,xfacturar,xsalir,documento,ialmacen,iproducto"
             }
         }
@@ -286,6 +371,7 @@ module ":Venta"
         do updateAmounts(db,@@(entity,"#sys_pk"))
         
         do dbr.commit(db)
+        return entity
 
         exception{ do catch(db,params,data) }
     }
@@ -294,9 +380,42 @@ module ":Venta"
     {
         namespace "Venta"
         
-        @use_transaction = @true
+        @use_transaction = @false
+        @read_entity_only = @true
 
-        do rise_error(0,to.json(data))
+        ref venta = record.copy(data,"*")
+        ref _detalle = from.json(@@(venta,"_detalle"))
+
+        using venta
+        {
+            @"sys_lastuser": @@(@http_context, "$session/user/uid")
+            @"fecha*": if(@@(data,"fecha")!="", str2dt(@@(data,"fecha")), @null)
+            @"fentrega*": if(@@(data,"fentrega")!="", str2dt(@@(data,"fentrega")), @null)
+            @"vencimiento*": if(@@(data,"vencimiento")!="", str2dt(@@(data,"vencimiento")), @null)
+            @"notas": trim(@@(data,"$notas"))
+            @"_detalle*" : _detalle
+        }
+
+        using @childs
+        {
+            member "_detalle"
+            {
+                @"joinfield": "fk_venta_detalle"
+                @"keyfield": "sys_pk"
+                @"table": "dventa"
+                @"select_query": @childs_query
+                @"fields": "cantidad,descuento1,descuento2,factor,impuesto1,impuesto2,impuesto3,impuesto4,notas,precio,status,tipocambio,unidad,xfacturar,xsalir,documento,ialmacen,iproducto"
+            }
+        }
+
+        do dbr.begin(db)
+
+        do validateStatus(db,params,venta)
+        ref entity = entity.update(db,params,venta)
+        do updateAmounts(db,@@(entity,"#sys_pk"))
+
+        do dbr.commit(db)
+        return entity
 
         exception{ do catch(db,params,data) }
     }
