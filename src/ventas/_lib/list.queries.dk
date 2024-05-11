@@ -39,14 +39,21 @@ module "Lista de consultas MySQL"
         DATE_FORMAT(vnt.fecha,'%Y-%m-%d') AS fecha,
         IFNULL(DATE_FORMAT(vnt.fentrega,'%Y-%m-%d'),'') AS fentrega,
         IFNULL(DATE_FORMAT(vnt.vencimiento,'%Y-%m-%d'),'') AS vencimiento,
+        IFNULL(DATE_FORMAT(vnt.fembarque,'%Y-%m-%d'),'') AS fembarque,
         vnt.tipocambio,
         vnt.idivisa,
         vnt.icconsumo,
         vnt.icliente,
+        vnt.iagente,
+        vnt.irepartidor,
+        vnt.iporteador,
         vnt.statusadministrativo,
         vnt.statusentrega,
         vnt.statusfacturacion,
         vnt.statusfinanciero,
+        IFNULL(vnt.pcomision,0) AS pcomision,
+        IFNULL(vnt.domicilioentrega,'') AS domicilioentrega,
+        IFNULL(vnt.txtguia,'') AS txtguia,
         s.serie,
         f.folio,
         adm.const AS stt_adm,
@@ -170,6 +177,34 @@ module "Lista de consultas MySQL"
         INNER JOIN divisa AS dvs ON dvs.sys_pk = p.idivisa
         INNER JOIN cfgimpuesto AS imp ON imp.sys_pk = p.impuestos
         #<joins>
+    WHERE #<conditions>
+    "
+
+    @qry_buscar_agente = "
+    SELECT
+        agn.sys_pk,
+        agn.codigo,
+        agn.nombre,
+        IFNULL(agn.pcomision,0) AS pcomision
+    FROM agente AS agn
+    WHERE #<conditions>
+    "
+
+    @qry_buscar_repartidor = "
+    SELECT
+        rep.sys_pk,
+        rep.codigo,
+        rep.nombre
+    FROM repartidor AS rep
+    WHERE #<conditions>
+    "
+
+    @qry_buscar_porteador = "
+    SELECT
+        por.sys_pk,
+        por.codigo,
+        por.descripcion
+    FROM porteador AS por
     WHERE #<conditions>
     "
 

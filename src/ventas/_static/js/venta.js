@@ -2,16 +2,19 @@ var venta =
 {
     formId:"", form:null, tableId:"", table:null, _GET:{},
     url_exit:"", url_get_fultimo:"", url_get_series:"", url_change_status:"",
-    last_unit:"", last_tcambio:1, is_new:false,
+    last_unit:"", last_tcambio:1, is_new:false, idocumento:0, cur_stt_adm:0,
 
     init()
     {
         const ik_cliente = document.getElementById("ik_cliente");
+        const ik_agente = document.getElementById("ik_agente");
+        const ik_repartidor = document.getElementById("ik_repartidor");
+        const ik_porteador = document.getElementById("ik_porteador");
         const sel_documento = document.getElementById("sel_documento");
         const sel_divisa = document.getElementById("sel_divisa");
         const sel_cconsumo = document.getElementById("sel_cconsumo");
-        const txt_folio = document.getElementById("txt_folio");
         const txt_tipocambio = document.getElementById("txt_tipocambio");
+        const txt_pcomision = document.getElementById("txt_pcomision");
         const btn_get_folio = document.getElementById("btn_get_folio");
         const btn_guardar = document.getElementById("btn_guardar");
         const btn_reabrir = document.getElementById("btn_reabrir");
@@ -28,12 +31,7 @@ var venta =
             trigger(txt_tipocambio,"change");
         }
 
-        if (sel_documento) sel_documento.addEventListener("change", () => {
-            let params = { doctype:sel_documento.value }
-            const callback = (opt, obj) => { opt.setAttribute("data-iblock",obj.sys_pk) }
-            fillSelect("sel_serie","serie","serie",this.url_get_series,params,{},callback);
-            txt_folio.value = "";
-        });
+        if (ik_agente) ik_agente.change_event = (data) => { txt_pcomision.value = data.pcomision; }
         
         if (sel_divisa) sel_divisa.addEventListener("change", () => {
             const opt_divisa = sel_divisa.options[sel_divisa.selectedIndex];
@@ -41,6 +39,7 @@ var venta =
             trigger(txt_tipocambio,"change");
         });
 
+        if (sel_documento) sel_documento.addEventListener("change", (e) => this.changeDocumento(sel_documento));
         if (sel_cconsumo) sel_cconsumo.addEventListener("change", (e) => this.changeIAlmacenOfProducts(sel_cconsumo));
         if (txt_tipocambio) txt_tipocambio.addEventListener("change", (e) => this.changeTipoCambioOfProducts(txt_tipocambio));
         if (btn_get_folio) btn_get_folio.addEventListener("click", () => { this.getFolio() });
@@ -99,6 +98,106 @@ var venta =
         this.table.Events[evt.ConfirmEdition] = (e) => { this.calculateAmounts(e) };
     },
 
+    toggleButtonVisibility()
+    {
+        hideControls(["btn_guardar","btn_reabrir","btn_cerrar","btn_procesar","btn_cancelar"]);
+        switch (this.idocumento) {
+            case 1: //Cotización
+            {
+                switch (this.cur_stt_adm) {
+                    case 0: //No aplica
+                        hideControls(["btn_guardar","btn_cerrar"],false);
+                        break;
+                    case 1: //Abierto
+                        hideControls(["btn_guardar","btn_cerrar","btn_cancelar"],false);
+                        break;
+                    case 2: //Cerrado
+                        hideControls(["btn_reabrir","btn_cancelar"],false);
+                        break;
+                    case 3: //Procesado
+                        hideControls(["btn_cancelar"],false);
+                        break;
+                }
+                break;
+            }
+            case 2: //Pedido
+            {
+                switch (this.cur_stt_adm) {
+                    case 0: //No aplica
+                        hideControls(["btn_guardar","btn_cerrar"],false);
+                        break;
+                    case 1: //Abierto
+                        hideControls(["btn_guardar","btn_cerrar","btn_cancelar"],false);
+                        break;
+                    case 2: //Cerrado
+                        hideControls(["btn_reabrir","btn_cancelar"],false);
+                        break;
+                    case 3: //Procesado
+                        hideControls(["btn_cancelar"],false);
+                        break;
+                }
+                break;
+            }
+            case 3: //Remisión
+            {
+                switch (this.cur_stt_adm) {
+                    case 0: //No aplica
+                        hideControls(["btn_guardar","btn_cerrar","btn_procesar"],false);
+                        break;
+                    case 1: //Abierto
+                        hideControls(["btn_guardar","btn_cerrar","btn_procesar","btn_cancelar"],false);
+                        break;
+                    case 2: //Cerrado
+                        hideControls(["btn_reabrir","btn_procesar","btn_cancelar"],false);
+                        break;
+                    case 3: //Procesado
+                        hideControls(["btn_cancelar"],false);
+                        break;
+                }
+                break;
+            }
+            case 4: //Factura
+            {
+                switch (this.cur_stt_adm) {
+                    case 0: //No aplica
+                        hideControls(["btn_guardar","btn_cerrar","btn_procesar"],false);
+                        break;
+                    case 1: //Abierto
+                        hideControls(["btn_guardar","btn_cerrar","btn_procesar","btn_cancelar"],false);
+                        break;
+                    case 2: //Cerrado
+                        hideControls(["btn_reabrir","btn_procesar","btn_cancelar"],false);
+                        break;
+                    case 3: //Procesado
+                        hideControls(["btn_cancelar"],false);
+                        break;
+                }
+                break;
+            }
+            case 5: //Nora de crédito
+            {
+                switch (this.cur_stt_adm) {
+                    case 0: //No aplica
+                        hideControls(["btn_guardar","btn_cerrar","btn_procesar"],false);
+                        break;
+                    case 1: //Abierto
+                        hideControls(["btn_guardar","btn_cerrar","btn_procesar","btn_cancelar"],false);
+                        break;
+                    case 2: //Cerrado
+                        hideControls(["btn_reabrir","btn_procesar","btn_cancelar"],false);
+                        break;
+                    case 3: //Procesado
+                        hideControls(["btn_cancelar"],false);
+                        break;
+                }
+                break;
+            }
+            default:
+                console.warn("Documento seleccionado desconocido.");
+                break;
+        }
+    },
+
     getFolio()
     {
         const sel_serie = document.getElementById("sel_serie");
@@ -148,7 +247,7 @@ var venta =
                 return;
             }
 
-            console.log(data);
+            window.location.href = data.url_redir;
         }
 
         const onFailure = (error) => {
@@ -163,12 +262,12 @@ var venta =
     {
         if (!this.url_change_status) return;
 
-        let form_fields = this.form.elements;
+        let ff = this.form.elements;
         let new_stt_adm = Number(relbtn.getAttribute("data-stt-adm"));
 
         let fd = new FormData();
-        fd.append("sys_pk",form_fields["sys_pk"]);
-        fd.append("sys_recver",form_fields["sys_recver"]);
+        fd.append("sys_pk",Number(ff["sys_pk"].value));
+        fd.append("sys_recver",Number(ff["sys_recver"].value));
         fd.append("statusadministrativo",new_stt_adm);
         
         let endpoint = this.url_change_status.replace("@iventa",fd.get("sys_pk"));
@@ -180,7 +279,7 @@ var venta =
                 return;
             }
 
-            console.log(data);
+            window.location.href = data.url_redir;
         }
         
         const onFailure = (error) => {
@@ -189,6 +288,19 @@ var venta =
         }
 
         InduxsoftCrudlModel.InvokeService(endpoint, fd, onSuccess, onFailure, method, false, true, "", true);
+    },
+
+    changeDocumento(sel_documento)
+    {
+        let idocumento = Number(sel_documento.value);
+        let params = { doctype: idocumento }
+
+        const callback = (opt, obj) => { opt.setAttribute("data-iblock",obj.sys_pk) }
+        fillSelect("sel_serie","serie","serie",this.url_get_series,params,{},callback);
+        
+        document.getElementById("txt_folio").value = "";
+        this.idocumento = idocumento;
+        this.toggleButtonVisibility();
     },
 
     changeIAlmacenOfProducts(sel_cconsumo)

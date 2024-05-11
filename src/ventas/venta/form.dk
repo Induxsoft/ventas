@@ -15,6 +15,9 @@ module "form.dk"
     ref entity = ifnull(@("&./entity"),record.create())
     ref detail = ifnull(@("&./detail"),list.create())
     ref dtcliente = ifnull(@("&./dtcliente"),record.create())
+    ref dtagente = ifnull(@("&./dtagente"),record.create())
+    ref dtrepartidor = ifnull(@("&./dtrepartidor"),record.create())
+    ref dtporteador = ifnull(@("&./dtporteador"),record.create())
 
 	@_entities_type = @("$parameters/_entities_type")
 	@_entity_id = @("$parameters/_entity_id")
@@ -230,7 +233,7 @@ module "form.dk"
                             }
                             div(class="col-lg-2 col-md-3 col-sm-4 col-4")
                             {
-                                label(class="form-label" "for"="txt_tipocambio"){$"T. Cambio:"}
+                                label(class="form-label fw-bold" "for"="txt_tipocambio"){$"T. Cambio:"}
                                 input(class="form-control form-control-sm rounded-0" type="number" name="tipocambio" value="#<lib.form('tipocambio','nm',entity)>" min="1" step="0.000001" id="txt_tipocambio")
                             }
                             div(class="col-lg-3 col-md-3 col-sm-4")
@@ -245,17 +248,57 @@ module "form.dk"
 
                     div(class="tab-pane fade" id="nav-mrdata" role="tabpanel" "aria-labelledby"="nav-mrdata-tab")
                     {
-                        div(class="row")
+                        div(class="row gx-2")
                         {
+                            div(class="col-lg-10 col-md-9 col-sm-8")
+                            {
+                                label(class="form-label" "for"="ik_agente"){$"Vendedor:"}
+                                "input-key"(name="iagente" id="ik_agente" "data-key"="sys_pk" "data-search"="codigo" "data-text"="nombre" "data-source"="#<@URL_BUSCAR_AGENTE>" "data-value"="#<to.json(dtagente)>" columns="codigo,nombre,pcomision" colcaptions="Código,Nombre,%Comisión" "control-styles"="#<ik_sm_style>"){$""}
+                            }
+                            div(class="col-lg-2 col-md-3 col-sm-4")
+                            {
+                                label(class="form-label" "for"="txt_pcomision"){$"% Comisión:"}
+                                input(class="form-control form-control-sm rounded-0" type="number" name="pcomision" value="#<lib.form('pcomision','nm',entity)>" min="0" step="0.000001" id="txt_pcomision")
+                            }
                             div(class="col-12")
                             {
                                 label(class="form-label" "for"="txt_notas"){$"Notas:"}
-                                textarea(class="form-control rounded-0" name="notas" id="txt_notas" rows="5" maxlength="32000"){ $"#<lib.form('notas','tx',entity)>" }
+                                textarea(class="form-control rounded-0" name="notas" id="txt_notas" rows="4" maxlength="32000"){ $"#<lib.form('notas','tx',entity)>" }
                             }
                         }
                     }
                     
-                    div(class="tab-pane fade" id="nav-transportacion" role="tabpanel" "aria-labelledby"="nav-transportacion-tab"){$""}
+                    div(class="tab-pane fade" id="nav-transportacion" role="tabpanel" "aria-labelledby"="nav-transportacion-tab")
+                    {
+                        div(class="row gx-2")
+                        {
+                            div(class="col-lg-6 col-md-6 col-sm-12")
+                            {
+                                label(class="form-label" "for"="ik_repartidor"){$"Repartidor:"}
+                                "input-key"(name="irepartidor" id="ik_repartidor" "data-key"="sys_pk" "data-search"="codigo" "data-text"="nombre" "data-source"="#<@URL_BUSCAR_REPARTIDOR>" "data-value"="#<to.json(dtrepartidor)>" columns="codigo,nombre" colcaptions="Código,Nombre" "control-styles"="#<ik_sm_style>"){$""}
+                            }
+                            div(class="col-lg-6 col-md-6 col-sm-12")
+                            {
+                                label(class="form-label" "for"="ik_porteador"){$"Porteador:"}
+                                "input-key"(name="iporteador" id="ik_porteador" "data-key"="sys_pk" "data-search"="codigo" "data-text"="descripcion" "data-source"="#<@URL_BUSCAR_PORTEADOR>" "data-value"="#<to.json(dtporteador)>" columns="codigo,descripcion" colcaptions="Código,Descripción" "control-styles"="#<ik_sm_style>"){$""}
+                            }
+                            div(class="col-lg-3 col-md-3 col-sm-3")
+                            {
+                                label(class="form-label" "for"="txt_fembarque"){$"F. Embarque:"}
+                                input(class="form-control form-control-sm rounded-0" type="date" name="fembarque" value="#<lib.form('fembarque','dt',entity)>" id="txt_fembarque")
+                            }
+                            div(class="col-lg-6 col-md-6 col-sm-6" title="Domicilio de entrega")
+                            {
+                                label(class="form-label" "for"="txt_enviar_a"){$"Enviar a:"}
+                                input(class="form-control form-control-sm rounded-0" type="text" name="domicilioentrega" value="#<lib.form('domicilioentrega','tx',entity)>" id="txt_enviar_a" maxlength="255")
+                            }
+                            div(class="col-lg-3 col-md-3 col-sm-3")
+                            {
+                                label(class="form-label" "for"="txt_num_guia"){$"Número de guía:"}
+                                input(class="form-control form-control-sm rounded-0" type="text" name="txtguia" value="#<lib.form('txtguia','tx',entity)>" id="txt_num_guia" maxlength="150")
+                            }
+                        }
+                    }
                 }
             }
 
@@ -317,10 +360,13 @@ module "form.dk"
             document.addEventListener("DOMContentLoaded", () => {
                 venta.url_get_fultimo = "#<@URL_OBTENER_FULTIMO>";
                 venta.url_get_series = "#<@URL_OBTENER_SERIES>";
+                venta.url_change_status = "#<@URL_CAMBIAR_ESTADO>";
                 venta.url_exit = "#<@VNT_LISTAR>";
                 venta.formId = "frm_venta";
                 venta.tableId = "tbl_productos";
                 venta._GET = #<to.json(@("&parameters"))>;
+                venta.idocumento = #<@@(entity,"#documento")>;
+                venta.cur_stt_adm = #<@@(entity,"#statusadministrativo")>;
                 venta.init();
             });
         '}

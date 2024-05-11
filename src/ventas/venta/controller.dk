@@ -4,14 +4,29 @@ module "VentaController"
 {
     switch @@(@http_context,"$request/get/_view")
     {
+        case "buscar-cliente"
+        {
+            point @list to Venta.buscarCliente
+            break
+        }
         case "buscar-producto"
         {
             point @list to Venta.buscarProducto
             break
         }
-        case "buscar-cliente"
+        case "buscar-agente"
         {
-            point @list to Venta.buscarCliente
+            point @list to Venta.buscarAgente
+            break
+        }
+        case "buscar-repartidor"
+        {
+            point @list to Venta.buscarRepartidor
+            break
+        }
+        case "buscar-porteador"
+        {
+            point @list to Venta.buscarPorteador
             break
         }
         case "obtener-fultimo"
@@ -22,6 +37,11 @@ module "VentaController"
         case "obtener-series"
         {
             point @list to Venta.obtenerSeries
+            break
+        }
+        case "change-status"
+        {
+            point @update to Venta.changeStatus
             break
         }
         case "procesar"

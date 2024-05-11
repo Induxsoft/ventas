@@ -46,10 +46,85 @@ module ":Venta"
         return dbr.list(db,ftext(@qry_buscar_producto),params)
     }
 
+    buscarAgente::&db,&params
+    {
+        if trim(@@(params,"$id")) != "" || trim(@@(params,"$iagente")) != ""
+        {
+            conditions = "(agn.sys_pk = IFNULL(@id,@iagente) OR agn.sys_guid = IFNULL(@id,@iagente))"
+            return dbr.rec(db,ftext(@qry_buscar_agente),params)
+        }
+        if trim(@@(params,"$search")) != ""
+        {
+            conditions = "NOT IFNULL(agn.sys_deleted,0)
+            AND (
+                agn.codigo LIKE CONCAT('%',@search,'%')
+                OR agn.nombre LIKE CONCAT('%',@search,'%')
+            )"
+            return dbr.list(db,ftext(@qry_buscar_agente),params)
+        }
+        return list.create()
+    }
+
+    buscarRepartidor::&db,&params
+    {
+        if trim(@@(params,"$id")) != "" || trim(@@(params,"$irepartidor")) != ""
+        {
+            conditions = "(rep.sys_pk = IFNULL(@id,@irepartidor) OR rep.sys_guid = IFNULL(@id,@irepartidor))"
+            return dbr.rec(db,ftext(@qry_buscar_repartidor),params)
+        }
+        if trim(@@(params,"$search")) != ""
+        {
+            conditions = "NOT IFNULL(rep.sys_deleted,0)
+            AND (
+                rep.codigo LIKE CONCAT('%',@search,'%')
+                OR rep.nombre LIKE CONCAT('%',@search,'%')
+            )"
+            return dbr.list(db,ftext(@qry_buscar_repartidor),params)
+        }
+        return list.create()
+    }
+
+    buscarPorteador::&db,&params
+    {
+        if trim(@@(params,"$id")) != "" || trim(@@(params,"$iporteador")) != ""
+        {
+            conditions = "(por.sys_pk = IFNULL(@id,@iporteador) OR por.sys_guid = IFNULL(@id,@iporteador))"
+            return dbr.rec(db,ftext(@qry_buscar_porteador),params)
+        }
+        if trim(@@(params,"$search")) != ""
+        {
+            conditions = "NOT IFNULL(por.sys_deleted,0)
+            AND (
+                por.codigo LIKE CONCAT('%',@search,'%')
+                OR por.descripcion LIKE CONCAT('%',@search,'%')
+            )"
+            return dbr.list(db,ftext(@qry_buscar_porteador),params)
+        }
+        return list.create()
+    }
+
     obtenerCliente::&db,id
     {
         new params { @"id": id }
         return Venta.buscarCliente(db,params)
+    }
+
+    obtenerAgente::&db,id
+    {
+        new params { @"id": id }
+        return Venta.buscarAgente(db,params)
+    }
+
+    obtenerRepartidor::&db,id
+    {
+        new params { @"id": id }
+        return Venta.buscarRepartidor(db,params)
+    }
+
+    obtenerPorteador::&db,id
+    {
+        new params { @"id": id }
+        return Venta.buscarPorteador(db,params)
     }
 
     obtenerFultimo::&db,&params
@@ -82,23 +157,38 @@ module ":Venta"
 
         icliente = 0
         idocumento = 0
+        iagente = 0
+        irepartidor = 0
+        iporteador = 0
 
         if field.exist(data,"form") {
             icliente = @@(data,"#form/icliente")
             idocumento = @@(data,"#form/documento")
+            iagente = @@(data,"#form/iagente")
+            irepartidor = @@(data,"#form/irepartidor")
+            iporteador = @@(data,"#form/iporteador")
         }
         else if field.exist(data,"entity") {
             icliente = @@(data,"#entity/icliente")
             idocumento = @@(data,"#entity/documento")
+            iagente = @@(data,"#entity/iagente")
+            irepartidor = @@(data,"#entity/irepartidor")
+            iporteador = @@(data,"#entity/iporteador")
         }
 
         params<"doctype"> : idocumento
 
-        data<"dtcliente*"> : ifnull(obtenerCliente(db,icliente),record.create())
-        data<"list_doc_vnt*"> : dbr.list(db,@qry_docs_venta,@null)
-        data<"list_divisas*"> : dbr.list(db,@qry_list_divisas,@null)
-        data<"list_cconsumo*"> : dbr.list(db,@qry_list_cconsumo,@null)
-        data<"list_series*"> : dbr.list(db,@qry_list_series,params)
+        using data
+        {
+            @"dtcliente*": ifnull(obtenerCliente(db,icliente),record.create())
+            @"dtagente*": ifnull(obtenerAgente(db,iagente),record.create())
+            @"dtrepartidor*": ifnull(obtenerRepartidor(db,irepartidor),record.create())
+            @"dtporteador*": ifnull(obtenerPorteador(db,iporteador),record.create())
+            @"list_doc_vnt*": dbr.list(db,@qry_docs_venta,@null)
+            @"list_divisas*": dbr.list(db,@qry_list_divisas,@null)
+            @"list_cconsumo*": dbr.list(db,@qry_list_cconsumo,@null)
+            @"list_series*": dbr.list(db,@qry_list_series,params)
+        }
     }
 
     prepareList::&db,&params,&data
@@ -196,15 +286,15 @@ module ":Venta"
 
     changeStatus::&db,&params,&data
     {
-        @use_transaction = @true
-        @read_entity_only = @true
-
         do Venta.validateStatus(db,params,data)
-        using data
+        new status
         {
+            @"sys_pk": @@(data,"#sys_pk")
+            @"sys_recver": @@(data,"#sys_recver")
             @"sys_lastuser": @@(@http_context, "$session/user/uid")
+            @"statusadministrativo": @@(data,"#statusadministrativo")
         }
-        ref entity = entity.update(db,params,data)
+        ref entity = dbr.save(db,@table_name,status)
 
         new response
         {
@@ -345,6 +435,7 @@ module ":Venta"
             @"fecha*": if(@@(data,"fecha")!="", str2dt(@@(data,"fecha")), @null)
             @"fentrega*": if(@@(data,"fentrega")!="", str2dt(@@(data,"fentrega")), @null)
             @"vencimiento*": if(@@(data,"vencimiento")!="", str2dt(@@(data,"vencimiento")), @null)
+            @"fembarque*": if(@@(data,"fembarque")!="", str2dt(@@(data,"fembarque")), @null)
             @"notas": trim(@@(data,"$notas"))
             @"referencia": serie + padleft(str(folio),ref_size,"0")
             @"ifolio": @@(dtfolio,"#sys_pk")
@@ -354,6 +445,10 @@ module ":Venta"
             @"statusfinanciero": @stt_fin_na
             @"_detalle*" : _detalle
         }
+
+        if @@(venta,"#iagente") <= 0 { do field.remove(venta,"iagente") }
+        if @@(venta,"#irepartidor") <= 0 { do field.remove(venta,"irepartidor") }
+        if @@(venta,"#iporteador") <= 0 { do field.remove(venta,"iporteador") }
 
         using @childs
         {
@@ -371,7 +466,14 @@ module ":Venta"
         do updateAmounts(db,@@(entity,"#sys_pk"))
         
         do dbr.commit(db)
-        return entity
+        
+        new response
+        {
+            @"entity*": entity
+            @"url_redir": replace(@url_redir,"@iventa",@@(entity,"#sys_pk"))
+        }
+
+        return response
 
         exception{ do catch(db,params,data) }
     }
@@ -392,9 +494,14 @@ module ":Venta"
             @"fecha*": if(@@(data,"fecha")!="", str2dt(@@(data,"fecha")), @null)
             @"fentrega*": if(@@(data,"fentrega")!="", str2dt(@@(data,"fentrega")), @null)
             @"vencimiento*": if(@@(data,"vencimiento")!="", str2dt(@@(data,"vencimiento")), @null)
+            @"fembarque*": if(@@(data,"fembarque")!="", str2dt(@@(data,"fembarque")), @null)
             @"notas": trim(@@(data,"$notas"))
             @"_detalle*" : _detalle
         }
+
+        if @@(venta,"#iagente") <= 0 { do field.remove(venta,"iagente") }
+        if @@(venta,"#irepartidor") <= 0 { do field.remove(venta,"irepartidor") }
+        if @@(venta,"#iporteador") <= 0 { do field.remove(venta,"iporteador") }
 
         using @childs
         {
@@ -415,7 +522,14 @@ module ":Venta"
         do updateAmounts(db,@@(entity,"#sys_pk"))
 
         do dbr.commit(db)
-        return entity
+        
+        new response
+        {
+            @"entity*": entity
+            @"url_redir": replace(@url_redir,"@iventa",@@(entity,"#sys_pk"))
+        }
+
+        return response
 
         exception{ do catch(db,params,data) }
     }
