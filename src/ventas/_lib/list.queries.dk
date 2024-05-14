@@ -63,6 +63,7 @@ module "Lista de consultas MySQL"
         vnt.iagente,
         vnt.irepartidor,
         vnt.iporteador,
+        vnt.formapago,
         vnt.statusadministrativo,
         vnt.statusentrega,
         vnt.statusfacturacion,
@@ -70,7 +71,9 @@ module "Lista de consultas MySQL"
         IFNULL(vnt.pcomision,0) AS pcomision,
         IFNULL(vnt.domicilioentrega,'') AS domicilioentrega,
         IFNULL(vnt.txtguia,'') AS txtguia,
-        cte.nombre AS `cliente`,
+        CONCAT('[',cte.codigo,']',' ',cte.nombre) AS dcliente,
+        CONCAT(dvs.codigo,' - ',dvs.descripcion) AS ddivisa,
+        doc.const AS cdocumento,
         s.serie,
         f.folio,
         adm.const AS stt_adm,
@@ -79,6 +82,8 @@ module "Lista de consultas MySQL"
         fin.const AS stt_fin
     FROM venta AS vnt
         INNER JOIN cliente AS cte ON vnt.icliente = cte.sys_pk
+        INNER JOIN cdocumentos AS doc ON vnt.documento = doc.id
+        INNER JOIN divisa AS dvs ON vnt.idivisa = dvs.sys_pk
         INNER JOIN foliosdocumentos AS f ON vnt.ifolio = f.sys_pk
         INNER JOIN blockdocumentos AS s ON f.block = s.sys_pk
         LEFT JOIN cstatusadministrativos AS adm ON vnt.statusadministrativo = adm.id
@@ -134,35 +139,6 @@ module "Lista de consultas MySQL"
     WHERE dt.fk_venta_detalle = IFNULL(@_entity_id,@sys_pk)
     "
 
-    @qry_venta_2 = "
-    SELECT
-        vnt.sys_pk,
-        vnt.sys_guid,
-        vnt.sys_recver,
-        vnt.referencia,
-        DATE_FORMAT(vnt.fecha,'%Y-%m-%d') AS fecha,
-        IFNULL(DATE_FORMAT(vnt.fentrega,'%Y-%m-%d'),'') AS fentrega,
-        IFNULL(DATE_FORMAT(vnt.vencimiento,'%Y-%m-%d'),'') AS vencimiento,
-        IFNULL(vnt.subtotal,0) AS subtotal,
-        ((((((IFNULL(vnt.subtotal,0)
-            - IFNULL(vnt.descuento1,0))
-            - IFNULL(vnt.descuento2,0))
-            + IFNULL(vnt.impuesto1,0))
-            + IFNULL(vnt.impuesto2,0))
-            + IFNULL(vnt.impuesto3,0))
-            + IFNULL(vnt.impuesto4,0)
-        ) AS total,
-        doc.id AS idocumento,
-        doc.const AS cdocumento,
-        CONCAT('[',dvs.codigo,']',' ',dvs.descripcion) AS ddivisa,
-        CONCAT('[',cte.codigo,']',' ',cte.nombre) AS dcliente
-    FROM venta AS vnt
-        INNER JOIN cliente AS cte ON vnt.cliente = cte.sys_pk
-        INNER JOIN cdocumentos AS doc ON vnt.documento = doc.id
-        INNER JOIN divisa AS dvs ON vnt.idivisa = dvs.sys_pk
-    WHERE vnt.#<@keyfield> = @_entity_id
-    "
-
     @qry_imp_venta = "
     SELECT
         SUM(IFNULL(d.descuento1,0)) AS descuento1,
@@ -174,6 +150,15 @@ module "Lista de consultas MySQL"
         SUM((IFNULL(d.cantidad,0) * IFNULL(d.precio,0))) AS subtotal
     FROM dventa d
     WHERE d.fk_venta_detalle = @_entity_id;
+    "
+
+    @qry_liberar_documentos = "
+    UPDATE venta AS a
+        INNER JOIN dventa AS b ON b.fk_venta_detalle = a.sys_pk
+    SET a.aplicadoa = NULL,
+        b.xfacturar = b.cantidad
+    WHERE a.aplicadoa = @_entity_id
+        AND a.documento IN (#<doctype>)
     "
 
     @qry_buscar_cliente = "
@@ -258,6 +243,7 @@ module "Lista de consultas MySQL"
     @qry_docs_venta = "SELECT a.id, a.const FROM cdocumentos AS a INNER JOIN cfg_doc_ventas AS b ON a.id = b.documento ORDER BY a.id ASC"
     @qry_docs_deposito = "SELECT a.id, a.const FROM cdocumentos a INNER JOIN cfg_chq_docs b ON a.id = b.documento WHERE IFNULL(b.depositos,0) ORDER BY a.id ASC"
     @qry_cat_ingreso = "SELECT sys_pk, CONCAT(codigo,' - ',descripcion) AS tcategoria FROM categoria WHERE tipo = 1 AND NOT IFNULL(sys_deleted,0) ORDER BY sys_pk ASC"
+    @qry_cat_egreso = "SELECT sys_pk, CONCAT(codigo,' - ',descripcion) AS tcategoria FROM categoria WHERE tipo = 2 AND NOT IFNULL(sys_deleted,0) ORDER BY sys_pk ASC"
     @qry_cat_movinv = "SELECT sys_pk, CONCAT(codigo,' - ',descripcion) AS tcategoria FROM categoria WHERE tipo = 3 AND NOT IFNULL(sys_deleted,0) ORDER BY sys_pk ASC"
     @qry_cfg_doc_vnt = "SELECT b.const, a.* FROM cfg_doc_ventas a INNER JOIN cdocumentos b ON a.documento = b.id WHERE a.documento = @doctype;"
     @qry_cfg_doc_con = "SELECT * FROM cfg_doc_ventas_consolida WHERE documento = @doctype"

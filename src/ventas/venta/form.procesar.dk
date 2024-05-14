@@ -17,20 +17,6 @@ module "form.procesar.dk"
     show_form_credito = (field.exist(@("&."),"form") && @("#./form/formapago") == @fp_credito)
     show_form_consignado = (field.exist(@("&."),"form") && @("#./form/formapago") == @fp_consignado)
 
-    new sel_documento
-    {
-        @"datatable*": ifnull(@('&./list_doc_vnt'),list.create())
-        @"id": "sel_documento"
-        new member "attributes"
-        {
-            @"class": "form-select form-select-sm rounded-0"
-            @"disabled": ""
-        }
-        @"value_field": "id"
-        @"text_field": "const"
-        @"selected": @@(entity,"#documento")
-    }
-
     new sel_doc_deposito
     {
         @"datatable*": ifnull(@('&./list_doc_dep'),list.create())
@@ -113,7 +99,7 @@ module "form.procesar.dk"
             @"data-codigo": "#<@@(row,'codigo')>"
             @"data-tcambio": "#<@@(row,'tcambio')>"
         }
-        @"selected": lib.form("idivisa","nm",@null)
+        @"selected": lib.form("idivisa","nm",entity)
     }
 
     new nav_config
@@ -150,41 +136,41 @@ module "form.procesar.dk"
                             input(type="hidden" name="iventa" value="#<@@(entity,'#sys_pk')>")
                             input(type="hidden" name="formapago" value="#<@fp_contado>")
 
-                            div(class="col-lg-8 col-md-10 col-sm-12")
+                            div(class="col-lg-9")
                             {
-                                div(class="row")
+                                div(class="row gx-2")
                                 {
                                     div(class="col-lg-4 col-md-4")
                                     {
                                         label(class="form-label" "for"="txt_cliente"){$"Cliente:"}
-                                        input(class="form-control form-control-sm rounded-0" type="text" name="" value="#<@@(entity,'$cliente')>" id="txt_cliente" disabled="")
+                                        input(class="form-control form-control-sm rounded-0" type="text" name="" value="#<@@(entity,'$dcliente')>" id="txt_cliente" disabled="")
                                     }
-                                    div(class="col-lg-4 col-md-4")
+                                    div(class="col-lg-4 col-md-4 col-sm-3")
                                     {
                                         label(class="form-label" "for"="txt_referencia"){$"Referencia:"}
                                         input(class="form-control form-control-sm rounded-0" type="text" name="referencia" value="#<@@(entity,'$referencia')>" id="txt_referencia" readonly="")
                                     }
-                                    div(class="col-lg-4 col-md-4")
+                                    div(class="col-lg-4 col-md-4 col-sm-3")
                                     {
-                                        label(class="form-label" "for"="txt_fecha_aplicacion"){$"Fecha de aplicación:"}
+                                        label(class="form-label" "for"="txt_fecha_aplicacion"){$"F. Aplicación:"}
                                         input(class="form-control form-control-sm rounded-0" type="date" name="faplicacion" value="#<lib.form('faplicacion','dt',@null)>" id="txt_faplicacion" required="")
                                     }
 
-                                    div(class="col-lg-4 col-md-4")
+                                    div(class="col-lg-4 col-md-4 col-sm-6")
                                     {
                                         label(class="form-label" "for"="sel_doc_deposito"){$"Documento:"}
                                         ##
                                         do uie.dbSelect(sel_doc_deposito)
                                         ##
                                     }
-                                    div(class="col-lg-4 col-md-4")
+                                    div(class="col-lg-4 col-md-4 col-sm-6")
                                     {
                                         label(class="form-label" "for"="sel_cuenta"){$"Cuenta:"}
                                         ##
                                         do uie.dbSelect(sel_cuenta)
                                         ##
                                     }
-                                    div(class="col-lg-4 col-md-4")
+                                    div(class="col-lg-4 col-md-4 col-sm-6")
                                     {
                                         label(class="form-label" "for"="sel_cat_ingreso"){$"Categoría:"}
                                         ##
@@ -195,13 +181,13 @@ module "form.procesar.dk"
                                     div(class="col-12")
                                     {
                                         label(class="form-label" "for"="txt_concepto"){$"Concepto:"}
-                                        textarea(class="form-control rounded-0" name="concepto" id="txt_concepto" required=""){$"Liquidación del documento con referencia #<@@(entity,'$referencia')>"}
+                                        textarea(class="form-control rounded-0" name="concepto" id="txt_concepto" required=""){$"Liquidación de la venta con referencia #<@@(entity,'$referencia')>"}
                                     }
 
                                     div(class="d-flex gap-2 align-items-center justify-content-end my-2")
                                     {
                                         label(class="form-label" "for"="txt_importe"){$"Importe:"}
-                                        input(class="form-control form-control-sm rounded-0 w-25" type="number" name="importe" value="#<@@(entity,'#total')>" id="txt_importe" disabled="")
+                                        input(class="form-control form-control-sm rounded-0 w-25" type="number" name="" value="#<@@(entity,'#total')>" id="txt_importe" disabled="")
                                     }
                                 }
 
@@ -224,50 +210,49 @@ module "form.procesar.dk"
                         form(class="row" action="./" method="POST" id="form_liquidacion_credito")
                         {
                             input(type="hidden" name="iventa" value="#<@@(entity,'#sys_pk')>")
-                            input(type="hidden" name="formapago" value="#<@fp_credito>")
                             input(type="hidden" name="icliente" value="#<@@(entity,'#icliente')>")
+                            input(type="hidden" name="documento" value="#<@@(entity,'#documento')>")
+                            input(type="hidden" name="formapago" value="#<@fp_credito>")
 
-                            div(class="col-lg-8 col-md-10 col-sm-12")
+                            div(class="col-lg-9")
                             {
-                                div(class="row")
+                                div(class="row gx-2")
                                 {
                                     div(class="col-lg-4 col-md-4")
                                     {
                                         label(class="form-label" "for"="txt_cliente"){$"Cliente:"}
-                                        input(class="form-control form-control-sm rounded-0" type="text" name="" value="#<@@(entity,'$cliente')>" id="txt_cliente" disabled="")
+                                        input(class="form-control form-control-sm rounded-0" type="text" name="" value="#<@@(entity,'$dcliente')>" id="txt_cliente" disabled="")
                                     }
-                                    div(class="col-lg-4 col-md-4")
+                                    div(class="col-lg-4 col-md-4 col-sm-6")
                                     {
                                         label(class="form-label" "for"="txt_referencia"){$"Referencia:"}
                                         input(class="form-control form-control-sm rounded-0" type="text" name="referencia" value="#<@@(entity,'$referencia')>" id="txt_referencia" readonly="")
                                     }
-                                    div(class="col-lg-4 col-md-4")
+                                    div(class="col-lg-4 col-md-4 col-sm-6")
+                                    {
+                                        label(class="form-label" "for"="txt_documento"){$"Documento:"}
+                                        input(class="form-control form-control-sm rounded-0" type="text" name="" value="#<@@(entity,'$cdocumento')>" id="txt_documento" disabled="")
+                                    }
+                                    
+                                    div(class="col-lg-4 col-md-4 col-sm-4")
                                     {
                                         label(class="form-label" "for"="txt_flimite"){$"Fecha limite de pago:"}
                                         input(class="form-control form-control-sm rounded-0" type="date" name="flimite" value="#<lib.form('flimite','dt',@null)>" id="txt_flimite" required="")
                                     }
-
-                                    div(class="col-lg-4 col-md-4")
-                                    {
-                                        label(class="form-label" "for"="sel_documento"){$"Documento:"}
-                                        ##
-                                        do uie.dbSelect(sel_documento)
-                                        ##
-                                    }
-                                    div(class="col-lg-4 col-md-4")
+                                    div(class="col-lg-4 col-md-4 col-sm-8")
                                     {
                                         label(class="form-label" "for"="sel_divisa"){$"Divisa:"}
                                         ##
                                         do uie.dbSelect(sel_divisa)
                                         ##
                                     }
-                                    div(class="col-lg-4 col-md-4")
+                                    div(class="col-lg-4 col-md-4 col-sm-4")
                                     {
                                         label(class="form-label" "for"="txt_tcambio"){$"Tipo de cambio:"}
-                                        input(class="form-control form-control-sm rounded-0" type="number" name="tcambio" value="" id="txt_tcambio" min="1" step="0.000001" required="")
+                                        input(class="form-control form-control-sm rounded-0" type="number" name="tcambio" value="#<lib.form('tcambio','nm',entity)>" id="txt_tcambio" min="1" step="0.000001" required="")
                                     }
 
-                                    div(class="col-lg-4 col-md-4")
+                                    div(class="col-lg-4 col-md-4 col-sm-8")
                                     {
                                         label(class="form-label" "for"="sel_cat_movinv"){$"Categoría:"}
                                         ##
@@ -284,7 +269,7 @@ module "form.procesar.dk"
                                     div(class="d-flex gap-2 align-items-center justify-content-end my-2")
                                     {
                                         label(class="form-label" "for"="txt_importe"){$"Importe:"}
-                                        input(class="form-control form-control-sm rounded-0 w-25" type="number" name="importe" id="txt_importe" value="#<@@(entity,'#total')>" disabled="")
+                                        input(class="form-control form-control-sm rounded-0 w-25" type="number" name="" id="txt_importe" value="#<@@(entity,'#total')>" disabled="")
                                     }
                                 }
 
@@ -311,29 +296,27 @@ module "form.procesar.dk"
                             input(type="hidden" name="iventa" value="#<@@(entity,'#sys_pk')>")
                             input(type="hidden" name="formapago" value="#<@fp_consignado>")
 
-                            div(class="col-lg-8 col-md-10 col-sm-12")
+                            div(class="col-lg-9")
                             {
-                                div(class="row")
+                                div(class="row gx-2")
                                 {
                                     div(class="col-lg-4 col-md-4")
                                     {
                                         label(class="form-label" "for"="txt_cliente"){$"Cliente:"}
-                                        input(class="form-control form-control-sm rounded-0" type="text" name="" value="#<@@(entity,'$cliente')>" id="txt_cliente" disabled="")
+                                        input(class="form-control form-control-sm rounded-0" type="text" name="" value="#<@@(entity,'$dcliente')>" id="txt_cliente" disabled="")
                                     }
-                                    div(class="col-lg-4 col-md-4")
+                                    div(class="col-lg-4 col-md-4 col-sm-6")
                                     {
                                         label(class="form-label" "for"="txt_referencia"){$"Referencia:"}
                                         input(class="form-control form-control-sm rounded-0" type="text" name="" value="#<@@(entity,'$referencia')>" id="txt_referencia" disabled="")
                                     }
-                                    div(class="col-lg-4 col-md-4")
+                                    div(class="col-lg-4 col-md-4 col-sm-6")
                                     {
-                                        label(class="form-label" "for"="sel_documento"){$"Documento:"}
-                                        ##
-                                        do uie.dbSelect(sel_documento)
-                                        ##
+                                        label(class="form-label" "for"="txt_documento"){$"Documento:"}
+                                        input(class="form-control form-control-sm rounded-0" type="text" name="" value="#<@@(entity,'$cdocumento')>" id="txt_documento" disabled="")
                                     }
 
-                                    div(class="col-lg-4 col-md-4")
+                                    div(class="col-lg-4 col-md-4 col-sm-6")
                                     {
                                         label(class="form-label" "for"="sel_cat_movinv"){$"Categoria:"}
                                         ##
@@ -344,7 +327,7 @@ module "form.procesar.dk"
                                     div(class="d-flex gap-2 align-items-center justify-content-end my-2")
                                     {
                                         label(class="form-label" "for"="txt_importe"){$"Importe:"}
-                                        input(class="form-control form-control-sm rounded-0 w-25" type="number" name="importe" id="txt_importe" value="#<@@(entity,'#total')>" disabled="")
+                                        input(class="form-control form-control-sm rounded-0 w-25" type="number" name="" id="txt_importe" value="#<@@(entity,'#total')>" disabled="")
                                     }
                                 }
 
@@ -358,7 +341,6 @@ module "form.procesar.dk"
         }
 
         #$
-        script(src="#<@JS_MAIN>"){$""}
         script(type="text/javascript")
         {$'
             document.addEventListener("DOMContentLoaded", () => {
@@ -369,8 +351,6 @@ module "form.procesar.dk"
                     const opt_divisa = sel_divisa.options[sel_divisa.selectedIndex];
                     txt_tcambio.value = Number(opt_divisa.getAttribute("data-tcambio") ?? "1");
                 });
-
-                trigger(sel_divisa,"change");
             });
         '}
     }

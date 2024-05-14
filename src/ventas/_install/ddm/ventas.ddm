@@ -31,6 +31,8 @@ model "erp.ventas"
     entity "cstatusfinancieros" : "EnumModel" {}
     // Enumeración de estados posibles para un cliente, proveedor u organización
     entity "cstatusorg" : "EnumModel" {}
+    // Enumeración de estados de series
+    entity "cstatusseries" : "EnumModel" {}
     // Enumeración de estados de guias
     entity "cstatusguias" : "EnumModel" {}
     // Tasas de IVA aplicables por razón de ubicación geográfica
@@ -597,6 +599,68 @@ model "erp.ventas"
         {
             field "sys_info"
         }
+    }
+    // Contiene identificadores de grupos de productos de características similares o iguales
+    entity "lote" : "TableModel"
+    {
+        @"entradas" decimal(18,8)
+        @"existencia" decimal(18,8)
+        @"fcaducidad" date
+        @"fentrada" date
+        @"numero" string(50) unique required
+        @"iproducto" ref:"producto" required
+    }
+    // Contiene información e identificación de un producto
+    entity "serie" : "TableModel"
+    {
+        @"fentrada" date
+        @"fventa" date
+        @"notas" string(4096)
+        @"numero" string(50) unique required
+        @"status" ref:"cstatusseries" required
+        // @"doccompra" ref:"compra"
+        @"docventa" ref:"venta"
+        @"ialmacen" ref:"almacen"
+        @"iensamble" ref:"serie"
+        @"ilote" ref:"lote"
+        @"iproducto" ref:"producto" required
+    }
+
+    entity "cardex" : "TableModel"
+    {
+        @"aplicado" bool
+        @"descripcion" string(8192)
+        @"fecha" date
+        @"referencia" string(255) unique required
+        @"valuado" bool
+        // @"doccompra" ref:"compra"
+        // @"docorden" ref:"orden"
+        @"docventa" ref:"venta"
+        @"icategoria" ref:"categoria" required
+    }
+    // Contiene cada partida del movimiento (la entrada o salida de un producto)
+    entity "dcardex" : "TableModel"
+    {
+        @"abonos" decimal(18,8)
+        @"auditado" bool
+        @"cargos" decimal(18,8)
+        @"contabilizado" bool
+        @"cpromedio" decimal(18,8)
+        @"entradas" decimal(18,8)
+        @"partida" string(32)
+        @"poliza" string(32)
+        @"referencia" string(30)
+        @"resto" decimal(18,8)
+        @"salidas" decimal(18,8)
+        @"tipocambio" decimal(18,8)
+        @"valuado" bool
+        @"ialmacen" ref:"almacen" required
+        @"ilote" ref:"lote"
+        @"iproducto" ref:"producto" required
+        @"iserie" ref:"serie"
+        // @"rcompra" ref:"dcompra"
+        @"rventa" ref:"dventa"
+        @"fk_cardex_movimientos" ref:"cardex" required
     }
 
     //* ======================================== [ ENTIDADES PRINCIPALES ]

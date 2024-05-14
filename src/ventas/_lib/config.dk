@@ -42,6 +42,12 @@ module ""
     @stt_dventa_entregado = 2
     @stt_dventa_facturado = 3
     @stt_dventa_devuelto = 4
+    // cstatusseries
+    @stt_serie_disponible = 1
+    @stt_serie_vendido = 2
+    @stt_serie_devuelto_a_proveedor = 3
+    @stt_serie_devuelto_por_cliente = 4
+    @stt_serie_ensamblado = 5
     // cformaspago
     @fp_na = 0
     @fp_contado = 1

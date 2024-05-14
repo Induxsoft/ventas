@@ -2,10 +2,11 @@
 #!
 module ":erp.ventas.procesos"
 {
-    salidaInventario::&db,icompra,icategoria
+    salidaInventario::&db,iventa,icategoria
     {
         sql_venta = "
         SELECT
+            v.sys_pk,
             v.referencia,
             v.tipocambio,
             cc.ialmacen
@@ -15,6 +16,7 @@ module ":erp.ventas.procesos"
         "
         sql_dventa = "
         SELECT
+            d.sys_pk,
             d.cantidad,
             d.precio,
             d.tipocambio,
@@ -44,8 +46,9 @@ module ":erp.ventas.procesos"
             @"sys_dtcreated*": now()
             @"sys_timestamp*": now()
             @"sys_recver": 0
-            @"referencia": @@(venta,"$referencia")
             @"fecha*": now()
+            @"referencia": @@(venta,"$referencia")
+            @"docventa": @@(venta,"#sys_pk")
             @"icategoria": icategoria
         }
         do dbr.insert(db,"cardex",cardex)
@@ -69,8 +72,100 @@ module ":erp.ventas.procesos"
                 @"abonos": @@(item,"#abonos")
                 @"cpromedio": @@(item,"#precio")
                 @"tipocambio": @@(item,"#tipocambio")
+                @"rventa": @@(item,"#sys_pk")
                 @"fk_cardex_movimientos": last_id
             }
+            do dbr.insert(db,"dcardex",dcardex)
+        }
+
+        if start_transaction { do dbr.commit(db) }
+
+        return last_id
+
+        exception
+        {
+            if dbr.in_transaction(db) { do dbr.rollback(db) }
+            do rise_error(last_error_code(),last_error())
+        }
+    }
+
+    entradaInventarioMismoCostoSalida::&db,iventa,icategoria
+    {
+        sql_venta = "
+        SELECT
+            v.sys_pk,
+            v.documento,
+            v.referencia,
+            v.tipocambio,
+            cc.ialmacen
+        FROM venta v
+            INNER JOIN cconsumo cc ON v.icconsumo = cc.sys_pk
+        WHERE v.sys_pk = @iventa
+        "
+        sql_dventa = "
+        SELECT
+            p.descripcion `producto`,
+            dca.ialmacen,
+            dca.iproducto,
+            dca.salidas,
+            dca.abonos,
+            dca.cpromedio,
+            dca.tipocambio,
+            dca.ilote,
+            dca.iserie,
+            dca.rventa
+        FROM dventa d 
+            INNER JOIN producto p ON d.iproducto = p.sys_pk 
+            INNER JOIN dcardex dca ON dca.rventa = d.sys_pk
+        WHERE d.fk_venta_detalle = @iventa
+        "
+
+        new params { @"iventa": parse.num(iventa) }
+
+        ref venta = dbr.rec(db,sql_venta,params)
+        ref dventa = dbr.list(db,sql_dventa,params)
+
+        // Ningún producto ha realizado entradas de inventario
+        if list.count(dventa) <= 0 { return 0 }
+
+        start_transaction = @false
+
+        if not(dbr.in_transaction(db)) {
+            do dbr.begin(db)
+            start_transaction = @true
+        }
+
+        new cardex
+        {
+            @"sys_pk": 0
+            @"sys_guid": uuid()
+            @"sys_dtcreated*": now()
+            @"sys_timestamp*": now()
+            @"sys_recver": 0
+            @"fecha*": now()
+            @"referencia": @@(venta,"$referencia")+"-E"
+            @"docventa": @@(venta,"#sys_pk")
+            @"icategoria": icategoria
+        }
+        do dbr.insert(db,"cardex",cardex)
+        
+        last_id = dbr.num(db,"select last_insert_id();",@null)
+
+        for i = 0; i < list.count(dventa)
+        {
+            ref itm = list.obj(dventa,i)
+            
+            ref dcardex = record.copyex(itm, @null, "ialmacen,iproducto,salidas,abonos,cpromedio,tipocambio,ilote,iserie,rventa", ",", "salidas:entradas,abonos:cargos", ":")
+            using dcardex
+            {
+                @"sys_pk": 0
+                @"sys_guid": uuid()
+                @"sys_dtcreated*": now()
+                @"sys_timestamp*": now()
+                @"sys_recver": 0
+                @"fk_cardex_movimientos": last_id
+            }
+
             do dbr.insert(db,"dcardex",dcardex)
         }
 
@@ -90,17 +185,16 @@ module ":erp.ventas.procesos"
     *
     * db | Referencia a una conexión de base de datos abierta (recomendado: transacción de base de datos previamente iniciada).
     * data | Referencia a un registro que contiene los datos necesarios para realizar la operación.
+    * return void
     *
     * ```dkl
     * new data
     {
         @"iventa": //(int) Clave primaria del documento de venta a procesar.
-        @"conciliado": //(bool)
         @"faplicacion": //(string) Fecha [yyyy-MM-dd] de aplicación.
         @"referencia": //(string) Referencia del documentop de venta.
-        @"documento": //(int) Clave primaria del documento de tipo depósito.
-        @"importe": //(decimal) Monto total del documento de venta a procesar.
-        @"icategoria": //(int) Clave primaria de la categoría de tipo ingreso.
+        @"documento": //(int) Clave primaria del documento (tipo depósito).
+        @"icategoria": //(int) Clave primaria de la categoría (tipo ingreso).
         @"icuenta": //(int) Clave primaria de la cuenta bancaria donde se realizara el depósito.
         @"concepto": //(string) Descripción de la operación.
     }
@@ -108,8 +202,25 @@ module ":erp.ventas.procesos"
     */
     liquidacionContado::&db,&data
     {
-        iventa = @@(data,"#iventa")
-        icategoria = @@(data,"#icategoria")
+        sql_total_venta = "
+        SELECT
+            ((((((IFNULL(subtotal,0)
+            - IFNULL(descuento1,0))
+            - IFNULL(descuento2,0))
+            + IFNULL(impuesto1,0))
+            + IFNULL(impuesto2,0))
+            + IFNULL(impuesto3,0))
+            + IFNULL(impuesto4,0)) AS total
+        FROM venta
+        WHERE sys_pk = @iventa
+        "
+        ref _deposito = record.copy(data,"faplicacion,referencia,documento,icategoria,icuenta,concepto")
+        using _deposito
+        {
+            @"conciliado": @true
+            @"fecha": date_str(now(),"yyyy-MM-dd")
+            @"importe": dbr.num(db,sql_total_venta,data)
+        }
 
         start_transaction = @false
 
@@ -119,9 +230,9 @@ module ":erp.ventas.procesos"
         }
 
         // Generar movimiento de salida de inventario y aplicar.
-        do erp.inventario.aplicar_mov(db,erp.ventas.procesos.salidaInventario(db,iventa,icategoria),@false)
+        do erp.inventario.aplicar_mov(db,erp.ventas.procesos.salidaInventario(db,@@(data,"#iventa"),@@(data,"#icategoria")),@false)
         // Realizar depósito a la cuenta.
-        do erp.efectivo.movimientos.deposito(db,data)
+        do erp.efectivo.movimientos.deposito(db,_deposito)
         // Establecer los estados correspondientes.
         new status
         {
@@ -131,7 +242,6 @@ module ":erp.ventas.procesos"
             @"statusfacturacion": @stt_fac_xfacturar
             @"statusfinanciero": @stt_fin_saldado
         }
-
         do dbr.update(db,"venta",status,"sys_pk=@iventa",data)
 
         if start_transaction { do dbr.commit(db) }
@@ -148,18 +258,17 @@ module ":erp.ventas.procesos"
     *
     * db | Referencia a una conexión de base de datos abierta (recomendado: transacción de base de datos previamente iniciada).
     * data | Referencia a un registro que contiene los datos necesarios para realizar la operación.
+    * return void
     *
     * ```dkl
     * new data
     {
         @"iventa": //(int) Clave primaria del documento de venta a procesar.
         @"icliente": //(int) Clave primaria del cliente.
-        @"aplicable": //(bool)
         @"flimite": //(string) Fecha [yyyy-MM-dd] limite.
         @"referencia": //(string) Referencia del documentop de venta.
-        @"documento": //(int) Clave primaria del documento de tipo CxC.
+        @"documento": //(int) Clave primaria del tipo de documento.
         @"tcambio": //(decimal) Tipo de cambio.
-        @"importe": //(decimal) Monto total del documento de venta a procesar.
         @"icategoria": //(int) Clave primaria de la categoría de tipo ingreso.
         @"concepto": //(string) Descripción de la operación
     }
@@ -167,8 +276,25 @@ module ":erp.ventas.procesos"
     */
     liquidacionCredito::&db,&data
     {
-        iventa = @@(data,"#iventa")
-        icategoria = @@(data,"#icategoria")
+        sql_total_venta = "
+        SELECT
+            ((((((IFNULL(subtotal,0)
+            - IFNULL(descuento1,0))
+            - IFNULL(descuento2,0))
+            + IFNULL(impuesto1,0))
+            + IFNULL(impuesto2,0))
+            + IFNULL(impuesto3,0))
+            + IFNULL(impuesto4,0)) AS total
+        FROM venta
+        WHERE sys_pk = @iventa
+        "
+        ref _cxc = record.copy(data,"flimite,referencia,documento,tcambio,concepto,icliente")
+        using _cxc
+        {
+            @"aplicable": @true
+            @"fecha": date_str(now(),"yyyy-MM-dd")
+            @"importe": dbr.num(db,sql_total_venta,data)
+        }
 
         start_transaction = @false
 
@@ -178,9 +304,9 @@ module ":erp.ventas.procesos"
         }
 
         // Generar movimiento de salida de inventario y aplicar.
-        do erp.inventario.aplicar_mov(db,erp.ventas.procesos.salidaInventario(db,iventa,icategoria),@false)
+        do erp.inventario.aplicar_mov(db,erp.ventas.procesos.salidaInventario(db,@@(data,"#iventa"),@@(data,"#icategoria")),@false)
         // Agregar documento por cobrar (dcxc) y afectar el saldo del cliente.
-        do erp.cxc.movimientos.crearCxC(db,data)
+        do erp.cxc.movimientos.crearCxC(db,_cxc)
         // Establecer los estados correspondientes.
         new status
         {
@@ -190,7 +316,6 @@ module ":erp.ventas.procesos"
             @"statusfacturacion": @stt_fac_xfacturar
             @"statusfinanciero": @stt_fin_con_adeudo
         }
-
         do dbr.update(db,"venta",status,"sys_pk=@iventa",data)
 
         if start_transaction { do dbr.commit(db) }
@@ -208,6 +333,7 @@ module ":erp.ventas.procesos"
     * db | Referencia a una conexión de base de datos abierta (recomendado: transacción de base de datos previamente iniciada).
     * int iventa | Clave primaria del documento de venta a procesar.
     * int icategoria | Clave primaria de la categoría de tipo ingreso.
+    * return void
     */
     liquidacionConsignado::&db,iventa,icategoria
     {
@@ -230,7 +356,6 @@ module ":erp.ventas.procesos"
             @"statusfacturacion": @stt_fac_xfacturar
             @"statusfinanciero": @stt_fin_consignado
         }
-
         do dbr.update(db,"venta",status,"sys_pk=@iventa",params)
 
         if start_transaction { do dbr.commit(db) }

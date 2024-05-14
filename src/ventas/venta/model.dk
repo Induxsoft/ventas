@@ -159,15 +159,12 @@ module ":Venta"
         {
             case "procesar"
             {
-                ref entity = entity.read(db,params)
-                
-                params<"doctype"> : @@(entity,"#documento")
+                params<"doctype"> : @@(data,"#entity/documento")
+                data<"entity/tcambio"> : @@(data,"#entity/tipocambio")
 
                 using data
                 {
-                    @"entity*": entity
                     @"cfg_doc_venta*": dbr.rec(db,@qry_cfg_doc_vnt,params)
-                    @"list_doc_vnt*": dbr.list(db,@qry_docs_venta,@null)
                     @"list_doc_dep*": dbr.list(db,@qry_docs_deposito,@null)
                     @"list_cta_chq*": dbr.list(db,@qry_list_cta_chq,@null)
                     @"list_divisas*": dbr.list(db,@qry_list_divisas,@null)
@@ -178,7 +175,11 @@ module ":Venta"
             }
             case "cancelar"
             {
-                // code...
+                if not(field.exist(data,"entity")){ data<"entity*"> : entity.read(db,params) }
+                using data
+                {
+                    @"list_cat_egreso*": dbr.list(db,@qry_cat_egreso,@null)
+                }
                 break
             }
             default
@@ -204,10 +205,12 @@ module ":Venta"
                     iporteador = @@(data,"#entity/iporteador")
                 }
 
+                do Venta.setZonaImpuesto(db,params)
                 params<"doctype"> : idocumento
 
                 using data
                 {
+                    @"detail*": dbr.list(db,@childs_query,params)
                     @"dtcliente*": ifnull(obtenerCliente(db,icliente),record.create())
                     @"dtagente*": ifnull(obtenerAgente(db,iagente),record.create())
                     @"dtrepartidor*": ifnull(obtenerRepartidor(db,irepartidor),record.create())
@@ -396,6 +399,43 @@ module ":Venta"
         }
     }
 
+    validateAccess::&db,&params,&data
+    {
+        switch @@(params,"$_view")
+        {
+            case "procesar"
+            {
+                document = @@(data,"#entity/documento")
+                cur_stt_adm = @@(data,"#entity/statusadministrativo")
+                
+                valid_document = (document == @cRemision || document == @cFactura || document == @cNotaCredito)
+                valid_status = (cur_stt_adm == @stt_adm_abierto || cur_stt_adm == @stt_adm_cerrado)
+
+                if cur_stt_adm == @stt_adm_cancelado { do rise_error(500,"No es posible continuar, el documento se encuentra cancelado.") }
+                if cur_stt_adm == @stt_adm_procesado { do rise_error(500,"No es posible continuar, el documento ya ha sido procesado.") }
+                if not(valid_document) { do rise_error(500,"No es posible procesar el documento proporcionado.") }
+                if not(valid_status) { do rise_error(500,"Estado inválido, el documento no puede ser procesado.") }
+                if not(lib.AppExist(db,"inventario")) { do rise_error(500,"No es posible continuar, es necesario instalar `inventario`. Instale e intente nuevamente.") }
+                if not(lib.AppExist(db,"efectivo")) { do rise_error(500,"No es posible continuar, es necesario instalar `efectivo`. Instale e intente nuevamente.") }
+                if not(lib.AppExist(db,"cxc")) { do rise_error(500,"No es posible continuar, es necesario instalar `cxc`. Instale e intente nuevamente.") }
+                break
+            }
+            case "cancelar"
+            {
+                document = @@(data,"#entity/documento")
+                cur_stt_adm = @@(data,"#entity/statusadministrativo")
+
+                valid_document = (document != @cNotaCredito)
+                valid_status = (cur_stt_adm == @stt_adm_abierto || cur_stt_adm == @stt_adm_cerrado || cur_stt_adm == @stt_adm_procesado)
+
+                if cur_stt_adm == @stt_adm_cancelado { do rise_error(500,"No es posible continuar, el documento ya ha sido cancelado.") }
+                if not(valid_document) { do rise_error(500,"No es posible cancelar el documento proporcionado.") }
+                if not(valid_status) { do rise_error(500,"Estado inválido, el documento no puede ser cancelado.") }
+                break
+            }
+        }
+    }
+
     list::&db,&params
     {
         do Venta.evaluateListFilters(params)
@@ -415,15 +455,9 @@ module ":Venta"
         if not(isset("@read_entity_only")){ @read_entity_only = @false }
         if @read_entity_only { return entity.read(db,params) }
 
-        do Venta.setZonaImpuesto(db,params)
-
-        new data
-        {
-            @"entity*": entity.read(db,params)
-            @"detail*": dbr.list(db,@childs_query,params)
-        }
+        new data { @"entity*": entity.read(db,params) }
+        do Venta.validateAccess(db,params,data)
         do Venta.prepareView(db,params,data)
-
         return data
     }
 
@@ -577,12 +611,12 @@ module ":Venta"
         {
             case @fp_contado
             {
-                do rise_error(0,to.json(data))
+                do erp.ventas.procesos.liquidacionContado(db,data)
                 break
             }
             case @fp_credito
             {
-                do rise_error(0,to.json(data))
+                do erp.ventas.procesos.liquidacionCredito(db,data)
                 break
             }
             case @fp_consignado
@@ -593,12 +627,84 @@ module ":Venta"
             default { do rise_error(500,"Forma de pago no implementado") }
         }
 
+        @url_redir = @VNT_LISTAR
+
         exception{ do Venta.catch(db,params,data) }
+    }
+
+    reverseCxC::&db,&data
+    {
+        if @@(data,"#formapago") != @fp_credito { return }
+
+        new bonificacion
+        {
+            @"faplicacion": lib.hoy("yyyy-MM-dd")
+            @"documento": @cNotaCredito
+            @"fecha": hoy("yyyy-MM-dd")
+            @"notas": "Bonificación a: " + @@(data,"$dcliente") + " por cancelación de la venta " + @@(data,"$referencia")
+            @"referencia": "B-" + @@(data,"$referencia")
+            @"tcambio": @@(data,"#tipocambio")
+            @"importe": @@(data,"#total")
+            @"icliente": @@(data,"#icliente")
+        }
+
+        do erp.cxc.movimientos.bonificarCliente(db,bonificacion)
     }
 
     cancel::&db,&params,&data
     {
-        do rise_error(0,"Por implementar")
+        @use_transaction = @false
+        @read_entity_only = @true
+
+        ref entity = entity.read(db,params)
+        do dbr.events.fire(db,"DET01C","pre_VD14",entity)
+        do dbr.begin(db)
+
+        switch @@(entity,"#documento")
+        {
+            case @cPedido
+            {
+                doctype = @cCotizacion
+                // Liberar a las cotizaciones relacionadas (`aplicadoa` y `xfacturar`).
+                do dbr.execute(db,ftext(@qry_liberar_documentos),params)
+                break
+            }
+            case @cRemision
+            {
+                doctype = ftext("#<@cCotizacion>,#<@cPedido>")
+                // Liberar a las cotizaciones o pedidos relacionados (`aplicadoa` y `xfacturar`).
+                do dbr.execute(db,ftext(@qry_liberar_documentos),params)
+                // Realizar la entrada de todos los productos que salieron por este documento al mismo costo de la salida.
+                do erp.inventario.aplicar_mov(db,erp.ventas.procesos.entradaInventarioMismoCostoSalida(db,@@(data,"#iventa"),@@(data,"#icategoria")),@false)
+                // Generar un movimiento a CxC inverso al que hubiere generado.
+                do Venta.reverseCxC(db,entity)
+                break
+            }
+            case @cFactura
+            {
+                doctype = ftext("#<@cCotizacion>,#<@cPedido>,#<@cRemision>")
+                // Liberar a las cotizaciones, pedidos o recepciones relacionadas (`aplicadoa` y `xfacturar`).
+                do dbr.execute(db,ftext(@qry_liberar_documentos),params)
+                // Realizar la entrada de todos los productos que salieron por este documento al mismo costo de la salida, con excepción de las salidas que se habían realizado por remisiones consolidadas en la factura.
+                do erp.inventario.aplicar_mov(db,erp.ventas.procesos.entradaInventarioMismoCostoSalida(db,@@(data,"#iventa"),@@(data,"#icategoria")),@false)
+                // Generar un movimiento a CxC inverso al que hubiere generado.
+                do Venta.reverseCxC(db,entity)
+                break
+            }
+            case @cNotaCredito { do rise_error(500,"No es posible cancelar una nota de crédito.") }
+            default { do rise_error(500,"Cancelación del documento proporcionado no implementado.") }
+        }
+
+        // Establecer el estado del documento como cancelado.
+        do dbr.execute(db,ftext("UPDATE venta SET statusadministrativo = #<@stt_adm_cancelado> WHERE sys_pk = @iventa"),data)
+
+        do dbr.events.fire(db,"DET01C","pos_VD14",entity)
+        do dbr.commit(db)
+        do dbr.events.fire(db,"DET01C","ext_VD14",entity)
+
+        @url_redir = @VNT_LISTAR
+
+        exception{ do Venta.catch(db,params,data) }
     }
 
     catch::&db,&params,&data

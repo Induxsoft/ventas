@@ -19,10 +19,12 @@ program "instalador"
         "cstatusentrega.csv",
         "cstatusfacturacion.csv",
         "cstatusfinancieros.csv",
+        "cstatusguias.csv",
+        "cstatusseries.csv",
         "ctasasiva.csv",
         "ctiposcategorias.csv",
-        "divisa.csv",
         "categoria.csv",
+        "divisa.csv",
     ]')
 
     // Lista de privilegios iniciales (arreglo de id de privilegios)

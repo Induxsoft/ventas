@@ -48,7 +48,7 @@ module "VentaController"
         {
             @form_view = "form.procesar.dk"
 
-            point @read to Venta.blank
+            point @read to Venta.read
             point @update to Venta.process
             break
         }
@@ -56,7 +56,7 @@ module "VentaController"
         {
             @form_view = "form.cancelar.dk"
 
-            point @read to Venta.blank
+            point @read to Venta.read
             point @update to Venta.cancel
         }
         default
