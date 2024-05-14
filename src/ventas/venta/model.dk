@@ -16,7 +16,7 @@ module ":Venta"
     @update_alias_fields = ""
 
     @list_query = @qry_list_venta
-    @read_query = @qry_venta
+    @read_query = @qry_read_venta
     @childs_query = @qry_dventa
 
     buscarCliente::&db,&params
@@ -155,39 +155,71 @@ module ":Venta"
     {
         namespace "Venta"
 
-        icliente = 0
-        idocumento = 0
-        iagente = 0
-        irepartidor = 0
-        iporteador = 0
-
-        if field.exist(data,"form") {
-            icliente = @@(data,"#form/icliente")
-            idocumento = @@(data,"#form/documento")
-            iagente = @@(data,"#form/iagente")
-            irepartidor = @@(data,"#form/irepartidor")
-            iporteador = @@(data,"#form/iporteador")
-        }
-        else if field.exist(data,"entity") {
-            icliente = @@(data,"#entity/icliente")
-            idocumento = @@(data,"#entity/documento")
-            iagente = @@(data,"#entity/iagente")
-            irepartidor = @@(data,"#entity/irepartidor")
-            iporteador = @@(data,"#entity/iporteador")
-        }
-
-        params<"doctype"> : idocumento
-
-        using data
+        switch @@(params,"$_view")
         {
-            @"dtcliente*": ifnull(obtenerCliente(db,icliente),record.create())
-            @"dtagente*": ifnull(obtenerAgente(db,iagente),record.create())
-            @"dtrepartidor*": ifnull(obtenerRepartidor(db,irepartidor),record.create())
-            @"dtporteador*": ifnull(obtenerPorteador(db,iporteador),record.create())
-            @"list_doc_vnt*": dbr.list(db,@qry_docs_venta,@null)
-            @"list_divisas*": dbr.list(db,@qry_list_divisas,@null)
-            @"list_cconsumo*": dbr.list(db,@qry_list_cconsumo,@null)
-            @"list_series*": dbr.list(db,@qry_list_series,params)
+            case "procesar"
+            {
+                ref entity = entity.read(db,params)
+                
+                params<"doctype"> : @@(entity,"#documento")
+
+                using data
+                {
+                    @"entity*": entity
+                    @"cfg_doc_venta*": dbr.rec(db,@qry_cfg_doc_vnt,params)
+                    @"list_doc_vnt*": dbr.list(db,@qry_docs_venta,@null)
+                    @"list_doc_dep*": dbr.list(db,@qry_docs_deposito,@null)
+                    @"list_cta_chq*": dbr.list(db,@qry_list_cta_chq,@null)
+                    @"list_divisas*": dbr.list(db,@qry_list_divisas,@null)
+                    @"list_cat_ingreso*": dbr.list(db,@qry_cat_ingreso,@null)
+                    @"list_cat_movinv*": dbr.list(db,@qry_cat_movinv,@null)
+                }
+                break
+            }
+            case "cancelar"
+            {
+                // code...
+                break
+            }
+            default
+            {
+                icliente = 0
+                idocumento = 0
+                iagente = 0
+                irepartidor = 0
+                iporteador = 0
+
+                if field.exist(data,"form") {
+                    icliente = @@(data,"#form/icliente")
+                    idocumento = @@(data,"#form/documento")
+                    iagente = @@(data,"#form/iagente")
+                    irepartidor = @@(data,"#form/irepartidor")
+                    iporteador = @@(data,"#form/iporteador")
+                }
+                else if field.exist(data,"entity") {
+                    icliente = @@(data,"#entity/icliente")
+                    idocumento = @@(data,"#entity/documento")
+                    iagente = @@(data,"#entity/iagente")
+                    irepartidor = @@(data,"#entity/irepartidor")
+                    iporteador = @@(data,"#entity/iporteador")
+                }
+
+                params<"doctype"> : idocumento
+
+                using data
+                {
+                    @"dtcliente*": ifnull(obtenerCliente(db,icliente),record.create())
+                    @"dtagente*": ifnull(obtenerAgente(db,iagente),record.create())
+                    @"dtrepartidor*": ifnull(obtenerRepartidor(db,irepartidor),record.create())
+                    @"dtporteador*": ifnull(obtenerPorteador(db,iporteador),record.create())
+                    @"list_doc_vnt*": dbr.list(db,@qry_docs_venta,@null)
+                    @"list_divisas*": dbr.list(db,@qry_list_divisas,@null)
+                    @"list_cconsumo*": dbr.list(db,@qry_list_cconsumo,@null)
+                    @"list_series*": dbr.list(db,@qry_list_series,params)
+                }
+
+                break
+            }
         }
     }
 
@@ -537,6 +569,36 @@ module ":Venta"
     delete::&db,&params
     {
         do rise_error(500,"Acción no implementada")
+    }
+
+    process::&db,params,&data
+    {
+        switch @@(data,"#formapago")
+        {
+            case @fp_contado
+            {
+                do rise_error(0,to.json(data))
+                break
+            }
+            case @fp_credito
+            {
+                do rise_error(0,to.json(data))
+                break
+            }
+            case @fp_consignado
+            {
+                do erp.ventas.procesos.liquidacionConsignado(db,@@(data,"#iventa"),@@(data,"#icategoria"))
+                break
+            }
+            default { do rise_error(500,"Forma de pago no implementado") }
+        }
+
+        exception{ do Venta.catch(db,params,data) }
+    }
+
+    cancel::&db,&params,&data
+    {
+        do rise_error(0,"Por implementar")
     }
 
     catch::&db,&params,&data

@@ -1,0 +1,244 @@
+#include "dkli.dkh"
+#!
+module ":erp.ventas.procesos"
+{
+    salidaInventario::&db,icompra,icategoria
+    {
+        sql_venta = "
+        SELECT
+            v.referencia,
+            v.tipocambio,
+            cc.ialmacen
+        FROM venta v
+            INNER JOIN cconsumo cc ON v.icconsumo = cc.sys_pk
+        WHERE v.sys_pk = @iventa
+        "
+        sql_dventa = "
+        SELECT
+            d.cantidad,
+            d.precio,
+            d.tipocambio,
+            d.ialmacen,
+            d.iproducto,
+            (IFNULL(d.cantidad,0) * IFNULL(d.precio,0)) AS abonos
+        FROM dventa d
+        WHERE d.fk_venta_detalle = @iventa
+        "
+        
+        new params { @"iventa": parse.num(iventa) }
+
+        ref venta = dbr.rec(db,sql_venta,params)
+        ref dventa = dbr.list(db,sql_dventa,params)
+
+        start_transaction = @false
+
+        if not(dbr.in_transaction(db)) {
+            do dbr.begin(db)
+            start_transaction = @true
+        }
+
+        new cardex
+        {
+            @"sys_pk": 0
+            @"sys_guid": uuid()
+            @"sys_dtcreated*": now()
+            @"sys_timestamp*": now()
+            @"sys_recver": 0
+            @"referencia": @@(venta,"$referencia")
+            @"fecha*": now()
+            @"icategoria": icategoria
+        }
+        do dbr.insert(db,"cardex",cardex)
+        
+        last_id = dbr.num(db,"select last_insert_id();",@null)
+
+        for i = 0; i < list.count(dventa)
+        {
+            ref item = list.obj(dventa,i)
+
+            new dcardex
+            {
+                @"sys_pk": 0
+                @"sys_guid": uuid()
+                @"sys_dtcreated*": now()
+                @"sys_timestamp*": now()
+                @"sys_recver": 0
+                @"ialmacen": @@(item,"#ialmacen")
+                @"iproducto": @@(item,"#iproducto")
+                @"salidas": @@(item,"#cantidad")
+                @"abonos": @@(item,"#abonos")
+                @"cpromedio": @@(item,"#precio")
+                @"tipocambio": @@(item,"#tipocambio")
+                @"fk_cardex_movimientos": last_id
+            }
+            do dbr.insert(db,"dcardex",dcardex)
+        }
+
+        if start_transaction { do dbr.commit(db) }
+
+        return last_id
+
+        exception
+        {
+            if dbr.in_transaction(db) { do dbr.rollback(db) }
+            do rise_error(last_error_code(),last_error())
+        }
+    }
+
+    /**
+    * Procesar documento de venta de contado.
+    *
+    * db | Referencia a una conexión de base de datos abierta (recomendado: transacción de base de datos previamente iniciada).
+    * data | Referencia a un registro que contiene los datos necesarios para realizar la operación.
+    *
+    * ```dkl
+    * new data
+    {
+        @"iventa": //(int) Clave primaria del documento de venta a procesar.
+        @"conciliado": //(bool)
+        @"faplicacion": //(string) Fecha [yyyy-MM-dd] de aplicación.
+        @"referencia": //(string) Referencia del documentop de venta.
+        @"documento": //(int) Clave primaria del documento de tipo depósito.
+        @"importe": //(decimal) Monto total del documento de venta a procesar.
+        @"icategoria": //(int) Clave primaria de la categoría de tipo ingreso.
+        @"icuenta": //(int) Clave primaria de la cuenta bancaria donde se realizara el depósito.
+        @"concepto": //(string) Descripción de la operación.
+    }
+    *```
+    */
+    liquidacionContado::&db,&data
+    {
+        iventa = @@(data,"#iventa")
+        icategoria = @@(data,"#icategoria")
+
+        start_transaction = @false
+
+        if not(dbr.in_transaction(db)) {
+            do dbr.begin(db)
+            start_transaction = @true
+        }
+
+        // Generar movimiento de salida de inventario y aplicar.
+        do erp.inventario.aplicar_mov(db,erp.ventas.procesos.salidaInventario(db,iventa,icategoria),@false)
+        // Realizar depósito a la cuenta.
+        do erp.efectivo.movimientos.deposito(db,data)
+        // Establecer los estados correspondientes.
+        new status
+        {
+            @"formapago": @fp_contado
+            @"statusadministrativo": @stt_adm_procesado
+            @"statusentrega": @stt_ent_entregado
+            @"statusfacturacion": @stt_fac_xfacturar
+            @"statusfinanciero": @stt_fin_saldado
+        }
+
+        do dbr.update(db,"venta",status,"sys_pk=@iventa",data)
+
+        if start_transaction { do dbr.commit(db) }
+
+        exception
+        {
+            if dbr.in_transaction(db) { do dbr.rollback(db) }
+            do rise_error(last_error_code(),last_error())
+        }
+    }
+
+    /**
+    * Procesar documento de venta a crédito.
+    *
+    * db | Referencia a una conexión de base de datos abierta (recomendado: transacción de base de datos previamente iniciada).
+    * data | Referencia a un registro que contiene los datos necesarios para realizar la operación.
+    *
+    * ```dkl
+    * new data
+    {
+        @"iventa": //(int) Clave primaria del documento de venta a procesar.
+        @"icliente": //(int) Clave primaria del cliente.
+        @"aplicable": //(bool)
+        @"flimite": //(string) Fecha [yyyy-MM-dd] limite.
+        @"referencia": //(string) Referencia del documentop de venta.
+        @"documento": //(int) Clave primaria del documento de tipo CxC.
+        @"tcambio": //(decimal) Tipo de cambio.
+        @"importe": //(decimal) Monto total del documento de venta a procesar.
+        @"icategoria": //(int) Clave primaria de la categoría de tipo ingreso.
+        @"concepto": //(string) Descripción de la operación
+    }
+    *```
+    */
+    liquidacionCredito::&db,&data
+    {
+        iventa = @@(data,"#iventa")
+        icategoria = @@(data,"#icategoria")
+
+        start_transaction = @false
+
+        if not(dbr.in_transaction(db)) {
+            do dbr.begin(db)
+            start_transaction = @true
+        }
+
+        // Generar movimiento de salida de inventario y aplicar.
+        do erp.inventario.aplicar_mov(db,erp.ventas.procesos.salidaInventario(db,iventa,icategoria),@false)
+        // Agregar documento por cobrar (dcxc) y afectar el saldo del cliente.
+        do erp.cxc.movimientos.crearCxC(db,data)
+        // Establecer los estados correspondientes.
+        new status
+        {
+            @"formapago": @fp_credito
+            @"statusadministrativo": @stt_adm_procesado
+            @"statusentrega": @stt_ent_entregado
+            @"statusfacturacion": @stt_fac_xfacturar
+            @"statusfinanciero": @stt_fin_con_adeudo
+        }
+
+        do dbr.update(db,"venta",status,"sys_pk=@iventa",data)
+
+        if start_transaction { do dbr.commit(db) }
+
+        exception
+        {
+            if dbr.in_transaction(db) { do dbr.rollback(db) }
+            do rise_error(last_error_code(),last_error())
+        }
+    }
+
+    /**
+    * Procesar documento de venta a consignación.
+    *
+    * db | Referencia a una conexión de base de datos abierta (recomendado: transacción de base de datos previamente iniciada).
+    * int iventa | Clave primaria del documento de venta a procesar.
+    * int icategoria | Clave primaria de la categoría de tipo ingreso.
+    */
+    liquidacionConsignado::&db,iventa,icategoria
+    {
+        start_transaction = @false
+
+        if not(dbr.in_transaction(db)) {
+            do dbr.begin(db)
+            start_transaction = @true
+        }
+
+        // Generar movimiento de salida de inventario y aplicar.
+        do erp.inventario.aplicar_mov(db,erp.ventas.procesos.salidaInventario(db,iventa,icategoria),@false)
+        // Establecer los estados correspondientes.
+        new params { @"iventa": iventa }
+        new status
+        {
+            @"formapago": @fp_consignado
+            @"statusadministrativo": @stt_adm_procesado
+            @"statusentrega": @stt_ent_entregado
+            @"statusfacturacion": @stt_fac_xfacturar
+            @"statusfinanciero": @stt_fin_consignado
+        }
+
+        do dbr.update(db,"venta",status,"sys_pk=@iventa",params)
+
+        if start_transaction { do dbr.commit(db) }
+
+        exception
+        {
+            if dbr.in_transaction(db) { do dbr.rollback(db) }
+            do rise_error(last_error_code(),last_error())
+        }
+    }
+}

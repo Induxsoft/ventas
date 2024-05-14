@@ -59,6 +59,10 @@ var venta =
             trigger(sel_documento,"change");
             // ik_cliente.setValue(ik_cliente.getValue());
         }
+        else
+        {
+            this.toggleButtonVisibility();
+        }
     },
 
     setKeyboardShortcuts()

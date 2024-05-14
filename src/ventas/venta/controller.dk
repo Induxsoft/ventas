@@ -47,11 +47,17 @@ module "VentaController"
         case "procesar"
         {
             @form_view = "form.procesar.dk"
+
+            point @read to Venta.blank
+            point @update to Venta.process
             break
         }
         case "cancelar"
         {
             @form_view = "form.cancelar.dk"
+
+            point @read to Venta.blank
+            point @update to Venta.cancel
         }
         default
         {

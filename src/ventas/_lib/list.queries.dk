@@ -13,7 +13,14 @@ module "Lista de consultas MySQL"
         dvs.codigo AS cdivisa,
         vnt.tipocambio,
         IFNULL(vnt.subtotal,0) AS subtotal,
-        ((((((IFNULL(vnt.subtotal,0) - IFNULL(vnt.descuento1,0)) - IFNULL(vnt.descuento2,0)) + IFNULL(vnt.impuesto1,0)) + IFNULL(vnt.impuesto2,0)) + IFNULL(vnt.impuesto3,0)) + IFNULL(vnt.impuesto4,0)) AS total,
+        ((((((IFNULL(vnt.subtotal,0)
+            - IFNULL(vnt.descuento1,0))
+            - IFNULL(vnt.descuento2,0))
+            + IFNULL(vnt.impuesto1,0))
+            + IFNULL(vnt.impuesto2,0))
+            + IFNULL(vnt.impuesto3,0))
+            + IFNULL(vnt.impuesto4,0)
+        ) AS total,
         sfin.const AS stt_fin,
         fp.const AS forma_pago,
         sadm.const AS stt_adm
@@ -30,7 +37,7 @@ module "Lista de consultas MySQL"
     LIMIT #<@default_max_rows>
     "
 
-    @qry_venta = "
+    @qry_read_venta = "
     SELECT
         vnt.sys_pk,
         vnt.sys_recver,
@@ -40,6 +47,15 @@ module "Lista de consultas MySQL"
         IFNULL(DATE_FORMAT(vnt.fentrega,'%Y-%m-%d'),'') AS fentrega,
         IFNULL(DATE_FORMAT(vnt.vencimiento,'%Y-%m-%d'),'') AS vencimiento,
         IFNULL(DATE_FORMAT(vnt.fembarque,'%Y-%m-%d'),'') AS fembarque,
+        IFNULL(vnt.subtotal,0) AS subtotal,
+        ((((((IFNULL(vnt.subtotal,0)
+            - IFNULL(vnt.descuento1,0))
+            - IFNULL(vnt.descuento2,0))
+            + IFNULL(vnt.impuesto1,0))
+            + IFNULL(vnt.impuesto2,0))
+            + IFNULL(vnt.impuesto3,0))
+            + IFNULL(vnt.impuesto4,0)
+        ) AS total,
         vnt.tipocambio,
         vnt.idivisa,
         vnt.icconsumo,
@@ -54,6 +70,7 @@ module "Lista de consultas MySQL"
         IFNULL(vnt.pcomision,0) AS pcomision,
         IFNULL(vnt.domicilioentrega,'') AS domicilioentrega,
         IFNULL(vnt.txtguia,'') AS txtguia,
+        cte.nombre AS `cliente`,
         s.serie,
         f.folio,
         adm.const AS stt_adm,
@@ -61,6 +78,7 @@ module "Lista de consultas MySQL"
         fac.const AS stt_fac,
         fin.const AS stt_fin
     FROM venta AS vnt
+        INNER JOIN cliente AS cte ON vnt.icliente = cte.sys_pk
         INNER JOIN foliosdocumentos AS f ON vnt.ifolio = f.sys_pk
         INNER JOIN blockdocumentos AS s ON f.block = s.sys_pk
         LEFT JOIN cstatusadministrativos AS adm ON vnt.statusadministrativo = adm.id
@@ -114,6 +132,35 @@ module "Lista de consultas MySQL"
         INNER JOIN producto AS p ON dt.iproducto = p.sys_pk
         INNER JOIN cfgimpuesto AS i ON p.impuestos = i.sys_pk
     WHERE dt.fk_venta_detalle = IFNULL(@_entity_id,@sys_pk)
+    "
+
+    @qry_venta_2 = "
+    SELECT
+        vnt.sys_pk,
+        vnt.sys_guid,
+        vnt.sys_recver,
+        vnt.referencia,
+        DATE_FORMAT(vnt.fecha,'%Y-%m-%d') AS fecha,
+        IFNULL(DATE_FORMAT(vnt.fentrega,'%Y-%m-%d'),'') AS fentrega,
+        IFNULL(DATE_FORMAT(vnt.vencimiento,'%Y-%m-%d'),'') AS vencimiento,
+        IFNULL(vnt.subtotal,0) AS subtotal,
+        ((((((IFNULL(vnt.subtotal,0)
+            - IFNULL(vnt.descuento1,0))
+            - IFNULL(vnt.descuento2,0))
+            + IFNULL(vnt.impuesto1,0))
+            + IFNULL(vnt.impuesto2,0))
+            + IFNULL(vnt.impuesto3,0))
+            + IFNULL(vnt.impuesto4,0)
+        ) AS total,
+        doc.id AS idocumento,
+        doc.const AS cdocumento,
+        CONCAT('[',dvs.codigo,']',' ',dvs.descripcion) AS ddivisa,
+        CONCAT('[',cte.codigo,']',' ',cte.nombre) AS dcliente
+    FROM venta AS vnt
+        INNER JOIN cliente AS cte ON vnt.cliente = cte.sys_pk
+        INNER JOIN cdocumentos AS doc ON vnt.documento = doc.id
+        INNER JOIN divisa AS dvs ON vnt.idivisa = dvs.sys_pk
+    WHERE vnt.#<@keyfield> = @_entity_id
     "
 
     @qry_imp_venta = "
@@ -209,7 +256,13 @@ module "Lista de consultas MySQL"
     "
 
     @qry_docs_venta = "SELECT a.id, a.const FROM cdocumentos AS a INNER JOIN cfg_doc_ventas AS b ON a.id = b.documento ORDER BY a.id ASC"
+    @qry_docs_deposito = "SELECT a.id, a.const FROM cdocumentos a INNER JOIN cfg_chq_docs b ON a.id = b.documento WHERE IFNULL(b.depositos,0) ORDER BY a.id ASC"
+    @qry_cat_ingreso = "SELECT sys_pk, CONCAT(codigo,' - ',descripcion) AS tcategoria FROM categoria WHERE tipo = 1 AND NOT IFNULL(sys_deleted,0) ORDER BY sys_pk ASC"
+    @qry_cat_movinv = "SELECT sys_pk, CONCAT(codigo,' - ',descripcion) AS tcategoria FROM categoria WHERE tipo = 3 AND NOT IFNULL(sys_deleted,0) ORDER BY sys_pk ASC"
+    @qry_cfg_doc_vnt = "SELECT b.const, a.* FROM cfg_doc_ventas a INNER JOIN cdocumentos b ON a.documento = b.id WHERE a.documento = @doctype;"
+    @qry_cfg_doc_con = "SELECT * FROM cfg_doc_ventas_consolida WHERE documento = @doctype"
     @qry_list_series = "SELECT sys_pk, serie FROM blockdocumentos WHERE NOT IFNULL(sys_deleted,0) AND activo AND documento = @doctype"
     @qry_list_divisas = "SELECT sys_pk, codigo, tcambio, CONCAT(codigo,' - ',descripcion) AS tdivisa FROM divisa WHERE NOT IFNULL(sys_deleted,0)"
     @qry_list_cconsumo = "SELECT sys_pk, codigo, descripcion, ialmacen, precio, CONCAT(codigo,' - ',descripcion) AS tcconsumo FROM cconsumo WHERE NOT IFNULL(sys_deleted,0)"
+    @qry_list_cta_chq = "SELECT c.sys_pk, d.codigo AS cdivisa, d.tcambio, CONCAT(c.nombre,' (',d.codigo,')') AS tcuenta FROM chequera c INNER JOIN divisa d ON d.sys_pk = c.idivisa WHERE NOT IFNULL(c.sys_deleted,0) ORDER BY c.sys_pk ASC"
 }
