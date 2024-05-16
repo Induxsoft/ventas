@@ -151,14 +151,24 @@ module ":Venta"
         params<"zimpuesto"> : zimpuesto
     }
 
+    setLoteSerieVar::&db
+    {
+        @enable_lotes = parse.bool(dbr.vars.getd(db,"ventas_enable_lotes",@enable_lotes))
+        @enable_series = parse.bool(dbr.vars.getd(db,"ventas_enable_series",@enable_series))
+    }
+
     prepareView::&db,&params,&data
     {
         namespace "Venta"
+
+        is_new = (@@(params,"$_entity_id") == "_new")
 
         switch @@(params,"$_view")
         {
             case "procesar"
             {
+                if not(field.exist(data,"entity")){ data<"entity*"> : entity.read(db,params) }
+
                 params<"doctype"> : @@(data,"#entity/documento")
                 data<"entity/tcambio"> : @@(data,"#entity/tipocambio")
 
@@ -206,11 +216,14 @@ module ":Venta"
                 }
 
                 do Venta.setZonaImpuesto(db,params)
+                do Venta.setLoteSerieVar(db)
+
                 params<"doctype"> : idocumento
+
+                if not(is_new){ data<"detail*"> : Venta.recoverLoteSerie(db,dbr.list(db,@childs_query,params)) }
 
                 using data
                 {
-                    @"detail*": dbr.list(db,@childs_query,params)
                     @"dtcliente*": ifnull(obtenerCliente(db,icliente),record.create())
                     @"dtagente*": ifnull(obtenerAgente(db,iagente),record.create())
                     @"dtrepartidor*": ifnull(obtenerRepartidor(db,irepartidor),record.create())
@@ -219,6 +232,8 @@ module ":Venta"
                     @"list_divisas*": dbr.list(db,@qry_list_divisas,@null)
                     @"list_cconsumo*": dbr.list(db,@qry_list_cconsumo,@null)
                     @"list_series*": dbr.list(db,@qry_list_series,params)
+                    @"enable_lotes": @enable_lotes
+                    @"enable_series": @enable_series
                 }
 
                 break
@@ -310,6 +325,116 @@ module ":Venta"
 
         conditions = ftext(conditions)
         @list_query = ftext(@list_query)
+    }
+
+    recoverLoteSerie::&db,&detalle
+    {
+        if isnull(detalle) { return detalle }
+        do Venta.setLoteSerieVar(db)
+        if not(@enable_lotes) && not(@enable_series) { return detalle }
+
+        for i = 0; i < list.count(detalle)
+        {
+            ref prod = list.obj(detalle,i)
+
+            if trim(@@(prod,"$sys_info")) != ""
+            {
+                ref info = from.json(@@(prod,"$sys_info"))
+
+                if @@(info,"#lote") > 0
+                {
+                    ref lote = dbr.rec(db,"SELECT IFNULL(DATE_FORMAT(fcaducidad,'%Y-%m-%d'),'') AS fcaducidad, numero FROM lote WHERE sys_pk=@lote",info)
+                    if not(isnull(lote))
+                    {
+                        prod<"lote"> : @@(lote,"numero")
+                        prod<"fcad"> : @@(lote,"fcaducidad")
+                    }
+                }
+                if @@(info,"#serie") > 0
+                {
+                    ref serie = dbr.rec(db,"SELECT numero FROM serie WHERE sys_pk=@serie",info)
+                    if not(isnull(serie))
+                    {
+                        prod<"serie"> : @@(serie,"numero")
+                    }
+                }
+            }
+        }
+
+        return detalle
+    }
+
+    setLoteSerie::&db,&detalle
+    {
+        if isnull(detalle) { return detalle }
+        do Venta.setLoteSerieVar(db)
+        if not(@enable_lotes) && not(@enable_series) { return detalle }
+
+        for i = 0; i < list.count(detalle)
+        {
+            ref prod = list.obj(detalle,i)
+            
+            new data {}
+            sys_info = ""
+
+            //#region Establecer lote
+            if trim(@@(prod,"$lote")) != ""
+            {
+                ref lote = dbr.rec(db,"SELECT sys_pk, IF(iproducto=@iproducto,1,0) in_use, numero FROM lote WHERE numero=@lote LIMIT 1",prod)
+                if not(isnull(lote))
+                {
+                    if @@(lote,"#in_use") {
+                        do rise_error(500,"El lote: "+@@(lote,"$numero")+" del producto "+@@(prod,"$descripcion")+" ya está asignado a un producto diferente, indique uno nuevo.")
+                    }
+                    else { data<"lote"> : @@(lote,"#sys_pk") }
+                }
+                else
+                {
+                    new _lote
+                    {
+                        @"numero": trim(@@(prod,"$lote"))
+                        @"iproducto": @@(prod,"#iproducto")
+                    }
+                    if @@(prod,"$fcad") != "" { _lote<"fcaducidad*"> : dbr.sql("CAST("+@@(prod,"$fcad")+") AS DATE") }
+
+                    ref new_lote = dbr.save(db,"lote",_lote)
+                    data<"lote"> : @@(new_lote,"#sys_pk")
+                }
+            }
+            //#endregion
+            
+            //#region Establecer serie
+            if trim(@@(prod,"$serie")) != ""
+            {
+                ref serie = dbr.rec(db,"SELECT sys_pk, IF(iproducto=@iproducto,1,0) in_use, numero FROM serie WHERE numero=@serie LIMIT 1",prod)
+                if not(isnull(serie))
+                {
+                    if @@(serie,"#in_use") {
+                        do rise_error(500,"La serie: "+@@(serie,"$numero")+" del producto "+@@(prod,"$descripcion")+" ya está asignado a un producto diferente, indique uno nuevo.")
+                    }
+                    else { data<"serie"> : @@(serie,"#sys_pk") }
+                }
+                else 
+                {
+                    new _serie
+                    {
+                        @"numero": trim(@@(prod,"$serie"))
+                        @"status": @stt_serie_disponible
+                        @"iproducto": @@(prod,"#iproducto")
+                    }
+                    if @@(data,"#lote") > 0 { _serie<"ilote"> : @@(data,"#lote") }
+
+                    ref new_serie = dbr.save(db,"serie",_serie)
+                    data<"serie"> : @@(new_serie,"#sys_pk")
+                }
+            }
+            //#endregion
+
+            if field.exist(data,"lote") || field.exist(data,"serie") { sys_info = to.json(data) }
+            prod<"sys_info"> : sys_info
+        }
+
+        return detalle
     }
 
     updateAmounts::&db,vnt_sys_pk
@@ -524,10 +649,12 @@ module ":Venta"
                 @"keyfield": "sys_pk"
                 @"table": "dventa"
                 @"select_query": @childs_query
-                @"fields": "cantidad,descuento1,descuento2,factor,impuesto1,impuesto2,impuesto3,impuesto4,notas,precio,status,tipocambio,unidad,xfacturar,xsalir,documento,ialmacen,iproducto"
+                @"fields": "sys_info,cantidad,descuento1,descuento2,factor,impuesto1,impuesto2,impuesto3,impuesto4,notas,precio,status,tipocambio,unidad,xfacturar,xsalir,documento,ialmacen,iproducto"
             }
         }
         
+        do validateStatus(db,params,venta)
+        do setLoteSerie(db,@@(venta,"&_detalle"))
         ref entity = entity.create(db,params,venta)
         do updateAmounts(db,@@(entity,"#sys_pk"))
         
@@ -577,16 +704,17 @@ module ":Venta"
                 @"keyfield": "sys_pk"
                 @"table": "dventa"
                 @"select_query": @childs_query
-                @"fields": "cantidad,descuento1,descuento2,factor,impuesto1,impuesto2,impuesto3,impuesto4,notas,precio,status,tipocambio,unidad,xfacturar,xsalir,documento,ialmacen,iproducto"
+                @"fields": "sys_info,cantidad,descuento1,descuento2,factor,impuesto1,impuesto2,impuesto3,impuesto4,notas,precio,status,tipocambio,unidad,xfacturar,xsalir,documento,ialmacen,iproducto"
             }
         }
 
         do dbr.begin(db)
-
+        
         do validateStatus(db,params,venta)
+        do setLoteSerie(db,@@(venta,"&_detalle"))
         ref entity = entity.update(db,params,venta)
         do updateAmounts(db,@@(entity,"#sys_pk"))
-
+        
         do dbr.commit(db)
         
         new response

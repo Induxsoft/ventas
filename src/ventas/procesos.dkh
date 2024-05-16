@@ -2,6 +2,106 @@
 #!
 module ":erp.ventas.procesos"
 {
+    setStatusToRelatedDocs::&db,iventa
+    {
+        new params { @"iventa": parse.num(iventa) }
+        
+        sql_related_docs = "
+        SELECT dv2.fk_venta_detalle AS rventa
+        FROM dventa AS dv
+            INNER JOIN dventa dv2 ON dv.doc_partida = dv2.sys_pk
+        WHERE dv.fk_venta_detalle = @icompra
+        GROUP BY dv2.fk_venta_detalle
+        "
+        ref relatedDocs = dbr.list(db,sql_related_docs,params)
+
+        start_transaction = @false
+
+        if not(dbr.in_transaction(db)) {
+            do dbr.begin(db)
+            start_transaction = @true
+        }
+        
+        for i = 0; i < list.count(relatedDocs)
+        {
+            ref doc = list.obj(relatedDocs,i)
+            
+            new status
+            {
+                @"statusentrega": @stt_ent_xentregar
+                @"statusfacturacion": @stt_fac_xfacturar
+            }
+
+            xfacturar = dbr.num(db,"SELECT SUM(IFNULL(xfacturar,cantidad)) FROM dventa WHERE fk_venta_detalle = @rventa",doc)
+            
+            if xfacturar <= 0
+            {
+                status<"statusentrega"> : @stt_ent_entregado
+                status<"statusfacturacion"> : @stt_fac_facturado
+            }
+            
+            do dbr.update(db,"venta",status,"sys_pk=@rventa",doc)
+        }
+
+        if start_transaction { do dbr.commit(db) }
+
+        exception
+        {
+            if dbr.in_transaction(db) { do dbr.rollback(db) }
+            do rise_error(last_error_code(),last_error())
+        }
+    }
+
+    asignarLoteSerie::&db,&item,&dcardex
+    {
+        start_transaction = @false
+
+        if not(dbr.in_transaction(db)) {
+            do dbr.begin(db)
+            start_transaction = @true
+        }
+
+        if trim(@@(item,"$sys_info")) != ""
+        {
+            ref info = from.json(@@(item,"$sys_info"))
+            // Lote
+            if @@(info,"#lote") > 0
+            {
+                dcardex<"ilote"> : @@(info,"#lote")
+                // CLoteXAlmacen
+                new params
+                {
+                    @"ilote": @@(dcardex,"#ilote")
+                    @"ialmacen": @@(dcardex,"#ialmacen")
+                }
+                if isnull(dbr.rec(db,"SELECT sys_pk FROM clotexalmacen WHERE fk_lote_exisxalmacen=@ilote AND ialmacen=@ialmacen LIMIT 1;",params))
+                {
+                    new clxa
+                    {
+                        @"sys_guid": uuid()
+                        @"sys_timestamp*": now()
+                        @"cantidad": 0
+                        @"ialmacen": @@(dcardex,"ialmacen")
+                        @"fk_lote_exisxalmacen": @@(dcardex,"ilote")
+                    }
+                    do dbr.insert(db,"clotexalmacen",clxa)
+                }
+            }
+            // Serie
+            if @@(info,"#serie") > 0 { dcardex<"iserie"> : @@(info,"#serie") }
+
+            do dbr.execute(db,"UPDATE dventa SET sys_info='' WHERE sys_pk=@sys_pk",item)
+        }
+
+        if start_transaction { do dbr.commit(db) }
+
+        exception
+        {
+            if dbr.in_transaction(db) { do dbr.rollback(db) }
+            do rise_error(last_error_code(),last_error())
+        }
+    }
+
     salidaInventario::&db,iventa,icategoria
     {
         sql_venta = "
@@ -22,7 +122,8 @@ module ":erp.ventas.procesos"
             d.tipocambio,
             d.ialmacen,
             d.iproducto,
-            (IFNULL(d.cantidad,0) * IFNULL(d.precio,0)) AS abonos
+            (IFNULL(d.cantidad,0) * IFNULL(d.precio,0)) AS abonos,
+            IFNULL(d.sys_info,'') AS sys_info
         FROM dventa d
         WHERE d.fk_venta_detalle = @iventa
         "
@@ -75,6 +176,7 @@ module ":erp.ventas.procesos"
                 @"rventa": @@(item,"#sys_pk")
                 @"fk_cardex_movimientos": last_id
             }
+            do erp.ventas.procesos.asignarLoteSerie(db,item,dcardex)
             do dbr.insert(db,"dcardex",dcardex)
         }
 
@@ -124,9 +226,6 @@ module ":erp.ventas.procesos"
 
         ref venta = dbr.rec(db,sql_venta,params)
         ref dventa = dbr.list(db,sql_dventa,params)
-
-        // Ningún producto ha realizado entradas de inventario
-        if list.count(dventa) <= 0 { return 0 }
 
         start_transaction = @false
 
@@ -230,10 +329,11 @@ module ":erp.ventas.procesos"
         }
 
         // Generar movimiento de salida de inventario y aplicar.
-        do erp.inventario.aplicar_mov(db,erp.ventas.procesos.salidaInventario(db,@@(data,"#iventa"),@@(data,"#icategoria")),@false)
+        do erp.inventario.aplicar_mov(db,erp.ventas.procesos.salidaInventario(db,@@(data,"#iventa"),@@(data,"#icategoria")),@true)
         // Realizar depósito a la cuenta.
         do erp.efectivo.movimientos.deposito(db,_deposito)
         // Establecer los estados correspondientes.
+        do erp.ventas.procesos.setStatusToRelatedDocs(db,@@(data,"#iventa"))
         new status
         {
             @"formapago": @fp_contado
@@ -304,10 +404,11 @@ module ":erp.ventas.procesos"
         }
 
         // Generar movimiento de salida de inventario y aplicar.
-        do erp.inventario.aplicar_mov(db,erp.ventas.procesos.salidaInventario(db,@@(data,"#iventa"),@@(data,"#icategoria")),@false)
+        do erp.inventario.aplicar_mov(db,erp.ventas.procesos.salidaInventario(db,@@(data,"#iventa"),@@(data,"#icategoria")),@true)
         // Agregar documento por cobrar (dcxc) y afectar el saldo del cliente.
         do erp.cxc.movimientos.crearCxC(db,_cxc)
         // Establecer los estados correspondientes.
+        do erp.ventas.procesos.setStatusToRelatedDocs(db,@@(data,"#iventa"))
         new status
         {
             @"formapago": @fp_credito
@@ -345,8 +446,9 @@ module ":erp.ventas.procesos"
         }
 
         // Generar movimiento de salida de inventario y aplicar.
-        do erp.inventario.aplicar_mov(db,erp.ventas.procesos.salidaInventario(db,iventa,icategoria),@false)
+        do erp.inventario.aplicar_mov(db,erp.ventas.procesos.salidaInventario(db,iventa,icategoria),@true)
         // Establecer los estados correspondientes.
+        do erp.ventas.procesos.setStatusToRelatedDocs(db,iventa)
         new params { @"iventa": iventa }
         new status
         {

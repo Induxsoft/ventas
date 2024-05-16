@@ -25,8 +25,12 @@ module "form.dk"
 	is_new = (@_entity_id == "_new")
     cur_stt_adm = @@(entity,"#statusadministrativo")
     
+    @enable_lotes = @("#./enable_lotes")
+    @enable_series = @("#./enable_series")
     @enable_editing = (cur_stt_adm == @stt_adm_na || cur_stt_adm == @stt_adm_abierto)
 
+    tbl_btn_act_cls = "btn btn-sm d-flex align-items-center justify-content-center gap-2 no-shadow"
+    
     ik_sm_style = "
     #input_search_container, #input_description_container,
     #button_search_container, #button_clear_container {
@@ -306,8 +310,12 @@ module "form.dk"
             {
                 small(class="flex-grow-1 text-muted"){$"Seleccione los productos en la cuadrícula"}
 
-                button(class="btn btn-sm d-flex align-items-center justify-content-center gap-2 no-shadow" type="button" id="btn_add_row" title="Agregar fila"){$"#<@ICON_ADD_ROW>"}
-                button(class="btn btn-sm d-flex align-items-center justify-content-center gap-2 no-shadow" type="button" id="btn_del_row" title="Eliminar fila"){$"#<@ICON_REMOVE_ROW>"}
+                button(class="#<tbl_btn_act_cls>" type="button" id="btn_add_prod" title="Agregar producto"){$"#<@ICON_BOX>"}
+
+                small(class="text-muted"){$"|"}
+
+                button(class="#<tbl_btn_act_cls>" type="button" id="btn_add_row" title="Agregar fila"){$"#<@ICON_ADD_ROW>"}
+                button(class="#<tbl_btn_act_cls>" type="button" id="btn_del_row" title="Eliminar fila"){$"#<@ICON_REMOVE_ROW>"}
             }
             div(class="alert alert-danger rounded-0 mb-1 py-0 d-none" role="alert" id="tbl_alerts"){$""}
             div(class="" id="div_tbl_productos" style="width:auto; min-width:100%; max-height:55vh; display:flex;")
@@ -333,6 +341,17 @@ module "form.dk"
                             "edit-th"(type="Number" field="descuentos" textalign="end" format="true" thousandssep="true" decs="4"){$"Descuentos"}
                             "edit-th"(type="NoEditable" field="impuestos" textalign="end" format="true" thousandssep="true" decs="4"){$"Impuestos"}
                             "edit-th"(type="NoEditable" field="importe" textalign="end" format="true" thousandssep="true" decs="4"){$"Importe"}
+                            #! if @enable_lotes
+                            {
+                                #$
+                                "edit-th"(type="Text" field="lote"){$"Lote"}
+                                "edit-th"(type="Date" field="fcad"){$"Caducidad"}
+                            }
+                            #! if @enable_series
+                            {
+                                #$
+                                "edit-th"(type="Text" field="serie"){$"Serie"}
+                            }
                             "edit-th"(type="Memo" field="notas"){$"Notas"}
                         }
                     }
@@ -367,6 +386,8 @@ module "form.dk"
                 venta._GET = #<to.json(@("&parameters"))>;
                 venta.idocumento = #<@@(entity,"#documento")>;
                 venta.cur_stt_adm = #<@@(entity,"#statusadministrativo")>;
+                venta.enable_lotes = #<@enable_lotes>;
+                venta.enable_series = #<@enable_series>;
                 venta.init();
             });
         '}

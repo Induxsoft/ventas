@@ -56,6 +56,8 @@ module ""
     @fp_consignado = 4
 
     @default_max_rows = 250 // limite de registros para las vistas de lista
+    @enable_lotes = @true // habilitar captura de lotes de los productos
+    @enable_series = @true // habilitar captura de series de los productos
 
     //* ======================================== [ _STATIC RESOURCES ]
     @CSS_MAIN = "/$/ventas/css/main.css"   

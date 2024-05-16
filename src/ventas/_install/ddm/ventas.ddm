@@ -626,6 +626,13 @@ model "erp.ventas"
         @"iproducto" ref:"producto" required
     }
 
+    entity "clotexalmacen" : "TableModel"
+    {
+        @"cantidad" decimal(18,8)
+        @"ialmacen" ref:"almacen" required
+        @"fk_lote_exisxalmacen" ref:"lote" required
+    }
+
     entity "cardex" : "TableModel"
     {
         @"aplicado" bool
@@ -741,6 +748,7 @@ model "erp.ventas"
         @"xfacturar" decimal(18,8)
         @"xsalir" decimal(18,8)
         @"documento" ref:"venta"
+        @"doc_partida" ref:"dventa"
         @"ialmacen" ref:"almacen" required
         @"iproducto" ref:"producto" required
         @"fk_venta_detalle" ref:"venta" required

@@ -2,7 +2,7 @@ var venta =
 {
     formId:"", form:null, tableId:"", table:null, _GET:{},
     url_exit:"", url_get_fultimo:"", url_get_series:"", url_change_status:"",
-    last_unit:"", last_tcambio:1, is_new:false, idocumento:0, cur_stt_adm:0,
+    last_unit:"", last_tcambio:1, is_new:false, idocumento:0, cur_stt_adm:0, enable_lotes:true, enable_series:true,
 
     init()
     {
@@ -90,10 +90,12 @@ var venta =
         const ik_producto = document.getElementById("ik_producto");
         const btn_add_row = document.getElementById("btn_add_row");
         const btn_del_row = document.getElementById("btn_del_row");
+        const btn_add_prod = document.getElementById("btn_add_prod");
 
         ik_producto.change_event = (data) => this.addProduct(data);
         btn_add_row.addEventListener("click", () => this.table.AddRow());
         btn_del_row.addEventListener("click", () => this.table.DeleteCurrentRow());
+        btn_add_prod.addEventListener("click", () => ik_producto.searchText("",false));
         this.table.setInputKey("codigo",ik_producto);
         this.table.setInputKey("descripcion",ik_producto);
 
@@ -237,6 +239,8 @@ var venta =
 
         let new_stt_adm = Number(relbtn.getAttribute("data-stt-adm"));
         let _detalle = this.filterDataArray(this.table);
+
+        if (!this.validateLoteSerie(_detalle)) return;
         
         let fd = new FormData(this.form);
         fd.append("statusadministrativo",new_stt_adm);
@@ -260,6 +264,31 @@ var venta =
         }
 
         InduxsoftCrudlModel.InvokeService(endpoint, fd, onSuccess, onFailure, method, false, true, "", true);
+    },
+
+    validateLoteSerie(detalle)
+    {
+        let Ok = true;
+
+        if (!this.enable_lotes && !this.enable_series) return Ok;
+
+        for (let i = 0; i < detalle.length; i++) {
+            const row = detalle[i];
+            
+            if (this.enable_lotes && Boolean(row.reqlote) && (row.lote??"").trim() === "") {
+                alert(`No es posible continuar, el producto ${row.codigo} - ${row.descripcion} requiere un número de lote.`);
+                Ok = false;
+                break;
+            }
+
+            if (this.enable_series && Boolean(row.reqserie) && (row.serie??"").trim() === "") {
+                alert(`No es posible continuar, el producto ${row.codigo} - ${row.descripcion} requiere un número de serie.`);
+                Ok = false;
+                break;
+            }
+        }
+
+        return Ok;
     },
 
     changeStatus(relbtn)
@@ -473,8 +502,8 @@ var venta =
             impuesto4: i.impuesto4,
             status: 1, // cPor_entregar
             tipocambio: p.tipocambio,
-            xfacturar: 1,
-            xsalir: 1,
+            xfacturar: i.cantidad,
+            xsalir: i.cantidad,
             ialmacen: ialmacen,
             iproducto: p.sys_pk,
 
@@ -492,16 +521,19 @@ var venta =
             factorc: p.factorc,
             factord: p.factord,
             factore: p.factore,
-            list_unidades: lu
+            list_unidades: lu,
+            reqlote: p.reqlote,
+            reqserie: p.reqserie
         }
 
-        if (curr_row < 0) curr_row = 0;
-        if (!dtarray[curr_row]) dtarray[curr_row] = {};
+        let _productos = this.filterDataArray(this.table);
+        let available_row = (_productos.length > 0) ? _productos.length : 0;
         
-        dtarray[curr_row] = producto
+        if (dtarray.length === _productos.length) this.table.AddRow();
         
-        this.table.UpdateRow(curr_row);
-        this.table.NavTo(curr_row,2);
+        dtarray[available_row] = producto
+        this.table.UpdateRow(available_row);
+        this.table.NavTo(available_row,2);
         this.tableSummary();
     },
 
@@ -710,7 +742,14 @@ var venta =
         }
 
         if (field === "precio") producto["precio"] = Number(e.text.trim());
-        if (field === "cantidad") producto["cantidad"] = Number(e.text.trim());
+        if (field === "cantidad")
+        {
+            let cantidad = Number(e.text.trim());
+            
+            producto["cantidad"] = cantidad;
+            producto["xfacturar"] = cantidad;
+            producto["xsalir"] = cantidad;
+        }
         if (field === "descuentos") producto["descuentos"] = Number(e.text.trim());
         
         this.edtProduct(producto,curr_row);

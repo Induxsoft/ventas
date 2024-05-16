@@ -34,6 +34,46 @@
                         "showfield":"const"
                     }
                 }
+            },
+            {
+                "varname": "ventas_enable_lotes",
+                "vardefault": "1",
+                "varvalue": "1",
+                "varcaption": "Requerir lotes",
+                "varhelp": "Habilitar captura de lotes en los productos",
+                "vartype": "bool",
+                "varinput": {
+                    "control": "select",
+                    "source":{
+                        "type":"list",
+                        "values":[
+                            {"val":"1", "text":"Si"},
+                            {"val":"0", "text":"No"}
+                        ],
+                        "showfield":"text",
+                        "keyfield":"val"
+                    }
+                }
+            },
+            {
+                "varname": "ventas_enable_series",
+                "vardefault": "1",
+                "varvalue": "1",
+                "varcaption": "Requerir series",
+                "varhelp": "Habilitar captura de series en los productos",
+                "vartype": "bool",
+                "varinput": {
+                    "control": "select",
+                    "source":{
+                        "type":"list",
+                        "values":[
+                            {"val":"1", "text":"Si"},
+                            {"val":"0", "text":"No"}
+                        ],
+                        "showfield":"text",
+                        "keyfield":"val"
+                    }
+                }
             }
         ]
     }

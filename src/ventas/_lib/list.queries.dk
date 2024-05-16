@@ -132,7 +132,10 @@ module "Lista de consultas MySQL"
         IFNULL(p.factorb,0) AS factorb,
         IFNULL(p.factorc,0) AS factorc,
         IFNULL(p.factord,0) AS factord,
-        IFNULL(p.factore,0) AS factore
+        IFNULL(p.factore,0) AS factore,
+        IFNULL(dt.sys_info,'') AS sys_info,
+        p.reqlote,
+        p.reqserie
     FROM dventa AS dt
         INNER JOIN producto AS p ON dt.iproducto = p.sys_pk
         INNER JOIN cfgimpuesto AS i ON p.impuestos = i.sys_pk
@@ -193,6 +196,8 @@ module "Lista de consultas MySQL"
         IFNULL(p.factorc,0) AS factorc,
         IFNULL(p.factord,0) AS factord,
         IFNULL(p.factore,0) AS factore,
+        p.reqlote,
+        p.reqserie,
         dvs.codigo AS `divisa`,
         dvs.tcambio AS tipocambio,
         imp.nombre AS conf_impuestos,
