@@ -104,6 +104,9 @@ module "Lista de consultas MySQL"
         (dt.descuento1 + dt.descuento2) AS descuentos,
         (dt.impuesto1 + dt.impuesto2 + dt.impuesto3 + dt.impuesto4) AS impuestos,
         (((((((dt.precio * dt.cantidad) - dt.descuento1) - dt.descuento2) + dt.impuesto1) + dt.impuesto2) + dt.impuesto3) + dt.impuesto4) AS importe,
+        IFNULL(l.numero,'') AS `lote`,
+        IFNULL(DATE_FORMAT(l.fcaducidad,'%Y-%m-%d'),'') AS fcad,
+        IFNULL(s.numero,'') AS `serie`,
         dt.notas,
 
         dt.descuento1,
@@ -139,29 +142,10 @@ module "Lista de consultas MySQL"
     FROM dventa AS dt
         INNER JOIN producto AS p ON dt.iproducto = p.sys_pk
         INNER JOIN cfgimpuesto AS i ON p.impuestos = i.sys_pk
+        LEFT JOIN dcardex AS dc ON dc.rventa = dt.sys_pk
+        LEFT JOIN lote AS l ON dc.ilote = l.sys_pk
+        LEFT JOIN serie AS s ON dc.iserie = s.sys_pk
     WHERE dt.fk_venta_detalle = IFNULL(@_entity_id,@sys_pk)
-    "
-
-    @qry_imp_venta = "
-    SELECT
-        SUM(IFNULL(d.descuento1,0)) AS descuento1,
-        SUM(IFNULL(d.descuento2,0)) AS descuento2,
-        SUM(IFNULL(d.impuesto1,0)) AS impuesto1,
-        SUM(IFNULL(d.impuesto2,0)) AS impuesto2,
-        SUM(IFNULL(d.impuesto3,0)) AS impuesto3,
-        SUM(IFNULL(d.impuesto4,0)) AS impuesto4,
-        SUM((IFNULL(d.cantidad,0) * IFNULL(d.precio,0))) AS subtotal
-    FROM dventa d
-    WHERE d.fk_venta_detalle = @_entity_id;
-    "
-
-    @qry_liberar_documentos = "
-    UPDATE venta AS a
-        INNER JOIN dventa AS b ON b.fk_venta_detalle = a.sys_pk
-    SET a.aplicadoa = NULL,
-        b.xfacturar = b.cantidad
-    WHERE a.aplicadoa = @_entity_id
-        AND a.documento IN (#<doctype>)
     "
 
     @qry_buscar_cliente = "
@@ -243,6 +227,58 @@ module "Lista de consultas MySQL"
         por.descripcion
     FROM porteador AS por
     WHERE #<conditions>
+    "
+
+    @qry_imp_venta = "
+    SELECT
+        SUM(IFNULL(d.descuento1,0)) AS descuento1,
+        SUM(IFNULL(d.descuento2,0)) AS descuento2,
+        SUM(IFNULL(d.impuesto1,0)) AS impuesto1,
+        SUM(IFNULL(d.impuesto2,0)) AS impuesto2,
+        SUM(IFNULL(d.impuesto3,0)) AS impuesto3,
+        SUM(IFNULL(d.impuesto4,0)) AS impuesto4,
+        SUM((IFNULL(d.cantidad,0) * IFNULL(d.precio,0))) AS subtotal
+    FROM dventa d
+    WHERE d.fk_venta_detalle = @_entity_id;
+    "
+
+    @qry_liberar_documentos = "
+    UPDATE venta AS a
+        INNER JOIN dventa AS b ON b.fk_venta_detalle = a.sys_pk
+    SET a.aplicadoa = NULL,
+        b.xfacturar = b.cantidad
+    WHERE a.aplicadoa = @_entity_id
+        AND a.documento IN (#<doctype>)
+    "
+
+    @qry_lotes_por_producto = "
+    SELECT
+        lot.sys_pk AS ilote,
+        lxa.ialmacen,
+        lot.numero,
+        lxa.cantidad,
+        IFNULL(DATE_FORMAT(lot.fcaducidad,'%Y-%m-%d'),'') AS fcaducidad,
+        alm.descripcion AS `almacen`
+    FROM lote AS lot
+        INNER JOIN clotexalmacen AS lxa ON lot.sys_pk = lxa.fk_lote_exisxalmacen
+        INNER JOIN almacen AS alm ON lxa.ialmacen = alm.sys_pk
+    WHERE NOT IFNULL(lot.sys_deleted,0)
+        AND lxa.cantidad > 0
+        AND lot.iproducto = @iproducto
+    "
+
+    @qry_series_por_producto = "
+    SELECT
+        ser.sys_pk AS iserie,
+        ser.numero,
+        stt.const AS cstatus,
+        IFNULL(lot.numero,'') AS num_lote
+    FROM serie AS ser
+        LEFT JOIN lote AS lot ON ser.ilote = lot.sys_pk
+        INNER JOIN cstatusseries AS stt ON ser.status = stt.id
+    WHERE NOT IFNULL(ser.sys_deleted,0)
+        AND ser.status IN (1,4)
+        AND ser.iproducto = @iproducto
     "
 
     @qry_docs_venta = "SELECT a.id, a.const FROM cdocumentos AS a INNER JOIN cfg_doc_ventas AS b ON a.id = b.documento ORDER BY a.id ASC"

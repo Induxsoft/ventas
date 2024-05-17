@@ -2,7 +2,7 @@ var venta =
 {
     formId:"", form:null, tableId:"", table:null, _GET:{},
     url_exit:"", url_get_fultimo:"", url_get_series:"", url_change_status:"",
-    last_unit:"", last_tcambio:1, is_new:false, idocumento:0, cur_stt_adm:0, enable_lotes:true, enable_series:true,
+    last_unit:"", last_tcambio:1, is_new:false, idocumento:0, cur_stt_adm:0, enable_lotes:true, enable_series:true, error_timeout:7,
 
     init()
     {
@@ -88,14 +88,25 @@ var venta =
 
         const evt = this.table.EdiTable.Const.Events;
         const ik_producto = document.getElementById("ik_producto");
+        const ik_lot_prod = document.getElementById("ik_lot_prod");
+        const ik_ser_prod = document.getElementById("ik_ser_prod");
+        const ik_link_doc = document.getElementById("ik_link_doc");
         const btn_add_row = document.getElementById("btn_add_row");
         const btn_del_row = document.getElementById("btn_del_row");
         const btn_add_prod = document.getElementById("btn_add_prod");
+        const btn_add_lote = document.getElementById("btn_add_lote");
+        const btn_add_serie = document.getElementById("btn_add_serie");
+        const btn_add_doc = document.getElementById("btn_add_doc");
 
         ik_producto.change_event = (data) => this.addProduct(data);
+        ik_lot_prod.change_event = (data) => this.addLoteToProduct(data);
+        ik_ser_prod.change_event = (data) => this.addSerieToProduct(data);
         btn_add_row.addEventListener("click", () => this.table.AddRow());
-        btn_del_row.addEventListener("click", () => this.table.DeleteCurrentRow());
+        btn_del_row.addEventListener("click", () => this.delProduct());
         btn_add_prod.addEventListener("click", () => ik_producto.searchText("",false));
+        btn_add_lote.addEventListener("click", () => this.launchIkOfProduct(ik_lot_prod));
+        btn_add_serie.addEventListener("click", () => this.launchIkOfProduct(ik_ser_prod));
+        btn_add_doc.addEventListener("click", () => this.launchIkLinkDocument(ik_link_doc));
         this.table.setInputKey("codigo",ik_producto);
         this.table.setInputKey("descripcion",ik_producto);
 
@@ -232,6 +243,60 @@ var venta =
         return (edt?.DataArray??[]).filter((row) => { return Object.keys(row??{}).length >= edt.Columns.length })
     },
 
+    launchIkLinkDocument(ik_link_doc)
+    {
+        const ik_cliente = document.getElementById("ik_cliente");
+        let dtcte = ik_cliente.getValue() ?? {};
+        
+        if (Number(dtcte.sys_pk ?? "-1") <= 0) {
+            alert("Debe seleccionar un cliente para continuar");
+            return;
+        }
+
+        let params = 
+        {
+            icliente: Number(dtcte.sys_pk),
+            doctype: Number(this.form.elements["sel_documento"].value)
+        }
+
+        let endpoint = InduxsoftCrudlModel.UrlReplace(ik_link_doc.getAttribute("data-source"),params);
+
+        ik_link_doc.setAttribute("data-source",endpoint);
+        ik_link_doc.searchText("",false);
+    },
+
+    launchIkOfProduct(ik)
+    {
+        let dtarray = this.table?.DataArray ?? [];
+        let curr_row = this.table.CurrentRowIndex();
+        let data_row = dtarray[curr_row] ?? {};
+
+        if (curr_row < 0) return;
+        if (Object.keys(data_row).length < this.table.Columns.length) return;
+
+        let endpoint = ik.getAttribute("data-source").replace("@iproducto", data_row.iproducto);
+
+        ik.setAttribute("data-source",endpoint);
+        ik.searchText("%",false);
+    },
+
+    addLoteToProduct(data)
+    {
+        let curr_row = this.table.CurrentRowIndex();
+        let producto = this.table.DataArray[curr_row];
+        producto["lote"] = data?.numero ?? "";
+        producto["fcad"] = data?.fcaducidad ?? "";
+        this.table.UpdateRow(curr_row);
+    },
+
+    addSerieToProduct(data)
+    {
+        let curr_row = this.table.CurrentRowIndex();
+        let producto = this.table.DataArray[curr_row];
+        producto["serie"] = data?.numero ?? "";
+        this.table.UpdateRow(curr_row);
+    },
+
     submit(relbtn)
     {
         if (!this.form) return;
@@ -260,7 +325,7 @@ var venta =
 
         const onFailure = (error) => {
             let content = error.message ?? JSON.stringify(error);
-            show_alert("#frm_alerts", content, 6);
+            show_alert("#frm_alerts", content, this.error_timeout);
         }
 
         InduxsoftCrudlModel.InvokeService(endpoint, fd, onSuccess, onFailure, method, false, true, "", true);
@@ -317,7 +382,7 @@ var venta =
         
         const onFailure = (error) => {
             let content = error.message ?? JSON.stringify(error);
-            show_alert("#frm_alerts", content, 6);
+            show_alert("#frm_alerts", content, this.error_timeout);
         }
 
         InduxsoftCrudlModel.InvokeService(endpoint, fd, onSuccess, onFailure, method, false, true, "", true);
@@ -490,6 +555,9 @@ var venta =
             descuentos: i.descuentos,
             impuestos: i.impuestos,
             importe: i.total,
+            lote: "",
+            fcad: "",
+            serie: "",
             notas: "",
 
             // campos para el insert.
@@ -555,6 +623,18 @@ var venta =
 
         this.table.UpdateRow(rowIndex);
         this.tableSummary();
+    },
+
+    delProduct()
+    {
+        let dtarray = this.table?.DataArray ?? [];
+        let curr_row = this.table.CurrentRowIndex();
+        let data_row = dtarray[curr_row] ?? {};
+
+        if (curr_row < 0) return;
+
+        if (Object.keys(data_row).length >= this.table.Columns.length) { this.table.DeleteRow(curr_row); this.tableSummary(); }
+        else { this.table.DeleteRow(curr_row); }
     },
 
     fillUnitCell(e)
@@ -745,7 +825,13 @@ var venta =
         if (field === "cantidad")
         {
             let cantidad = Number(e.text.trim());
+
+            if (producto.reqserie && cantidad > 1) {
+                alert("La cantidad para este producto con serie requerida debe ser 1, para agregar más series del mismo producto insertelo en una nueva fila");
+                cantidad = 1;
+            }
             
+            e.text = cantidad;
             producto["cantidad"] = cantidad;
             producto["xfacturar"] = cantidad;
             producto["xsalir"] = cantidad;

@@ -65,28 +65,7 @@ module ":erp.ventas.procesos"
         {
             ref info = from.json(@@(item,"$sys_info"))
             // Lote
-            if @@(info,"#lote") > 0
-            {
-                dcardex<"ilote"> : @@(info,"#lote")
-                // CLoteXAlmacen
-                new params
-                {
-                    @"ilote": @@(dcardex,"#ilote")
-                    @"ialmacen": @@(dcardex,"#ialmacen")
-                }
-                if isnull(dbr.rec(db,"SELECT sys_pk FROM clotexalmacen WHERE fk_lote_exisxalmacen=@ilote AND ialmacen=@ialmacen LIMIT 1;",params))
-                {
-                    new clxa
-                    {
-                        @"sys_guid": uuid()
-                        @"sys_timestamp*": now()
-                        @"cantidad": 0
-                        @"ialmacen": @@(dcardex,"ialmacen")
-                        @"fk_lote_exisxalmacen": @@(dcardex,"ilote")
-                    }
-                    do dbr.insert(db,"clotexalmacen",clxa)
-                }
-            }
+            if @@(info,"#lote") > 0 { dcardex<"ilote"> : @@(info,"#lote") }
             // Serie
             if @@(info,"#serie") > 0 { dcardex<"iserie"> : @@(info,"#serie") }
 

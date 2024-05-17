@@ -103,6 +103,16 @@ module ":Venta"
         return list.create()
     }
 
+    obtenerLotesPorProducto::&db,&params
+    {
+        return dbr.list(db,@qry_lotes_por_producto,params)
+    }
+
+    obtenerSeriesPorProducto::&db,&params
+    {
+        return dbr.list(db,@qry_series_por_producto,params)
+    }
+
     obtenerCliente::&db,id
     {
         new params { @"id": id }
@@ -346,8 +356,8 @@ module ":Venta"
                     ref lote = dbr.rec(db,"SELECT IFNULL(DATE_FORMAT(fcaducidad,'%Y-%m-%d'),'') AS fcaducidad, numero FROM lote WHERE sys_pk=@lote",info)
                     if not(isnull(lote))
                     {
-                        prod<"lote"> : @@(lote,"numero")
-                        prod<"fcad"> : @@(lote,"fcaducidad")
+                        prod<"lote"> : @@(lote,"$numero")
+                        prod<"fcad"> : @@(lote,"$fcaducidad")
                     }
                 }
                 if @@(info,"#serie") > 0
@@ -355,7 +365,7 @@ module ":Venta"
                     ref serie = dbr.rec(db,"SELECT numero FROM serie WHERE sys_pk=@serie",info)
                     if not(isnull(serie))
                     {
-                        prod<"serie"> : @@(serie,"numero")
+                        prod<"serie"> : @@(serie,"$numero")
                     }
                 }
             }
@@ -380,25 +390,11 @@ module ":Venta"
             //#region Establecer lote
             if trim(@@(prod,"$lote")) != ""
             {
-                ref lote = dbr.rec(db,"SELECT sys_pk, IF(iproducto=@iproducto,1,0) in_use, numero FROM lote WHERE numero=@lote LIMIT 1",prod)
-                if not(isnull(lote))
-                {
-                    if @@(lote,"#in_use") {
-                        do rise_error(500,"El lote: "+@@(lote,"$numero")+" del producto "+@@(prod,"$descripcion")+" ya está asignado a un producto diferente, indique uno nuevo.")
-                    }
-                    else { data<"lote"> : @@(lote,"#sys_pk") }
-                }
+                ref lote = dbr.rec(db,"SELECT sys_pk, numero FROM lote WHERE numero=@lote AND iproducto=@iproducto LIMIT 1",prod)
+                if isnull(lote) { do rise_error(500,"El número de lote indicado para "+@@(prod,"$descripcion")+" no existe, indique uno diferente.") }
                 else
                 {
-                    new _lote
-                    {
-                        @"numero": trim(@@(prod,"$lote"))
-                        @"iproducto": @@(prod,"#iproducto")
-                    }
-                    if @@(prod,"$fcad") != "" { _lote<"fcaducidad*"> : dbr.sql("CAST("+@@(prod,"$fcad")+") AS DATE") }
-
-                    ref new_lote = dbr.save(db,"lote",_lote)
-                    data<"lote"> : @@(new_lote,"#sys_pk")
+                    data<"lote"> : @@(lote,"#sys_pk")
                 }
             }
             //#endregion
@@ -406,26 +402,13 @@ module ":Venta"
             //#region Establecer serie
             if trim(@@(prod,"$serie")) != ""
             {
-                ref serie = dbr.rec(db,"SELECT sys_pk, IF(iproducto=@iproducto,1,0) in_use, numero FROM serie WHERE numero=@serie LIMIT 1",prod)
-                if not(isnull(serie))
+                ref serie = dbr.rec(db,"SELECT sys_pk, numero, status FROM serie WHERE numero=@serie AND iproducto=@iproducto LIMIT 1",prod)
+                if isnull(serie) { do rise_error(500,"El número de serie indicado para "+@@(prod,"$descripcion")+" no existe, indique uno diferente.") }
+                else
                 {
-                    if @@(serie,"#in_use") {
-                        do rise_error(500,"La serie: "+@@(serie,"$numero")+" del producto "+@@(prod,"$descripcion")+" ya está asignado a un producto diferente, indique uno nuevo.")
-                    }
-                    else { data<"serie"> : @@(serie,"#sys_pk") }
-                }
-                else 
-                {
-                    new _serie
-                    {
-                        @"numero": trim(@@(prod,"$serie"))
-                        @"status": @stt_serie_disponible
-                        @"iproducto": @@(prod,"#iproducto")
-                    }
-                    if @@(data,"#lote") > 0 { _serie<"ilote"> : @@(data,"#lote") }
-
-                    ref new_serie = dbr.save(db,"serie",_serie)
-                    data<"serie"> : @@(new_serie,"#sys_pk")
+                    if @@(serie,"#status") != @stt_serie_disponible && @@(serie,"#status") != @stt_serie_devuelto_por_cliente
+                    { do rise_error(500,"El número de serie indicado para "+@@(prod,"$descripcion")+" no se encuentra disponible, indique uno diferente") }
+                    data<"serie"> : @@(serie,"#sys_pk")
                 }
             }
             //#endregion

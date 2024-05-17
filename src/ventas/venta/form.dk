@@ -310,7 +310,13 @@ module "form.dk"
             {
                 small(class="flex-grow-1 text-muted"){$"Seleccione los productos en la cuadrícula"}
 
-                button(class="#<tbl_btn_act_cls>" type="button" id="btn_add_prod" title="Agregar producto"){$"#<@ICON_BOX>"}
+                button(class="#<tbl_btn_act_cls>" type="button" id="btn_add_doc" title="Incluir documento"){$"#<@ICON_DOCUMENT> Incluir"}
+
+                small(class="text-muted"){$"|"}
+
+                button(class="#<tbl_btn_act_cls>" type="button" id="btn_add_prod" title="Agregar producto"){$"#<@ICON_BOX_4> Agregar"}
+                button(class="#<tbl_btn_act_cls>" type="button" id="btn_add_lote" title="Agregar lote al producto"){$"#<@ICON_123> Agregar lote"}
+                button(class="#<tbl_btn_act_cls>" type="button" id="btn_add_serie" title="Agregar serie al producto"){$"#<@ICON_ABC> Agregar serie"}
 
                 small(class="text-muted"){$"|"}
 
@@ -368,7 +374,13 @@ module "form.dk"
 
             div
             {
-                "input-key"(id="ik_producto" "data-key"="sys_pk" "data-search"="codigo" "data-text"="descripcion" "data-source"="#<@URL_BUSCAR_PRODUCTO>" columns="codigo,descripcion" colcaptions="Código,Descripción" "box-title-text"="Seleccione un producto" "control-styles"="#container{display:none !important;}"){$""}
+                "input-key"(id="ik_producto" "data-key"="sys_pk" "data-search"="codigo" "data-text"="descripcion" "data-source"="#<@URL_BUSCAR_PRODUCTO>" columns="codigo,descripcion" colcaptions="Código,Descripción" "box-title-text"="Seleccione un producto de la lista" "control-styles"="#container{display:none !important;}"){$""}
+
+                "input-key"(id="ik_lot_prod" "data-key"="sys_pk" "data-search"="numero" "data-text"="fcaducidad" "data-source"="#<@URL_OBTENER_LOTES_POR_PRODUCTO>" columns="numero,cantidad,fcaducidad" colcaptions="Número,Cantidad,F.Caducidad" "control-styles"="#container{display:none !important;}"){$""}
+
+                "input-key"(id="ik_ser_prod" "data-key"="sys_pk" "data-search"="numero" "data-text"="cstatus" "data-source"="#<@URL_OBTENER_SERIES_POR_PRODUCTO>" columns="numero,cstatus,num_lote" colcaptions="Número,Estado,No.Lote" "control-styles"="#container{display:none !important;}"){$""}
+
+                "input-key"(id="ik_link_doc" "data-key"="sys_pk" "data-search"="referencia" "data-text"="documento" "data-source"="#<@URL_BUSCAR_DOCUMENTO>" columns="documento,referencia,fecha" colcaptions="Documento,Referencia,Fecha" "control-styles"="#container{display:none !important;}"){$""}
             }
         }
 

@@ -29,6 +29,16 @@ module "VentaController"
             point @list to Venta.buscarPorteador
             break
         }
+        case "obtener-lotes-xproducto"
+        {
+            point @list to Venta.obtenerLotesPorProducto
+            break
+        }
+        case "obtener-series-xproducto"
+        {
+            point @list to Venta.obtenerSeriesPorProducto
+            break
+        }
         case "obtener-fultimo"
         {
             point @list to Venta.obtenerFultimo
