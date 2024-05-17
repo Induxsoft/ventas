@@ -24,6 +24,7 @@ module "Lista de consultas MySQL"
         sfin.const AS stt_fin,
         fp.const AS forma_pago,
         sadm.const AS stt_adm
+        #<selects>
     FROM venta AS vnt
         INNER JOIN cliente AS cte ON vnt.icliente = cte.sys_pk
         INNER JOIN divisa AS dvs ON vnt.idivisa = dvs.sys_pk
@@ -31,6 +32,7 @@ module "Lista de consultas MySQL"
         INNER JOIN cformaspago AS fp ON vnt.formapago = fp.id
         INNER JOIN cstatusfinancieros AS sfin ON vnt.statusfinanciero = sfin.id
         INNER JOIN cstatusadministrativos AS sadm ON vnt.statusadministrativo = sadm.id
+        #<joins>
     WHERE NOT IFNULL(vnt.sys_deleted,0)
         #<conditions>
     ORDER BY vnt.fecha ASC
@@ -95,10 +97,12 @@ module "Lista de consultas MySQL"
 
     @qry_dventa = "
     SELECT
+        IFNULL(src.referencia,'') AS origen,
         p.codigo,
         p.descripcion,
         dt.unidad,
         dt.precio,
+        CONCAT(ROUND(dt2.cantidad - IFNULL(dt2.xfacturar,dt2.cantidad),0), '/', ROUND(dt2.cantidad,0)) AS cotizado,
         dt.cantidad,
         (dt.precio * dt.cantidad) AS subtotal,
         (dt.descuento1 + dt.descuento2) AS descuentos,
@@ -122,6 +126,8 @@ module "Lista de consultas MySQL"
         dt.xsalir,
         dt.ialmacen,
         dt.iproducto,
+        dt.documento,
+        dt.doc_partida,
 
         (CONVERT(REPLACE(SUBSTRING_INDEX(i.i1compra, '|', @zimpuesto),'%',''), DECIMAL) / 100) AS i1_tasa,
         (CONVERT(REPLACE(SUBSTRING_INDEX(i.i1compra, '|', @zimpuesto),'%',''), DECIMAL) / 100) AS i2_tasa,
@@ -139,12 +145,16 @@ module "Lista de consultas MySQL"
         IFNULL(dt.sys_info,'') AS sys_info,
         p.reqlote,
         p.reqserie
+        #<selects>
     FROM dventa AS dt
         INNER JOIN producto AS p ON dt.iproducto = p.sys_pk
         INNER JOIN cfgimpuesto AS i ON p.impuestos = i.sys_pk
+        LEFT JOIN dventa AS dt2 ON dt.doc_partida = dt2.sys_pk
+        LEFT JOIN venta AS src ON dt.documento = src.sys_pk
         LEFT JOIN dcardex AS dc ON dc.rventa = dt.sys_pk
         LEFT JOIN lote AS l ON dc.ilote = l.sys_pk
         LEFT JOIN serie AS s ON dc.iserie = s.sys_pk
+        #<joins>
     WHERE dt.fk_venta_detalle = IFNULL(@_entity_id,@sys_pk)
     "
 
@@ -198,7 +208,8 @@ module "Lista de consultas MySQL"
         INNER JOIN divisa AS dvs ON dvs.sys_pk = p.idivisa
         INNER JOIN cfgimpuesto AS imp ON imp.sys_pk = p.impuestos
         #<joins>
-    WHERE #<conditions>
+    WHERE NOT IFNULL(p.sys_deleted,0)
+        #<conditions>
     "
 
     @qry_buscar_agente = "
@@ -251,7 +262,7 @@ module "Lista de consultas MySQL"
         AND a.documento IN (#<doctype>)
     "
 
-    @qry_lotes_por_producto = "
+    @qry_lotes_de_producto = "
     SELECT
         lot.sys_pk AS ilote,
         lxa.ialmacen,
@@ -267,7 +278,7 @@ module "Lista de consultas MySQL"
         AND lot.iproducto = @iproducto
     "
 
-    @qry_series_por_producto = "
+    @qry_series_de_producto = "
     SELECT
         ser.sys_pk AS iserie,
         ser.numero,

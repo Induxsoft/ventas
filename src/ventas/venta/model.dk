@@ -9,8 +9,8 @@ module ":Venta"
     @create_fields = "*"
     @update_fields = "*"
     
-    @create_exclude_fields = "sys_lastuser,descuento1,descuento2,impuesto1,impuesto2,impuesto3,impuesto4,subtotal,serie,folio,_detalle"
-    @update_exclude_fields = "sys_pk,sys_guid,sys_dtcreated,sys_user,descuento1,descuento2,impuesto1,impuesto2,impuesto3,impuesto4,subtotal,serie,folio,_detalle,documento,referencia,ifolio"
+    @create_exclude_fields = "sys_lastuser,descuento1,descuento2,impuesto1,impuesto2,impuesto3,impuesto4,subtotal,serie,folio,_detalle,docs_included"
+    @update_exclude_fields = "sys_pk,sys_guid,sys_dtcreated,sys_user,descuento1,descuento2,impuesto1,impuesto2,impuesto3,impuesto4,subtotal,serie,folio,_detalle,docs_included,documento,referencia,ifolio"
     
     @create_alias_fields = ""
     @update_alias_fields = ""
@@ -42,8 +42,33 @@ module ":Venta"
     {
         do Venta.setZonaImpuesto(db,params)
         
-        conditions = "NOT IFNULL(p.sys_deleted,0) AND (p.codigo LIKE CONCAT('%',@search,'%') OR p.descripcion LIKE CONCAT('%',@search,'%'))"
+        conditions = "AND (p.codigo LIKE CONCAT('%',@search,'%') OR p.descripcion LIKE CONCAT('%',@search,'%'))"
         return dbr.list(db,ftext(@qry_buscar_producto),params)
+    }
+
+    buscarDocumento::&db,&params
+    {
+        joins = "INNER JOIN dventa AS dv ON vnt.sys_pk = dv.fk_venta_detalle"
+
+        conditions = ftext("
+        AND vnt.statusadministrativo != #<@stt_adm_cancelado>
+        AND vnt.aplicadoa IS NULL
+        AND vnt.icliente = @icliente
+        AND (
+            CASE @doctype
+                WHEN #<@cPedido> THEN vnt.documento = #<@cCotizacion>
+                WHEN #<@cRemision> THEN vnt.documento IN (#<@cCotizacion>,#<@cPedido>)
+                WHEN #<@cFactura> THEN vnt.documento IN (#<@cCotizacion>,#<@cPedido>,#<@cRemision>)
+            END
+        )
+        AND (vnt.referencia LIKE CONCAT('%',@search,'%'))
+        GROUP BY vnt.sys_pk
+        HAVING SUM(IFNULL(dv.xfacturar,0)) > 0
+        ")
+
+        if @@(params,"#icliente") > 0 && @@(params,"#doctype") > 0 && trim(@@(params,"$search")) != "" { return dbr.list(db,ftext(@qry_list_venta),params) }
+
+        return list.create()
     }
 
     buscarAgente::&db,&params
@@ -103,14 +128,55 @@ module ":Venta"
         return list.create()
     }
 
-    obtenerLotesPorProducto::&db,&params
+    obtenerDocumentosIncluidos::&db,&params
     {
-        return dbr.list(db,@qry_lotes_por_producto,params)
+        ref documentos = list.create()
+        ref data = record.create()
+
+        if @@(params,"#iventa") > 0
+        {
+            docs_id = dbr.str(db,"SELECT GROUP_CONCAT(sys_pk SEPARATOR ',') FROM venta WHERE aplicadoa = @iventa;",params)
+            conditions = "AND vnt.sys_pk IN ("+docs_id+")"
+            ref documentos = dbr.list(db,ftext(@qry_list_venta),@null)
+        }
+
+        go foreach.lobj(value:doc) with(documentos)
+        {
+            data<@@(doc,"$sys_pk")+"*"> : doc
+        }
+
+        new response
+        {
+            @"data*": data
+        }
+
+        return data
     }
 
-    obtenerSeriesPorProducto::&db,&params
+    obtenerDVenta::&db,&params
     {
-        return dbr.list(db,@qry_series_por_producto,params)
+        new p { @"_entity_id": @@(params,"#iventa") }
+
+        selects = ",
+        vnt.referencia AS origen,
+        CONCAT(ROUND(dt.cantidad - IFNULL(dt.xfacturar,dt.cantidad),0), '/' ,ROUND(dt.cantidad,0)) AS cotizado,
+        vnt.sys_pk AS documento,
+        dt.sys_pk AS doc_partida
+        "
+
+        joins = "INNER JOIN venta AS vnt ON dt.fk_venta_detalle = vnt.sys_pk"
+
+        return dbr.list(db,ftext(@qry_dventa),p)
+    }
+
+    obtenerLotesDeProducto::&db,&params
+    {
+        return dbr.list(db,@qry_lotes_de_producto,params)
+    }
+
+    obtenerSeriesDeProducto::&db,&params
+    {
+        return dbr.list(db,@qry_series_de_producto,params)
     }
 
     obtenerCliente::&db,id
@@ -427,6 +493,17 @@ module ":Venta"
         do dbr.update(db,"venta",amounts,ftext("#<@keyfield> = @_entity_id"),params)
     }
 
+    documentsIncluded::&db,documents,iventa
+    {
+        new params { @"iventa": parse.num(iventa) }
+        documents = trim(str(documents))
+
+        if documents == "" { return }
+
+        do dbr.execute(db,"UPDATE venta SET aplicadoa = NULL WHERE aplicadoa = @iventa",params)
+        do dbr.execute(db,"UPDATE venta SET aplicadoa = @iventa WHERE sys_pk IN ("+documents+")",params)
+    }
+
     changeStatus::&db,&params,&data
     {
         do Venta.validateStatus(db,params,data)
@@ -632,13 +709,14 @@ module ":Venta"
                 @"keyfield": "sys_pk"
                 @"table": "dventa"
                 @"select_query": @childs_query
-                @"fields": "sys_info,cantidad,descuento1,descuento2,factor,impuesto1,impuesto2,impuesto3,impuesto4,notas,precio,status,tipocambio,unidad,xfacturar,xsalir,documento,ialmacen,iproducto"
+                @"fields": "sys_info,cantidad,descuento1,descuento2,factor,impuesto1,impuesto2,impuesto3,impuesto4,notas,precio,status,tipocambio,unidad,xfacturar,xsalir,documento,doc_partida,ialmacen,iproducto"
             }
         }
         
         do validateStatus(db,params,venta)
         do setLoteSerie(db,@@(venta,"&_detalle"))
         ref entity = entity.create(db,params,venta)
+        do documentsIncluded(db,@@(venta,"$docs_included"),@@(entity,"#sys_pk"))
         do updateAmounts(db,@@(entity,"#sys_pk"))
         
         do dbr.commit(db)
@@ -687,7 +765,7 @@ module ":Venta"
                 @"keyfield": "sys_pk"
                 @"table": "dventa"
                 @"select_query": @childs_query
-                @"fields": "sys_info,cantidad,descuento1,descuento2,factor,impuesto1,impuesto2,impuesto3,impuesto4,notas,precio,status,tipocambio,unidad,xfacturar,xsalir,documento,ialmacen,iproducto"
+                @"fields": "sys_info,cantidad,descuento1,descuento2,factor,impuesto1,impuesto2,impuesto3,impuesto4,notas,precio,status,tipocambio,unidad,xfacturar,xsalir,documento,doc_partida,ialmacen,iproducto"
             }
         }
 
@@ -696,6 +774,7 @@ module ":Venta"
         do validateStatus(db,params,venta)
         do setLoteSerie(db,@@(venta,"&_detalle"))
         ref entity = entity.update(db,params,venta)
+        do documentsIncluded(db,@@(venta,"$docs_included"),@@(entity,"#sys_pk"))
         do updateAmounts(db,@@(entity,"#sys_pk"))
         
         do dbr.commit(db)
@@ -820,7 +899,7 @@ module ":Venta"
 
     catch::&db,&params,&data
     {
-        do errordet(@false)
+        do errordet(@error_det)
         if dbr.in_transaction(db) { do dbr.rollback(db) }
 
         ref FormData = record.copy(data,"*")

@@ -51,6 +51,17 @@ function url_decode(url)
     return atob(url);
 }
 
+function readonlyControls(elementsId=[], value=true)
+{
+    elementsId.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            if ("readonly" in el) el.readonly = value;
+            else el.setAttribute("readonly",value);
+        }
+    });
+}
+
 function disableControls(elementsId=[], value=true)
 {
     elementsId.forEach(id => {
@@ -68,7 +79,7 @@ function hideControls(elementsId=[], value=true)
         const el = document.getElementById(id);
         if (el) {
             if ("hidden" in el) el.hidden = value;
-            else el.setAttribute("disabled",value);
+            else el.setAttribute("hidden",value);
         }
     });
 }

@@ -338,10 +338,12 @@ module "form.dk"
                     {
                         "edit-tr"
                         {
+                            "edit-th"(type="NoEditable" field="origen"){$"Origen"}
                             "edit-th"(type="Text" field="codigo" button="true"){$"Código"}
                             "edit-th"(type="Text" field="descripcion" button="true"){$"Descripción"}
                             "edit-th"(type="Select" field="unidad" options="{}"){$"Unidad"}
                             "edit-th"(type="Number" field="precio" textalign="end" format="true" thousandssep="true" decs="4"){$"Precio"}
+                            "edit-th"(type="NoEditable" field="cotizado" textalign="center"){$"Cotizado"}
                             "edit-th"(type="Number" field="cantidad" textalign="center"){$"Cantidad"}
                             "edit-th"(type="NoEditable" field="subtotal" textalign="end" format="true" thousandssep="true" decs="4"){$"Subtotal"}
                             "edit-th"(type="Number" field="descuentos" textalign="end" format="true" thousandssep="true" decs="4"){$"Descuentos"}
@@ -376,11 +378,11 @@ module "form.dk"
             {
                 "input-key"(id="ik_producto" "data-key"="sys_pk" "data-search"="codigo" "data-text"="descripcion" "data-source"="#<@URL_BUSCAR_PRODUCTO>" columns="codigo,descripcion" colcaptions="Código,Descripción" "box-title-text"="Seleccione un producto de la lista" "control-styles"="#container{display:none !important;}"){$""}
 
-                "input-key"(id="ik_lot_prod" "data-key"="sys_pk" "data-search"="numero" "data-text"="fcaducidad" "data-source"="#<@URL_OBTENER_LOTES_POR_PRODUCTO>" columns="numero,cantidad,fcaducidad" colcaptions="Número,Cantidad,F.Caducidad" "control-styles"="#container{display:none !important;}"){$""}
+                "input-key"(id="ik_lot_prod" "data-key"="sys_pk" "data-search"="numero" "data-text"="fcaducidad" "data-source"="#<@URL_OBTENER_LOTES_DE_PRODUCTO>" columns="numero,cantidad,fcaducidad" colcaptions="Número,Cantidad,F.Caducidad" "control-styles"="#container{display:none !important;}"){$""}
 
-                "input-key"(id="ik_ser_prod" "data-key"="sys_pk" "data-search"="numero" "data-text"="cstatus" "data-source"="#<@URL_OBTENER_SERIES_POR_PRODUCTO>" columns="numero,cstatus,num_lote" colcaptions="Número,Estado,No.Lote" "control-styles"="#container{display:none !important;}"){$""}
+                "input-key"(id="ik_ser_prod" "data-key"="sys_pk" "data-search"="numero" "data-text"="cstatus" "data-source"="#<@URL_OBTENER_SERIES_DE_PRODUCTO>" columns="numero,cstatus,num_lote" colcaptions="Número,Estado,No.Lote" "control-styles"="#container{display:none !important;}"){$""}
 
-                "input-key"(id="ik_link_doc" "data-key"="sys_pk" "data-search"="referencia" "data-text"="documento" "data-source"="#<@URL_BUSCAR_DOCUMENTO>" columns="documento,referencia,fecha" colcaptions="Documento,Referencia,Fecha" "control-styles"="#container{display:none !important;}"){$""}
+                "input-key"(id="ik_link_doc" "data-key"="sys_pk" "data-search"="referencia" "data-text"="cdocumento" "data-source"="#<@URL_BUSCAR_DOCUMENTO>" columns="cdocumento,referencia,fecha" colcaptions="Documento,Referencia,Fecha" "control-styles"="#container{display:none !important;}"){$""}
             }
         }
 
@@ -392,6 +394,7 @@ module "form.dk"
                 venta.url_get_fultimo = "#<@URL_OBTENER_FULTIMO>";
                 venta.url_get_series = "#<@URL_OBTENER_SERIES>";
                 venta.url_change_status = "#<@URL_CAMBIAR_ESTADO>";
+                venta.url_get_dventa = "#<@URL_OBTENER_DVENTA>";
                 venta.url_exit = "#<@VNT_LISTAR>";
                 venta.formId = "frm_venta";
                 venta.tableId = "tbl_productos";

@@ -55,9 +55,10 @@ module ""
     @fp_financiado = 3
     @fp_consignado = 4
 
-    @default_max_rows = 250 // limite de registros para las vistas de lista
-    @enable_lotes = @true // habilitar captura de lotes de los productos
-    @enable_series = @true // habilitar captura de series de los productos
+    @default_max_rows = 250 // limite de registros para las vistas de lista.
+    @error_det = @false // Mostrar detalles del error: @true -> {code} description [Ln 000] | @false -> description
+    @enable_lotes = @true // habilitar captura de lotes de los productos.
+    @enable_series = @true // habilitar captura de series de los productos.
 
     //* ======================================== [ _STATIC RESOURCES ]
     @CSS_MAIN = "/$/ventas/css/main.css"   
@@ -71,8 +72,9 @@ module ""
     @URL_BUSCAR_REPARTIDOR = "/!/ventas/venta/?_view=buscar-repartidor&search=@search"
     @URL_BUSCAR_PORTEADOR = "/!/ventas/venta/?_view=buscar-porteador&search=@search"
     @URL_BUSCAR_DOCUMENTO = "/!/ventas/venta/?_view=buscar-documento&search=@search&icliente=@icliente&doctype=@doctype"
-    @URL_OBTENER_LOTES_POR_PRODUCTO = "/!/ventas/venta/?_view=obtener-lotes-xproducto&iproducto=@iproducto"
-    @URL_OBTENER_SERIES_POR_PRODUCTO = "/!/ventas/venta/?_view=obtener-series-xproducto&iproducto=@iproducto"
+    @URL_OBTENER_DVENTA = "/!/ventas/venta/?_view=obtener-dventa&iventa=@iventa"
+    @URL_OBTENER_LOTES_DE_PRODUCTO = "/!/ventas/venta/?_view=obtener-lotes-xproducto&iproducto=@iproducto"
+    @URL_OBTENER_SERIES_DE_PRODUCTO = "/!/ventas/venta/?_view=obtener-series-xproducto&iproducto=@iproducto"
     @URL_OBTENER_FULTIMO = "/!/ventas/venta/?_view=obtener-fultimo&iblock=@iblock"
     @URL_OBTENER_SERIES = "/!/ventas/venta/?_view=obtener-series&doctype=@doctype"
     @URL_CAMBIAR_ESTADO = "/!/ventas/venta/@iventa/change-status/"

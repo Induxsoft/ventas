@@ -14,6 +14,11 @@ module "VentaController"
             point @list to Venta.buscarProducto
             break
         }
+        case "buscar-documento"
+        {
+            point @list to Venta.buscarDocumento
+            break
+        }
         case "buscar-agente"
         {
             point @list to Venta.buscarAgente
@@ -29,14 +34,19 @@ module "VentaController"
             point @list to Venta.buscarPorteador
             break
         }
+        case "obtener-dventa"
+        {
+            point @list to Venta.obtenerDVenta
+            break
+        }
         case "obtener-lotes-xproducto"
         {
-            point @list to Venta.obtenerLotesPorProducto
+            point @list to Venta.obtenerLotesDeProducto
             break
         }
         case "obtener-series-xproducto"
         {
-            point @list to Venta.obtenerSeriesPorProducto
+            point @list to Venta.obtenerSeriesDeProducto
             break
         }
         case "obtener-fultimo"

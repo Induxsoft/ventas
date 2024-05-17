@@ -1,7 +1,7 @@
 var venta =
 {
-    formId:"", form:null, tableId:"", table:null, _GET:{},
-    url_exit:"", url_get_fultimo:"", url_get_series:"", url_change_status:"",
+    formId:"", form:null, tableId:"", table:null, coldef:null, _GET:{}, docs_included:{},
+    url_exit:"", url_get_fultimo:"", url_get_series:"", url_change_status:"", url_get_dventa:"",
     last_unit:"", last_tcambio:1, is_new:false, idocumento:0, cur_stt_adm:0, enable_lotes:true, enable_series:true, error_timeout:7,
 
     init()
@@ -52,6 +52,7 @@ var venta =
         this.setKeyboardShortcuts();
         this.setEventTable();
         this.tableSummary();
+        this.toggleEdtColumns();
 
         if (this.is_new)
         {
@@ -85,6 +86,7 @@ var venta =
     setEventTable()
     {
         if (!this.table) return;
+        if (this.coldef === null) this.coldef = JSON.parse(JSON.stringify(this.table.Columns));
 
         const evt = this.table.EdiTable.Const.Events;
         const ik_producto = document.getElementById("ik_producto");
@@ -101,18 +103,25 @@ var venta =
         ik_producto.change_event = (data) => this.addProduct(data);
         ik_lot_prod.change_event = (data) => this.addLoteToProduct(data);
         ik_ser_prod.change_event = (data) => this.addSerieToProduct(data);
+        ik_link_doc.change_event = (data) => this.includeDVenta(data);
         btn_add_row.addEventListener("click", () => this.table.AddRow());
         btn_del_row.addEventListener("click", () => this.delProduct());
         btn_add_prod.addEventListener("click", () => ik_producto.searchText("",false));
         btn_add_lote.addEventListener("click", () => this.launchIkOfProduct(ik_lot_prod));
         btn_add_serie.addEventListener("click", () => this.launchIkOfProduct(ik_ser_prod));
         btn_add_doc.addEventListener("click", () => this.launchIkLinkDocument(ik_link_doc));
+        
         this.table.setInputKey("codigo",ik_producto);
         this.table.setInputKey("descripcion",ik_producto);
 
+        this.table.onTdPaint = (td,irow,icol,field) => this.coloringIncludedRows(td,irow,icol,field);
+
+        this.table.Events[evt.EnterCell] = (e) => { this.disableIncludedRows(e) };
         this.table.Events[evt.StartEdition] = (e) => { this.fillUnitCell(e) };
         this.table.Events[evt.BeforeUpdateCell] = (e) => { this.validateRowCells(e) };
         this.table.Events[evt.ConfirmEdition] = (e) => { this.calculateAmounts(e) };
+
+        this.table._printRows();
     },
 
     toggleButtonVisibility()
@@ -215,6 +224,17 @@ var venta =
         }
     },
 
+    toggleEdtColumns()
+    {
+        if (!this.table) return;
+
+        const includes = (this.table?.DataArray ?? []).filter(row => (row.origen ?? "") !== "");
+        let hide = (includes.length <= 0);
+
+        this.table.hideColumn("origen",hide);
+        this.table.hideColumn("cotizado",hide);
+    },
+
     getFolio()
     {
         const sel_serie = document.getElementById("sel_serie");
@@ -234,6 +254,30 @@ var venta =
             }
 
             txt_folio.value = data.fultimo;
+        })
+        .catch(error => console.error(error));
+    },
+
+    includeDVenta(data)
+    {
+        let iventa = Number(data?.sys_pk ?? "-1");
+        if (iventa <= 0) return;
+
+        let url = this.url_get_dventa.replace("@iventa",iventa);
+        fetch(url).then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                alert(data.message);
+                return;
+            }
+
+            if (Object.keys(this.docs_included).includes(iventa.toString())) return;
+
+            data.forEach(p => {
+                this.addProduct(p);
+            });
+
+            this.docs_included[iventa] = data;
         })
         .catch(error => console.error(error));
     },
@@ -304,12 +348,14 @@ var venta =
 
         let new_stt_adm = Number(relbtn.getAttribute("data-stt-adm"));
         let _detalle = this.filterDataArray(this.table);
+        let included = Object.keys(this.docs_included).join(",");
 
         if (!this.validateLoteSerie(_detalle)) return;
         
         let fd = new FormData(this.form);
         fd.append("statusadministrativo",new_stt_adm);
         fd.append("_detalle",JSON.stringify(_detalle));
+        fd.append("docs_included", included);
 
         let endpoint = "./";
         let method = (Number(fd.get("sys_pk")) > 0) ? "PATCH" : "POST";
@@ -546,10 +592,12 @@ var venta =
         let producto = 
         {
             // campos visibles en el editable.
+            origen: (p.origen || ""),
             codigo: p.codigo,
             descripcion: p.descripcion,
             unidad: p.unidada,
             precio: i.costo,
+            cotizado: (p.cotizado || ""),
             cantidad: i.cantidad,
             subtotal: i.subtotal,
             descuentos: i.descuentos,
@@ -573,7 +621,9 @@ var venta =
             xfacturar: i.cantidad,
             xsalir: i.cantidad,
             ialmacen: ialmacen,
-            iproducto: p.sys_pk,
+            iproducto: (p.sys_pk || p.iproducto),
+            documento: (p.documento || null),
+            doc_partida: (p.doc_partida || null),
 
             // campos extras para operaciones.
             i1_tasa: p.i1_tasa,
@@ -598,11 +648,24 @@ var venta =
         let available_row = (_productos.length > 0) ? _productos.length : 0;
         
         if (dtarray.length === _productos.length) this.table.AddRow();
+
+        if (producto.origen !== "")
+        {
+            producto["notas"] = "Documento origen: "+producto.origen;
+
+            // const tr = this.table.GetTrByIndex(available_row);
+            // tr.querySelectorAll("td").forEach(td => {
+            //     td.style.backgroundColor = "#888888";
+            //     td.style.color = "#FFFFFF";
+            // });
+        }
         
         dtarray[available_row] = producto
-        this.table.UpdateRow(available_row);
+        // this.table.UpdateRow(available_row);
+        this.table._printRows();
         this.table.NavTo(available_row,2);
         this.tableSummary();
+        this.toggleEdtColumns();
     },
 
     edtProduct(producto, rowIndex) {
@@ -633,8 +696,34 @@ var venta =
 
         if (curr_row < 0) return;
 
-        if (Object.keys(data_row).length >= this.table.Columns.length) { this.table.DeleteRow(curr_row); this.tableSummary(); }
+        if (Object.keys(data_row).length >= this.table.Columns.length)
+        {
+            this.table.DeleteRow(curr_row);
+            this.tableSummary();
+            this.toggleEdtColumns();
+        }
         else { this.table.DeleteRow(curr_row); }
+    },
+
+    coloringIncludedRows(td,irow,icol,field)
+    {
+        let obj = this.table.DataArray[irow];
+        if (obj.doc_partida)
+        {
+            td.style.backgroundColor = "#888888";
+            td.style.color = "#FFFFFF";
+        }
+    },
+
+    disableIncludedRows(e)
+    {
+        let curr_row = this.table.RowIndexOfTd(e.td);
+        let curr_col = this.table.ColIndexOfTd(e.td);
+        let data_row = this.table.DataArray[curr_row];
+
+        // Deshabilitar edición a las filas incluidas por un documento tercero.
+        if (data_row && data_row.doc_partida) { this.table.Columns[curr_col].type = "NoEditable"; }
+        else { this.table.Columns[curr_col].type = this.coldef[curr_col].type; }
     },
 
     fillUnitCell(e)
