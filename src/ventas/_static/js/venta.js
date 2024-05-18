@@ -1,7 +1,7 @@
 var venta =
 {
     formId:"", form:null, tableId:"", table:null, coldef:null, _GET:{}, docs_included:{},
-    url_exit:"", url_get_fultimo:"", url_get_series:"", url_change_status:"", url_get_dventa:"",
+    url_exit:"", url_get_fultimo:"", url_get_series:"", url_change_status:"", url_get_dventa:"", url_get_docs_included:"",
     last_unit:"", last_tcambio:1, is_new:false, idocumento:0, cur_stt_adm:0, enable_lotes:true, enable_series:true, error_timeout:7,
 
     init()
@@ -62,6 +62,7 @@ var venta =
         }
         else
         {
+            this.getDocsIncluded();
             this.toggleButtonVisibility();
         }
     },
@@ -99,6 +100,8 @@ var venta =
         const btn_add_lote = document.getElementById("btn_add_lote");
         const btn_add_serie = document.getElementById("btn_add_serie");
         const btn_add_doc = document.getElementById("btn_add_doc");
+        const btn_del_doc = document.getElementById("btn_del_doc");
+        const btn_includes = document.getElementById("btn_includes");
 
         ik_producto.change_event = (data) => this.addProduct(data);
         ik_lot_prod.change_event = (data) => this.addLoteToProduct(data);
@@ -110,6 +113,8 @@ var venta =
         btn_add_lote.addEventListener("click", () => this.launchIkOfProduct(ik_lot_prod));
         btn_add_serie.addEventListener("click", () => this.launchIkOfProduct(ik_ser_prod));
         btn_add_doc.addEventListener("click", () => this.launchIkLinkDocument(ik_link_doc));
+        btn_del_doc.addEventListener("click", () => this.removeDVenta());
+        btn_includes.addEventListener("click", () => this.launchModalDocsIncluded());
         
         this.table.setInputKey("codigo",ik_producto);
         this.table.setInputKey("descripcion",ik_producto);
@@ -126,7 +131,7 @@ var venta =
 
     toggleButtonVisibility()
     {
-        hideControls(["btn_guardar","btn_reabrir","btn_cerrar","btn_procesar","btn_cancelar"]);
+        hideControls(["btn_guardar","btn_reabrir","btn_cerrar","btn_procesar","btn_cancelar","btn_add_doc"]);
         switch (this.idocumento) {
             case 1: //Cotización
             {
@@ -148,12 +153,13 @@ var venta =
             }
             case 2: //Pedido
             {
+                this.table.changeColumnTitle("cotizado","Cotizado");
                 switch (this.cur_stt_adm) {
                     case 0: //No aplica
-                        hideControls(["btn_guardar","btn_cerrar"],false);
+                        hideControls(["btn_guardar","btn_cerrar","btn_add_doc"],false);
                         break;
                     case 1: //Abierto
-                        hideControls(["btn_guardar","btn_cerrar","btn_cancelar"],false);
+                        hideControls(["btn_guardar","btn_cerrar","btn_cancelar","btn_add_doc"],false);
                         break;
                     case 2: //Cerrado
                         hideControls(["btn_reabrir","btn_cancelar"],false);
@@ -166,12 +172,13 @@ var venta =
             }
             case 3: //Remisión
             {
+                this.table.changeColumnTitle("cotizado","Pedido");
                 switch (this.cur_stt_adm) {
                     case 0: //No aplica
-                        hideControls(["btn_guardar","btn_cerrar","btn_procesar"],false);
+                        hideControls(["btn_guardar","btn_cerrar","btn_procesar","btn_add_doc"],false);
                         break;
                     case 1: //Abierto
-                        hideControls(["btn_guardar","btn_cerrar","btn_procesar","btn_cancelar"],false);
+                        hideControls(["btn_guardar","btn_cerrar","btn_procesar","btn_cancelar","btn_add_doc"],false);
                         break;
                     case 2: //Cerrado
                         hideControls(["btn_reabrir","btn_procesar","btn_cancelar"],false);
@@ -184,12 +191,13 @@ var venta =
             }
             case 4: //Factura
             {
+                this.table.changeColumnTitle("cotizado","Recibido");
                 switch (this.cur_stt_adm) {
                     case 0: //No aplica
-                        hideControls(["btn_guardar","btn_cerrar","btn_procesar"],false);
+                        hideControls(["btn_guardar","btn_cerrar","btn_procesar","btn_add_doc"],false);
                         break;
                     case 1: //Abierto
-                        hideControls(["btn_guardar","btn_cerrar","btn_procesar","btn_cancelar"],false);
+                        hideControls(["btn_guardar","btn_cerrar","btn_procesar","btn_cancelar","btn_add_doc"],false);
                         break;
                     case 2: //Cerrado
                         hideControls(["btn_reabrir","btn_procesar","btn_cancelar"],false);
@@ -233,6 +241,9 @@ var venta =
 
         this.table.hideColumn("origen",hide);
         this.table.hideColumn("cotizado",hide);
+
+        readonlyControls(["ik_cliente","sel_documento"],!hide);
+        hideControls(["btn_includes"],hide)
     },
 
     getFolio()
@@ -258,9 +269,27 @@ var venta =
         .catch(error => console.error(error));
     },
 
-    includeDVenta(data)
+    getDocsIncluded()
     {
-        let iventa = Number(data?.sys_pk ?? "-1");
+        let iventa = Number(this._GET["_entity_id"] ?? "-1");
+        if (iventa <= 0) return;
+
+        let url = this.url_get_docs_included.replace("@iventa",iventa);
+        fetch(url).then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                alert(data.message);
+                return;
+            }
+
+            this.docs_included = data;
+        })
+        .catch(error => console.error(error));
+    },
+
+    includeDVenta(venta)
+    {
+        let iventa = Number(venta?.sys_pk ?? "-1");
         if (iventa <= 0) return;
 
         let url = this.url_get_dventa.replace("@iventa",iventa);
@@ -277,9 +306,27 @@ var venta =
                 this.addProduct(p);
             });
 
-            this.docs_included[iventa] = data;
+            this.docs_included[iventa] = venta;
         })
         .catch(error => console.error(error));
+    },
+
+    removeDVenta()
+    {
+        const tbl_docs_included = document.getElementById("tbl_docs_included");
+        let array = tbl_docs_included?.DataArray ?? [];
+        let curr_row = tbl_docs_included.CurrentRowIndex();
+        let venta = array[curr_row] ?? {};
+
+        if (curr_row < 0) return;
+
+        let detalle = this.table.DataArray.filter(obj => (obj?.origen ?? "") !== venta.referencia);
+        this.table.DataArray = detalle;
+        this.table._printRows();
+        this.toggleEdtColumns();
+        
+        tbl_docs_included.DeleteRow(curr_row);
+        delete this.docs_included[venta.sys_pk];
     },
 
     filterDataArray(edt) {
@@ -324,6 +371,21 @@ var venta =
         ik.searchText("%",false);
     },
 
+    launchModalDocsIncluded()
+    {
+        const tbl_docs_included = document.getElementById("tbl_docs_included");
+        let data = Object.values(this.docs_included);
+
+        tbl_docs_included.AutoAddRow = false;
+        tbl_docs_included.AutoDelRow = false;
+        tbl_docs_included.EverMove = false;
+
+        tbl_docs_included.DataArray = data;
+        tbl_docs_included._printRows();
+
+        showModal("mdl_docs_included");
+    },
+
     addLoteToProduct(data)
     {
         let curr_row = this.table.CurrentRowIndex();
@@ -355,7 +417,7 @@ var venta =
         let fd = new FormData(this.form);
         fd.append("statusadministrativo",new_stt_adm);
         fd.append("_detalle",JSON.stringify(_detalle));
-        fd.append("docs_included", included);
+        fd.append("docs_included_id", included);
 
         let endpoint = "./";
         let method = (Number(fd.get("sys_pk")) > 0) ? "PATCH" : "POST";

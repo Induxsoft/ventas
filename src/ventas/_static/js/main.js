@@ -57,7 +57,12 @@ function readonlyControls(elementsId=[], value=true)
         const el = document.getElementById(id);
         if (el) {
             if ("readonly" in el) el.readonly = value;
-            else el.setAttribute("readonly",value);
+            else
+            {
+                el.style.pointerEvents = (value) ? "none" : "";
+                el.style.backgroundColor = (value) ? "rgb(233, 236, 239)" : "";
+                el.style.opacity = (value) ? "1" : "";
+            }
         }
     });
 }
@@ -79,7 +84,7 @@ function hideControls(elementsId=[], value=true)
         const el = document.getElementById(id);
         if (el) {
             if ("hidden" in el) el.hidden = value;
-            else el.setAttribute("hidden",value);
+            else el.style.display = (value) ? "none" : "";
         }
     });
 }
@@ -114,6 +119,16 @@ function fillSelect(id, kf, vf, url, params={}, fo={}, callback=null)
     })
     .catch(error => console.error(error));
 }
+
+function bsModal(id)
+{
+    const modal = document.getElementById(id);
+    let instance = bootstrap.Modal.getInstance(modal);
+    if (!instance) instance = new bootstrap.Modal(modal);
+    return instance;
+}
+function showModal(id) { bsModal(id).show() }
+function closeModal(id) { bsModal(id).hide() }
 
 /**
  * @param {string} selector selector del contenedor de la alerta.

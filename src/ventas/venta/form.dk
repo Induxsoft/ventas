@@ -18,6 +18,7 @@ module "form.dk"
     ref dtagente = ifnull(@("&./dtagente"),record.create())
     ref dtrepartidor = ifnull(@("&./dtrepartidor"),record.create())
     ref dtporteador = ifnull(@("&./dtporteador"),record.create())
+    // ref docs_included = ifnull(@("&./docs_included"),record.create())
 
 	@_entities_type = @("$parameters/_entities_type")
 	@_entity_id = @("$parameters/_entity_id")
@@ -28,8 +29,6 @@ module "form.dk"
     @enable_lotes = @("#./enable_lotes")
     @enable_series = @("#./enable_series")
     @enable_editing = (cur_stt_adm == @stt_adm_na || cur_stt_adm == @stt_adm_abierto)
-
-    tbl_btn_act_cls = "btn btn-sm d-flex align-items-center justify-content-center gap-2 no-shadow"
     
     ik_sm_style = "
     #input_search_container, #input_description_container,
@@ -310,18 +309,19 @@ module "form.dk"
             {
                 small(class="flex-grow-1 text-muted"){$"Seleccione los productos en la cuadrícula"}
 
-                button(class="#<tbl_btn_act_cls>" type="button" id="btn_add_doc" title="Incluir documento"){$"#<@ICON_DOCUMENT> Incluir"}
+                button(class="btn btn-sm rounded-0" type="button" id="btn_add_doc" title="Incluir documento"){$"#<@ICON_DOCUMENT> Incluir"}
+                button(class="btn btn-sm rounded-0" type="button" id="btn_includes" title="Documentos Incluidos"){$"#<@ICON_STACK> Documentos incluidos"}
 
                 small(class="text-muted"){$"|"}
 
-                button(class="#<tbl_btn_act_cls>" type="button" id="btn_add_prod" title="Agregar producto"){$"#<@ICON_BOX_4> Agregar"}
-                button(class="#<tbl_btn_act_cls>" type="button" id="btn_add_lote" title="Agregar lote al producto"){$"#<@ICON_123> Agregar lote"}
-                button(class="#<tbl_btn_act_cls>" type="button" id="btn_add_serie" title="Agregar serie al producto"){$"#<@ICON_ABC> Agregar serie"}
+                button(class="btn btn-sm rounded-0" type="button" id="btn_add_prod" title="Agregar producto"){$"#<@ICON_BOX_4> Agregar"}
+                button(class="btn btn-sm rounded-0" type="button" id="btn_add_lote" title="Agregar lote al producto"){$"#<@ICON_123> Agregar lote"}
+                button(class="btn btn-sm rounded-0" type="button" id="btn_add_serie" title="Agregar serie al producto"){$"#<@ICON_ABC> Agregar serie"}
 
                 small(class="text-muted"){$"|"}
 
-                button(class="#<tbl_btn_act_cls>" type="button" id="btn_add_row" title="Agregar fila"){$"#<@ICON_ADD_ROW>"}
-                button(class="#<tbl_btn_act_cls>" type="button" id="btn_del_row" title="Eliminar fila"){$"#<@ICON_REMOVE_ROW>"}
+                button(class="btn btn-sm rounded-0" type="button" id="btn_add_row" title="Agregar fila"){$"#<@ICON_ADD_ROW>"}
+                button(class="btn btn-sm rounded-0" type="button" id="btn_del_row" title="Eliminar fila"){$"#<@ICON_REMOVE_ROW>"}
             }
             div(class="alert alert-danger rounded-0 mb-1 py-0 d-none" role="alert" id="tbl_alerts"){$""}
             div(class="" id="div_tbl_productos" style="width:auto; min-width:100%; max-height:55vh; display:flex;")
@@ -374,6 +374,54 @@ module "form.dk"
                 b{$"Total: " span(id="lbl_total"){$""}}
             }
 
+            div(class="modal fade" id="mdl_docs_included" tabindex="-1" "aria-hidden"="true" "data-bs-backdrop"="true")
+            {
+                div(class="modal-dialog modal-lg modal-dialog-scrollable") // modal-dialog-centered
+                {
+                    div(class="modal-content rounded-0 p-0 border-0 shadow")
+                    {
+                        div(class="modal-header p-3")
+                        {
+                            h6(class="modal-title"){$"Documentos incluidos"}
+                            button(type="button" class="btn-close btn-sm" "data-bs-dismiss"="modal" "aria-label"="Close"){$""}
+                        }
+                        div(class="modal-body row gx-2 p-4 bg-white")
+                        {
+                            div(class="" id="div_tbl_docs_included" style="width:auto; min-width:100%; max-height:55vh; display:flex;")
+                            {
+                                "edit-table"(id="tbl_docs_included" style="width:100%;"
+                                "row-height"="1.2rem"
+                                "control-styles"="
+                                    tr th { font-size:.9rem; outline:none !important; font-weight:500 !important; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; -o-text-overflow:ellipsis; }
+                                    tr td { font-size:.8rem; }
+                                    #__table_input { font-size:unset !important; }
+                                ")
+                                {
+                                    "edit-thead"
+                                    {
+                                        "edit-tr"
+                                        {
+                                            "edit-th"(type="NoEditable" field="cdocumento"){$"Documento"}
+                                            "edit-th"(type="NoEditable" field="referencia"){$"Referencia"}
+                                            "edit-th"(type="NoEditable" field="fecha"){$"Fecha"}
+                                            "edit-th"(type="NoEditable" field="vencimiento"){$"Vencimiento"}
+                                            "edit-th"(type="NoEditable" field="cdivisa"){$"Divisa"}
+                                            "edit-th"(type="NoEditable" field="tipocambio" textalign="end" format="true" thousandssep="true" decs="6"){$"T.C"}
+                                            "edit-th"(type="NoEditable" field="subtotal" textalign="end" format="true" thousandssep="true" decs="4"){$"Subtotal"}
+                                            "edit-th"(type="NoEditable" field="total" textalign="end" format="true" thousandssep="true" decs="4"){$"total"}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        div(class="modal-footer")
+                        {
+                            button(type="button" class="btn btn-sm btn-secondary rounded-0" id="btn_del_doc"){$"#<@ICON_TRASH> Remover"}
+                        }
+                    }
+                }
+            }
+
             div
             {
                 "input-key"(id="ik_producto" "data-key"="sys_pk" "data-search"="codigo" "data-text"="descripcion" "data-source"="#<@URL_BUSCAR_PRODUCTO>" columns="codigo,descripcion" colcaptions="Código,Descripción" "box-title-text"="Seleccione un producto de la lista" "control-styles"="#container{display:none !important;}"){$""}
@@ -391,14 +439,15 @@ module "form.dk"
         script(type="text/javascript")
         {$'
             document.addEventListener("DOMContentLoaded", () => {
+                venta.formId = "frm_venta";
+                venta.tableId = "tbl_productos";
+                venta._GET = #<to.json(@("&parameters"))>;
                 venta.url_get_fultimo = "#<@URL_OBTENER_FULTIMO>";
                 venta.url_get_series = "#<@URL_OBTENER_SERIES>";
                 venta.url_change_status = "#<@URL_CAMBIAR_ESTADO>";
                 venta.url_get_dventa = "#<@URL_OBTENER_DVENTA>";
+                venta.url_get_docs_included = "#<@URL_OBTENER_DOCUMENTOS_INCLUIDOS>";
                 venta.url_exit = "#<@VNT_LISTAR>";
-                venta.formId = "frm_venta";
-                venta.tableId = "tbl_productos";
-                venta._GET = #<to.json(@("&parameters"))>;
                 venta.idocumento = #<@@(entity,"#documento")>;
                 venta.cur_stt_adm = #<@@(entity,"#statusadministrativo")>;
                 venta.enable_lotes = #<@enable_lotes>;

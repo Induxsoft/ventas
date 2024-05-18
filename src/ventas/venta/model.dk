@@ -9,8 +9,8 @@ module ":Venta"
     @create_fields = "*"
     @update_fields = "*"
     
-    @create_exclude_fields = "sys_lastuser,descuento1,descuento2,impuesto1,impuesto2,impuesto3,impuesto4,subtotal,serie,folio,_detalle,docs_included"
-    @update_exclude_fields = "sys_pk,sys_guid,sys_dtcreated,sys_user,descuento1,descuento2,impuesto1,impuesto2,impuesto3,impuesto4,subtotal,serie,folio,_detalle,docs_included,documento,referencia,ifolio"
+    @create_exclude_fields = "sys_lastuser,descuento1,descuento2,impuesto1,impuesto2,impuesto3,impuesto4,subtotal,serie,folio,_detalle,docs_included_id"
+    @update_exclude_fields = "sys_pk,sys_guid,sys_dtcreated,sys_user,descuento1,descuento2,impuesto1,impuesto2,impuesto3,impuesto4,subtotal,serie,folio,_detalle,docs_included_id,documento,referencia,ifolio"
     
     @create_alias_fields = ""
     @update_alias_fields = ""
@@ -130,24 +130,17 @@ module ":Venta"
 
     obtenerDocumentosIncluidos::&db,&params
     {
-        ref documentos = list.create()
         ref data = record.create()
 
-        if @@(params,"#iventa") > 0
-        {
-            docs_id = dbr.str(db,"SELECT GROUP_CONCAT(sys_pk SEPARATOR ',') FROM venta WHERE aplicadoa = @iventa;",params)
-            conditions = "AND vnt.sys_pk IN ("+docs_id+")"
-            ref documentos = dbr.list(db,ftext(@qry_list_venta),@null)
-        }
+        if @@(params,"#iventa") <= 0 && @@(params,"#_entity_id") <= 0 { return data }
+        docs_id = dbr.str(db,"SELECT GROUP_CONCAT(sys_pk SEPARATOR ',') FROM venta WHERE aplicadoa = IFNULL(@iventa,@_entity_id);",params)
+        if docs_id == "" { return data }
+        conditions = "AND vnt.sys_pk IN ("+docs_id+")"
+        ref documentos = dbr.list(db,ftext(@qry_list_venta),@null)
 
         go foreach.lobj(value:doc) with(documentos)
         {
             data<@@(doc,"$sys_pk")+"*"> : doc
-        }
-
-        new response
-        {
-            @"data*": data
         }
 
         return data
@@ -276,14 +269,16 @@ module ":Venta"
                 irepartidor = 0
                 iporteador = 0
 
-                if field.exist(data,"form") {
+                if field.exist(data,"form")
+                {
                     icliente = @@(data,"#form/icliente")
                     idocumento = @@(data,"#form/documento")
                     iagente = @@(data,"#form/iagente")
                     irepartidor = @@(data,"#form/irepartidor")
                     iporteador = @@(data,"#form/iporteador")
                 }
-                else if field.exist(data,"entity") {
+                else if field.exist(data,"entity")
+                {
                     icliente = @@(data,"#entity/icliente")
                     idocumento = @@(data,"#entity/documento")
                     iagente = @@(data,"#entity/iagente")
@@ -304,6 +299,7 @@ module ":Venta"
                     @"dtagente*": ifnull(obtenerAgente(db,iagente),record.create())
                     @"dtrepartidor*": ifnull(obtenerRepartidor(db,irepartidor),record.create())
                     @"dtporteador*": ifnull(obtenerPorteador(db,iporteador),record.create())
+                    // @"docs_included*": obtenerDocumentosIncluidos(db,params)
                     @"list_doc_vnt*": dbr.list(db,@qry_docs_venta,@null)
                     @"list_divisas*": dbr.list(db,@qry_list_divisas,@null)
                     @"list_cconsumo*": dbr.list(db,@qry_list_cconsumo,@null)
@@ -716,7 +712,7 @@ module ":Venta"
         do validateStatus(db,params,venta)
         do setLoteSerie(db,@@(venta,"&_detalle"))
         ref entity = entity.create(db,params,venta)
-        do documentsIncluded(db,@@(venta,"$docs_included"),@@(entity,"#sys_pk"))
+        do documentsIncluded(db,@@(venta,"$docs_included_id"),@@(entity,"#sys_pk"))
         do updateAmounts(db,@@(entity,"#sys_pk"))
         
         do dbr.commit(db)
@@ -774,7 +770,7 @@ module ":Venta"
         do validateStatus(db,params,venta)
         do setLoteSerie(db,@@(venta,"&_detalle"))
         ref entity = entity.update(db,params,venta)
-        do documentsIncluded(db,@@(venta,"$docs_included"),@@(entity,"#sys_pk"))
+        do documentsIncluded(db,@@(venta,"$docs_included_id"),@@(entity,"#sys_pk"))
         do updateAmounts(db,@@(entity,"#sys_pk"))
         
         do dbr.commit(db)

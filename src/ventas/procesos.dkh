@@ -70,6 +70,14 @@ module ":erp.ventas.procesos"
             if @@(info,"#serie") > 0 { dcardex<"iserie"> : @@(info,"#serie") }
 
             do dbr.execute(db,"UPDATE dventa SET sys_info='' WHERE sys_pk=@sys_pk",item)
+            
+            new serie
+            {
+                @"status": @stt_serie_vendido
+                @"ialmacen": @@(item,"#ialmacen")
+                @"docventa": @@(item,"#iventa")
+            }
+            do dbr.update(db,"serie",serie,"sys_pk=@serie",info)
         }
 
         if start_transaction { do dbr.commit(db) }
@@ -86,6 +94,7 @@ module ":erp.ventas.procesos"
         sql_venta = "
         SELECT
             v.sys_pk,
+            v.documento,
             v.referencia,
             v.tipocambio,
             cc.ialmacen
@@ -102,8 +111,17 @@ module ":erp.ventas.procesos"
             d.ialmacen,
             d.iproducto,
             (IFNULL(d.cantidad,0) * IFNULL(d.precio,0)) AS abonos,
-            IFNULL(d.sys_info,'') AS sys_info
+            IFNULL(d.xfacturar,0) AS xfacturar,
+            IFNULL(d.doc_partida,0) AS doc_partida,
+            IFNULL(d.sys_info,'') AS sys_info,
+            d.fk_venta_detalle AS iventa,
+            CONCAT(p.codigo,' - ',p.descripcion) AS dproducto,
+            IF(dca.rventa IS NULL AND dca2.rventa IS NULL, 0, 1) mov_aplicado
         FROM dventa d
+            INNER JOIN producto AS p ON d.iproducto = p.sys_pk
+            LEFT JOIN dcardex AS dca ON d.sys_pk = dca.rventa
+            LEFT JOIN dventa AS d2 ON d.doc_partida = d2.sys_pk
+            LEFT JOIN dcardex AS dca2 ON dca2.rventa = d2.sys_pk
         WHERE d.fk_venta_detalle = @iventa
         "
         
@@ -139,24 +157,44 @@ module ":erp.ventas.procesos"
         {
             ref item = list.obj(dventa,i)
 
-            new dcardex
+            if @@(item,"#doc_partida") > 0
             {
-                @"sys_pk": 0
-                @"sys_guid": uuid()
-                @"sys_dtcreated*": now()
-                @"sys_timestamp*": now()
-                @"sys_recver": 0
-                @"ialmacen": @@(item,"#ialmacen")
-                @"iproducto": @@(item,"#iproducto")
-                @"salidas": @@(item,"#cantidad")
-                @"abonos": @@(item,"#abonos")
-                @"cpromedio": @@(item,"#precio")
-                @"tipocambio": @@(item,"#tipocambio")
-                @"rventa": @@(item,"#sys_pk")
-                @"fk_cardex_movimientos": last_id
+                if not(dbr.execute(db,"UPDATE dventa SET xfacturar = (xfacturar - @cantidad) WHERE (xfacturar - @cantidad) >= 0 AND sys_pk = @doc_partida;",item))
+                {
+                    action = "recibir"
+                    operation = "pedida"
+
+                    if @@(venta,"#documento") == @cFactura
+                    {
+                        action = "facturar"
+                        operation = "recibida"
+                    }
+
+                    do rise_error(500,ftext("No se puede #<action> más de la cantidad #<operation> del producto: ")+@@(item,"$dproducto"))
+                }
             }
-            do erp.ventas.procesos.asignarLoteSerie(db,item,dcardex)
-            do dbr.insert(db,"dcardex",dcardex)
+
+            if not(@@(item,"#mov_aplicado"))
+            {
+                new dcardex
+                {
+                    @"sys_pk": 0
+                    @"sys_guid": uuid()
+                    @"sys_dtcreated*": now()
+                    @"sys_timestamp*": now()
+                    @"sys_recver": 0
+                    @"ialmacen": @@(item,"#ialmacen")
+                    @"iproducto": @@(item,"#iproducto")
+                    @"salidas": @@(item,"#cantidad")
+                    @"abonos": @@(item,"#abonos")
+                    @"cpromedio": @@(item,"#precio")
+                    @"tipocambio": @@(item,"#tipocambio")
+                    @"rventa": @@(item,"#sys_pk")
+                    @"fk_cardex_movimientos": last_id
+                }
+                do erp.ventas.procesos.asignarLoteSerie(db,item,dcardex)
+                do dbr.insert(db,"dcardex",dcardex)
+            }
         }
 
         if start_transaction { do dbr.commit(db) }
