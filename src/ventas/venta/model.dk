@@ -619,6 +619,8 @@ module ":Venta"
 
     list::&db,&params
     {
+        do dbr.apps.action.grant("VD10")
+
         do Venta.evaluateListFilters(params)
         new data
         {
@@ -627,12 +629,22 @@ module ":Venta"
             @"itemreports*": dbr.apps.itemactions(db,"DET01C","report","",0)
         }
         do Venta.prepareList(db,params,data)
-
         return data
+
+        exception
+        {
+            do errordet(@false)
+            code = last_error_code()
+            error = last_error()
+            do dbr.apps.action.log()
+            do rise_error(code,error)
+        }
     }
 
     read::&db,&params
     {
+        do dbr.apps.action.grant("VD10")
+
         if not(isset("@read_entity_only")){ @read_entity_only = @false }
         if @read_entity_only { return entity.read(db,params) }
 
@@ -640,13 +652,33 @@ module ":Venta"
         do Venta.validateAccess(db,params,data)
         do Venta.prepareView(db,params,data)
         return data
+
+        exception
+        {
+            do errordet(@false)
+            code = last_error_code()
+            error = last_error()
+            do dbr.apps.action.log()
+            do rise_error(code,error)
+        }
     }
 
     blank::&db,&params
     {
+        do dbr.apps.action.grant("VD10")
+
         new data {}
         do Venta.prepareView(db,params,data)
         return data
+
+        exception
+        {
+            do errordet(@false)
+            code = last_error_code()
+            error = last_error()
+            do dbr.apps.action.log()
+            do rise_error(code,error)
+        }
     }
 
     create::&db,&params,&data
@@ -663,6 +695,7 @@ module ":Venta"
 
         if @@(data,"#statusadministrativo") == @stt_adm_cancelado { do rise_error(500,"Estado inválido") }
 
+        do dbr.apps.action.pre("VD11")
         do dbr.begin(db)
 
         iblock = dbr.folios.id_block(db,doctype,serie)
@@ -715,7 +748,9 @@ module ":Venta"
         do documentsIncluded(db,@@(venta,"$docs_included_id"),@@(entity,"#sys_pk"))
         do updateAmounts(db,@@(entity,"#sys_pk"))
         
+        do dbr.apps.action.pos(entity)
         do dbr.commit(db)
+        do dbr.apps.action.ext(entity)
         
         new response
         {
@@ -765,6 +800,7 @@ module ":Venta"
             }
         }
 
+        do dbr.apps.action.pre("VD12")
         do dbr.begin(db)
         
         do validateStatus(db,params,venta)
@@ -773,7 +809,9 @@ module ":Venta"
         do documentsIncluded(db,@@(venta,"$docs_included_id"),@@(entity,"#sys_pk"))
         do updateAmounts(db,@@(entity,"#sys_pk"))
         
+        do dbr.apps.action.pos(entity)
         do dbr.commit(db)
+        do dbr.apps.action.ext(entity)
         
         new response
         {
@@ -793,6 +831,12 @@ module ":Venta"
 
     process::&db,params,&data
     {
+        @use_transaction = @false
+        @read_entity_only = @true
+
+        do dbr.apps.action.pre("VD13")
+        do dbr.begin(db)
+
         switch @@(data,"#formapago")
         {
             case @fp_contado
@@ -812,6 +856,12 @@ module ":Venta"
             }
             default { do rise_error(500,"Forma de pago no implementado") }
         }
+
+        ref entity = entity.read(db,params)
+
+        do dbr.apps.action.pos(entity)
+        do dbr.commit(db)
+        do dbr.apps.action.ext(entity)
 
         @url_redir = @VNT_LISTAR
 
@@ -843,7 +893,8 @@ module ":Venta"
         @read_entity_only = @true
 
         ref entity = entity.read(db,params)
-        do dbr.events.fire(db,"DET01C","pre_VD14",entity)
+        
+        do dbr.apps.action.pre("VD14")
         do dbr.begin(db)
 
         switch @@(entity,"#documento")
@@ -883,10 +934,12 @@ module ":Venta"
 
         // Establecer el estado del documento como cancelado.
         do dbr.execute(db,ftext("UPDATE venta SET statusadministrativo = #<@stt_adm_cancelado> WHERE sys_pk = @iventa"),data)
+        
+        entity<"statusadministrativo"> : @stt_adm_cancelado
 
-        do dbr.events.fire(db,"DET01C","pos_VD14",entity)
+        do dbr.apps.action.pos(entity)
         do dbr.commit(db)
-        do dbr.events.fire(db,"DET01C","ext_VD14",entity)
+        do dbr.apps.action.ext(entity)
 
         @url_redir = @VNT_LISTAR
 
@@ -905,6 +958,7 @@ module ":Venta"
         do record.clear(data)
         data<"form*"> : FormData
 
+        if isset("@@_action_context"){ do dbr.apps.action.log() }
         do Venta.prepareView(db,params,data)
         do rise_error(code,error)
     }

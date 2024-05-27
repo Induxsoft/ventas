@@ -100,6 +100,14 @@ module "error.dk"
 						#!
 						break
 					}
+					default
+					{
+						#$
+						h1{$"#<code>"}
+						h2{$""}
+						#!
+						break
+					}
 				}
 				#$
 				div(class="alert alert-primary overflow-auto" role="alert"){$"#<@('$error/message')>"}

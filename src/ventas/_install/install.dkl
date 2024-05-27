@@ -28,6 +28,7 @@ program "instalador"
     ]')
 
     // Lista de privilegios iniciales (arreglo de id de privilegios)
+    // Si se omite [] -> se registra todo el contenido del fichero de privilegios.
     ref @permissions_to_import = from.json('[]')
 
     // Id del grupo de tareas (recomendado: prefijo del paquete), si se omite se calculará automáticamente.

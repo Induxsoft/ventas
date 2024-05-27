@@ -1,0 +1,8 @@
+﻿itemid,description,itemparent
+ventas,Ventas,\0
+ventas.venta,Documentos de venta,ventas
+VD10,Ventas,ventas.venta
+VD11,Crear documento de venta,ventas.venta
+VD12,Editar documento de venta,ventas.venta
+VD13,Procesar documento de venta,ventas.venta
+VD14,Cancelar documento de venta,ventas.venta
