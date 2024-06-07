@@ -322,20 +322,26 @@ module ":Venta"
 
     evaluateListFilters::&params
     {
-        if not(field.exist(params,"fil_doc_vnt")){ params<"fil_doc_vnt"> : -1 }
-        if not(field.exist(params,"fil_stt_fin")){ params<"fil_stt_fin"> : -1 }
-        if not(field.exist(params,"fil_stt_adm")){ params<"fil_stt_adm"> : -1 }
+        //#region Set default filters
+        if not(field.exist(params,"fil_doc_vnt")) { params<"fil_doc_vnt"> : -1 }
+        if not(field.exist(params,"fil_stt_fin")) { params<"fil_stt_fin"> : -1 }
+        if not(field.exist(params,"fil_stt_adm")) { params<"fil_stt_adm"> : -1 }
+        if not(field.exist(params,"fil_fdr_field")) { params<"fil_fdr_field"> : 1 }
+        // fdr_init
+        if not(field.exist(params,"fdr_mode")) { params<"fdr_mode"> : "month" }
+        // [month]
+        if not(field.exist(params,"fdr_year")) { params<"fdr_year"> : @curr_year }
+        if not(field.exist(params,"fdr_month")) { params<"fdr_month"> : @curr_month }
+        // [lastdays]
+        if not(field.exist(params,"fdr_range")) { params<"fdr_range"> : 30 }
+        // [range]
+        if not(field.exist(params,"fdr_from")) { params<"fdr_from"> : "" }
+        if not(field.exist(params,"fdr_to")) { params<"fdr_to"> : "" }
+        //#endregion
 
         conditions = ""
 
-        if @@(params,"#fil_doc_vnt") > 0 { conditions = conditions + " AND vnt.documento = @fil_doc_vnt" }
-        if @@(params,"#fil_stt_fin") >= 0 { conditions = conditions + " AND vnt.statusfinanciero = @fil_stt_fin" }
-        if @@(params,"#fil_stt_adm") >= 0 { conditions = conditions + " AND vnt.statusadministrativo = @fil_stt_adm" }
-        if trim(@@(params,"$fil_text")) != "" {
-            conditions = conditions + " AND (vnt.referencia LIKE CONCAT('%',@fil_text,'%') OR cte.nombre LIKE CONCAT('%',@fil_text,'%'))"
-        }
-
-        // filter-date-range [start]
+        //#region filter-date-range
         new vnt_date_fields
         {
             @"1": "vnt.fecha" // Emisión
@@ -393,7 +399,14 @@ module ":Venta"
                 break
             }
         }
-        // filter-date-range [end]
+        //#endregion
+
+        if @@(params,"#fil_doc_vnt") > 0 { conditions = conditions + " AND vnt.documento = @fil_doc_vnt" }
+        if @@(params,"#fil_stt_fin") >= 0 { conditions = conditions + " AND vnt.statusfinanciero = @fil_stt_fin" }
+        if @@(params,"#fil_stt_adm") >= 0 { conditions = conditions + " AND vnt.statusadministrativo = @fil_stt_adm" }
+        if trim(@@(params,"$fil_text")) != "" {
+            conditions = conditions + " AND (vnt.referencia LIKE CONCAT('%',@fil_text,'%') OR cte.nombre LIKE CONCAT('%',@fil_text,'%'))"
+        }
 
         conditions = ftext(conditions)
         @list_query = ftext(@list_query)
@@ -949,16 +962,17 @@ module ":Venta"
     catch::&db,&params,&data
     {
         do errordet(@error_det)
+        if isnull(data) { ref data:record.create() }
         if dbr.in_transaction(db) { do dbr.rollback(db) }
 
-        ref FormData = record.copy(data,"*")
         code = last_error_code()
         error = last_error()
 
+        ref FormData = record.copy(data,"*")
         do record.clear(data)
         data<"form*"> : FormData
 
-        if isset("@@_action_context"){ do dbr.apps.action.log() }
+        if isset("@@_action_context") { do dbr.apps.action.log() }
         do Venta.prepareView(db,params,data)
         do rise_error(code,error)
     }

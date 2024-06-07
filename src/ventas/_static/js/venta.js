@@ -50,7 +50,7 @@ var venta =
         if (btn_cancelar) btn_cancelar.addEventListener("click", (e) => this.changeStatus(btn_cancelar));
 
         this.setKeyboardShortcuts();
-        this.setEventTable();
+        this.setTableEvents();
         this.tableSummary();
         this.toggleEdtColumns();
 
@@ -84,7 +84,7 @@ var venta =
         });
     },
 
-    setEventTable()
+    setTableEvents()
     {
         if (!this.table) return;
         if (this.coldef === null) this.coldef = JSON.parse(JSON.stringify(this.table.Columns));
@@ -121,7 +121,19 @@ var venta =
 
         this.table.onTdPaint = (td,irow,icol,field) => this.coloringIncludedRows(td,irow,icol,field);
 
-        this.table.Events[evt.EnterCell] = (e) => { this.disableIncludedRows(e) };
+        this.table.Events[evt.EnterCell] = (e) => 
+        {
+            let coldef = e.sender.GetColumnDefOfTd(e.td);
+            let curr_row = this.table.RowIndexOfTd(e.td);
+            let curr_col = this.table.ColIndexOfTd(e.td);
+            let producto = this.table.DataArray[curr_row];
+
+            this.table.Columns[curr_col].type = this.coldef[curr_col].type;
+            if (Object.keys(producto ?? {}).length < this.table.Columns.length) return;
+
+            this.disableIncludedRows(curr_col,producto);
+            this.disableCells(curr_col,coldef.field,producto);
+        };
         this.table.Events[evt.StartEdition] = (e) => { this.fillUnitCell(e) };
         this.table.Events[evt.BeforeUpdateCell] = (e) => { this.validateRowCells(e) };
         this.table.Events[evt.ConfirmEdition] = (e) => { this.calculateAmounts(e) };
@@ -777,15 +789,21 @@ var venta =
         }
     },
 
-    disableIncludedRows(e)
+    disableIncludedRows(icol,data)
     {
-        let curr_row = this.table.RowIndexOfTd(e.td);
-        let curr_col = this.table.ColIndexOfTd(e.td);
-        let data_row = this.table.DataArray[curr_row];
-
         // Deshabilitar edición a las filas incluidas por un documento tercero.
-        if (data_row && data_row.doc_partida) { this.table.Columns[curr_col].type = "NoEditable"; }
-        else { this.table.Columns[curr_col].type = this.coldef[curr_col].type; }
+        if (data.doc_partida) this.table.Columns[icol].type = "NoEditable";
+        else this.table.Columns[icol].type = this.coldef[icol].type;
+    },
+
+    disableCells(icol,field,data)
+    {
+        // Deshabilitar edición a las celdas de lote, caducidad y serie si el producto no lo requiere.
+        if (!["lote","fcad","serie"].includes(field)) return;
+
+        if ((field === "lote" || field === "fcad") && !data.reqlote) this.table.Columns[icol].type = "NoEditable";
+        else if (field === "serie" && !data.reqserie) this.table.Columns[icol].type = "NoEditable";
+        else this.table.Columns[icol].type = this.coldef[icol].type;
     },
 
     fillUnitCell(e)

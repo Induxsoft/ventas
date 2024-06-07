@@ -6,6 +6,7 @@ module "list.dk"
     #include "serialize.dkh"
     #include "uielements.v12.dkl"
     #include "../_lib/config.dk"
+    #include "../_lib/lib.dk"
 
     do @context.begin(@crud_context)
 
@@ -17,8 +18,9 @@ module "list.dk"
 	@_entities_type = @("$parameters/_entities_type")
 	table_id = "tbl_"+@_entities_type
 
+    ref list_years = lib.list_years(10,0)
     fdr_year_opt = ""
-    for i = 2014; i <= @curr_year { fdr_year_opt = fdr_year_opt + str(i) + "," }
+    for i = 0; i < list.count(list_years) { fdr_year_opt = fdr_year_opt + list.str(list_years,i) + "," }
     fdr_year_opt = rremove(fdr_year_opt,1)
 
     new fdr_init

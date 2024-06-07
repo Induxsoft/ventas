@@ -58,8 +58,7 @@ module "Funciones de propósito general:lib"
 
         exception
         {
-            // do rise_error(99,"Debe proporcionar una cadena de fecha con un formato válido.")
-            do clear_exceptions()
+            do pop_exception()
             return ""
         }
     }
@@ -103,6 +102,42 @@ module "Funciones de propósito general:lib"
         http_args = rremove(http_args,1)
 
         return path.concat(v12_path,http_args)
+    }
+
+    function get_db()
+    {
+        if not(isset("@http_context")) && isset("@crud_context") { ref @http_context = ifnull(@@(@crud_context,"&http"),record.create()) }
+
+        qname = trim(@@(@http_context,"$session/idp/qname"))
+        ref db = @@(@http_context,"&session/idp/database")
+        
+        if isnull(db) || not(dbr.is_open(db)) { ref db:dbr.open(qname) }
+        do dbr.rec(db,"select 1 as success;",@null)
+        
+        exception
+        {
+            do pop_exception()
+            ref db:dbr.open(qname)
+        }
+
+        return db
+    }
+
+    function _params()
+    {
+        return ifnull(@@(@http_context,"&request/get"),record.create())
+    }
+
+    function _payload()
+    {
+        ref post = ifnull(@@(@http_context,"&request/post"),record.create())
+        if list.count(list.create_from_fields(post)) < 1 {
+            post_string = trim(field.dstr(@http_context,"request/post_string","{}"))
+            if post_string == "" { post_string = "{}" }
+            
+            ref post:from.json(post_string)
+        }
+        return post
     }
 
     function form(name,type,&obj)
