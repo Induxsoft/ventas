@@ -1,7 +1,7 @@
 var venta =
 {
     formId:"", form:null, tableId:"", table:null, coldef:null, _GET:{}, docs_included:{},
-    url_exit:"", url_get_fultimo:"", url_get_series:"", url_change_status:"", url_get_dventa:"", url_get_docs_included:"",
+    url_exit:"", url_get_fultimo:"", url_get_series:"", url_change_status:"", url_get_dventa:"", url_get_docs_included:"", url_get_lotser:"",
     last_unit:"", last_tcambio:1, is_new:false, idocumento:0, cur_stt_adm:0, enable_lotes:true, enable_series:true, error_timeout:7,
 
     init()
@@ -46,7 +46,7 @@ var venta =
         if (btn_guardar) btn_guardar.addEventListener("click", (e) => this.submit(btn_guardar));
         if (btn_reabrir) btn_reabrir.addEventListener("click", (e) => this.changeStatus(btn_reabrir));
         if (btn_cerrar) btn_cerrar.addEventListener("click", (e) => this.submit(btn_cerrar));
-        if (btn_procesar) btn_procesar.addEventListener("click", (e) => this.changeStatus(btn_procesar));
+        if (btn_procesar) btn_procesar.addEventListener("click", (e) => this.submit(btn_procesar));
         if (btn_cancelar) btn_cancelar.addEventListener("click", (e) => this.changeStatus(btn_cancelar));
 
         this.setKeyboardShortcuts();
@@ -110,8 +110,8 @@ var venta =
         btn_add_row.addEventListener("click", () => this.table.AddRow());
         btn_del_row.addEventListener("click", () => this.delProduct());
         btn_add_prod.addEventListener("click", () => ik_producto.searchText("",false));
-        btn_add_lote.addEventListener("click", () => this.launchIkOfProduct(ik_lot_prod));
-        btn_add_serie.addEventListener("click", () => this.launchIkOfProduct(ik_ser_prod));
+        btn_add_lote.addEventListener("click", () => this.launchIkLoteSerie(ik_lot_prod));
+        btn_add_serie.addEventListener("click", () => this.launchIkLoteSerie(ik_ser_prod));
         btn_add_doc.addEventListener("click", () => this.launchIkLinkDocument(ik_link_doc));
         btn_del_doc.addEventListener("click", () => this.removeDVenta());
         btn_includes.addEventListener("click", () => this.launchModalDocsIncluded());
@@ -368,16 +368,38 @@ var venta =
         ik_link_doc.searchText("",false);
     },
 
-    launchIkOfProduct(ik)
+    launchIkLoteSerie(ik)
     {
-        let dtarray = this.table?.DataArray ?? [];
+        this.url_get_lotser = ik.getAttribute("data-source");
         let curr_row = this.table.CurrentRowIndex();
-        let data_row = dtarray[curr_row] ?? {};
+        let producto = (this.table?.DataArray??[])[curr_row] ?? {};
 
         if (curr_row < 0) return;
-        if (Object.keys(data_row).length < this.table.Columns.length) return;
+        if (Object.keys(producto).length < this.table.Columns.length) return;
+        
+        const sel_cconsumo = document.getElementById("sel_cconsumo");
+        const opt_cconsumo = sel_cconsumo.options[sel_cconsumo.selectedIndex];
+        let ialmacen = Number(opt_cconsumo.getAttribute("data-almacen") ?? 0);
 
-        let endpoint = ik.getAttribute("data-source").replace("@iproducto", data_row.iproducto);
+        if (ialmacen <= 0) {
+            alert("No se ha seleccionado un centro de consumo o el seleccionado no cuenta con un almacen vinculado.");
+            return;
+        }
+        if (ik.id === "ik_lot_prod" && !producto.reqlote) {
+            alert("El producto seleccionado no requiere lote");
+            return;
+        }
+        if (ik.id === "ik_ser_prod" && !producto.reqserie) {
+            alert("El producto seleccionado no requiere serie");
+            return;
+        }
+
+        let params =
+        {
+            iproducto: producto.iproducto,
+            ialmacen: ialmacen
+        }
+        let endpoint = InduxsoftCrudlModel.UrlReplace(this.url_get_lotser,params);
 
         ik.setAttribute("data-source",endpoint);
         ik.searchText("%",false);

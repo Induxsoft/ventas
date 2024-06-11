@@ -12,11 +12,14 @@ module "list.dk"
 
     ref @_GET = ifnull(@("&parameters"),record.create())
     ref data = ifnull(@("&./data"),list.create())
-
-    // do rise_error(0,to.json(@("&.")))
+    ref print = ifnull(@("&./print_titles"),record.create())
 
 	@_entities_type = @("$parameters/_entities_type")
 	table_id = "tbl_"+@_entities_type
+    rpt_title = @@(print,"$title")
+    rpt_subtitle = @@(print,"$subtitle")
+    rpt_subtitle_2 = @@(print,"$subtitle_2")
+    rpt_footer = @@(print,"$footer")
 
     ref list_years = lib.list_years(10,0)
     fdr_year_opt = ""
@@ -184,7 +187,33 @@ module "list.dk"
 
         #$ div(id="work_area" class="container-section mt-1 p-2 pt-0")
         {
-            form(action="./" method="GET" id="form_filter" class="no-print mb-1")
+            div(class="show-on-print")
+            {
+                p(class="text-center my-0"){$"#<rpt_title>"}
+                p(class="text-center my-0"){$"#<rpt_subtitle>"}
+                p(class="text-center my-0"){$"#<rpt_subtitle_2>"}
+
+                div(class="row")
+                {
+                    div(class="col-3 text-start")
+                    {
+                        small(class="d-block"){ $"#<cut(@('$http/session/user/name'),25)>" }
+                        small(class="d-block"){ $"#<date_str(now(),'dd/MMM/yyyy')>" }
+                    }
+                    div(class="col-6 text-center")
+                    {
+                        h4(class=""){$"Informe general de ventas"}
+                    }
+                    div(class="col-3 text-end")
+                    {
+                        small(class="d-block" id="lbl_documento"){$""}
+                        small(class="d-block" id="lbl_stt_fin"){$""}
+                        small(class="d-block" id="lbl_stt_adm"){$""}
+                    }
+                }
+            }
+
+            form(action="./" method="GET" id="form_filter" class="hide-on-print mb-1")
             {
                 div(class="d-flex align-items-center")
                 {
@@ -245,6 +274,8 @@ module "list.dk"
                 }
             }
             #! do uie.dbeditable(table_definition,table_id)
+            #$
+            div(class="show-on-print"){p(class="text-center my-1"){$"#<rpt_footer>"}}
         }
 
 		#$

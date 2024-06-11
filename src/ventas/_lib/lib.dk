@@ -3,6 +3,8 @@
 #!
 module "Funciones de propósito general:lib"
 {
+    if not(isset("@http_context")) && isset("@crud_context") { ref @http_context = ifnull(@@(@crud_context,"&http"),record.create()) }
+
     function hoy(fmt)
     {
         return date_str(now(),str(fmt))
@@ -13,7 +15,25 @@ module "Funciones de propósito general:lib"
         return value >= min && value <= max
     }
 
-    function record_combine(&obj1,&obj2)
+    function record.keys(&record)
+    {
+        return list.create_from_fields(ifnull(record,record.create()))
+    }
+
+    function record.values(&record)
+    {
+        if isnull(record) { ref record:record.create() }
+        ref keys = list.create_from_fields(record)
+        ref values = list.create()
+        for i = 0; i < list.count(keys)
+        {
+            key = list.str(keys,i)
+            do list.add(values,@@(record,key))
+        }
+        return values
+    }
+
+    function record.combine(&obj1,&obj2)
     {
         return record.copyexin(obj2,obj1,"*",",","",":")
     }
@@ -81,7 +101,6 @@ module "Funciones de propósito general:lib"
 
     function curr_url()
     {
-        if not(isset("@http_context")) && isset("@crud_context") { ref @http_context = ifnull(@@(@crud_context,"&http"),record.create()) }
         ref parameters = ifnull(@@(@http_context,"&request/get"),record.create())
 
         v12_params = "_pack,_program,_entities_type,_entity_id,_view,_operation"
@@ -106,8 +125,6 @@ module "Funciones de propósito general:lib"
 
     function get_db()
     {
-        if not(isset("@http_context")) && isset("@crud_context") { ref @http_context = ifnull(@@(@crud_context,"&http"),record.create()) }
-
         qname = trim(@@(@http_context,"$session/idp/qname"))
         ref db = @@(@http_context,"&session/idp/database")
         

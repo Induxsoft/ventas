@@ -67,17 +67,19 @@ module ":erp.ventas.procesos"
             // Lote
             if @@(info,"#lote") > 0 { dcardex<"ilote"> : @@(info,"#lote") }
             // Serie
-            if @@(info,"#serie") > 0 { dcardex<"iserie"> : @@(info,"#serie") }
+            if @@(info,"#serie") > 0
+            {
+                dcardex<"iserie"> : @@(info,"#serie")
+                new serie
+                {
+                    @"fventa*": dbr.sql("now()")
+                    @"status": @stt_serie_vendido
+                    @"docventa": @@(item,"#iventa")
+                }
+                do dbr.update(db,"serie",serie,"sys_pk=@serie",info)
+            }
 
             do dbr.execute(db,"UPDATE dventa SET sys_info='' WHERE sys_pk=@sys_pk",item)
-            
-            new serie
-            {
-                @"status": @stt_serie_vendido
-                @"ialmacen": @@(item,"#ialmacen")
-                @"docventa": @@(item,"#iventa")
-            }
-            do dbr.update(db,"serie",serie,"sys_pk=@serie",info)
         }
 
         if start_transaction { do dbr.commit(db) }
@@ -297,6 +299,43 @@ module ":erp.ventas.procesos"
     }
 
     /**
+    * Procesar documento de venta.
+    *
+    * db | Referencia a una conexión de base de datos abierta (recomendado: transacción de base de datos previamente iniciada).
+    * int iventa | Clave primaria del documento de venta a procesar.
+    * return void
+    */
+    liquidacionNoAplica::&db,iventa
+    {
+        start_transaction = @false
+        
+        if not(dbr.in_transaction(db)) {
+            do dbr.begin(db)
+            start_transaction = @true
+        }
+
+        // Establecer los estados correspondientes.
+        new params { @"iventa": iventa }
+        new status
+        {
+            @"formapago": @@(@FORMAS_PAGO,"cNO_APLICA")
+            @"statusadministrativo": @@(@EDO_ADMIN,"cPROCESADO")
+            @"statusentrega": @@(@EDO_ENTREGA,"cNO_APLICA")
+            @"statusfacturacion": @@(@EDO_FACTURACION,"cNO_APLICA")
+            @"statusfinanciero": @@(@EDO_FINANCIERO,"cNO_APLICA")
+        }
+        do dbr.update(db,"venta",status,"sys_pk = @iventa",params)
+
+        if start_transaction { do dbr.commit(db) }
+
+        exception
+        {
+            if dbr.in_transaction(db) { do dbr.rollback(db) }
+            do rise_error(last_error_code(),last_error())
+        }
+    }
+
+    /**
     * Procesar documento de venta de contado.
     *
     * db | Referencia a una conexión de base de datos abierta (recomendado: transacción de base de datos previamente iniciada).
@@ -318,24 +357,13 @@ module ":erp.ventas.procesos"
     */
     liquidacionContado::&db,&data
     {
-        sql_total_venta = "
-        SELECT
-            ((((((IFNULL(subtotal,0)
-            - IFNULL(descuento1,0))
-            - IFNULL(descuento2,0))
-            + IFNULL(impuesto1,0))
-            + IFNULL(impuesto2,0))
-            + IFNULL(impuesto3,0))
-            + IFNULL(impuesto4,0)) AS total
-        FROM venta
-        WHERE sys_pk = @iventa
-        "
+        ref amounts = dbr.rec(db,@qry_imp_procesar,data)
         ref _deposito = record.copy(data,"faplicacion,referencia,documento,icategoria,icuenta,concepto")
         using _deposito
         {
             @"conciliado": @true
             @"fecha": date_str(now(),"yyyy-MM-dd")
-            @"importe": dbr.num(db,sql_total_venta,data)
+            @"importe": @@(amounts,"#total")
         }
 
         start_transaction = @false
@@ -393,24 +421,13 @@ module ":erp.ventas.procesos"
     */
     liquidacionCredito::&db,&data
     {
-        sql_total_venta = "
-        SELECT
-            ((((((IFNULL(subtotal,0)
-            - IFNULL(descuento1,0))
-            - IFNULL(descuento2,0))
-            + IFNULL(impuesto1,0))
-            + IFNULL(impuesto2,0))
-            + IFNULL(impuesto3,0))
-            + IFNULL(impuesto4,0)) AS total
-        FROM venta
-        WHERE sys_pk = @iventa
-        "
+        ref amounts = dbr.rec(db,@qry_imp_procesar,data)
         ref _cxc = record.copy(data,"flimite,referencia,documento,tcambio,concepto,icliente")
         using _cxc
         {
             @"aplicable": @true
             @"fecha": date_str(now(),"yyyy-MM-dd")
-            @"importe": dbr.num(db,sql_total_venta,data)
+            @"importe": @@(amounts,"#total")
         }
 
         start_transaction = @false

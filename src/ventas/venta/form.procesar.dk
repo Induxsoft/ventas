@@ -11,6 +11,7 @@ module "form.procesar.dk"
     do @context.begin(@crud_context)
 
     ref entity = ifnull(@("&./entity"),record.create())
+    ref amounts = ifnull(@("&./amounts"),record.create())
     ref cfgdoc = ifnull(@("&./cfg_doc_venta"),record.create())
 
     show_form_contado = (not(field.exist(@("&."),"form")) || @("#./form/formapago") == @fp_contado)
@@ -120,6 +121,8 @@ module "form.procesar.dk"
 
         div(class="alert alert-danger overflow-auto mb-2 #<ifstr(@('$error/message')!='','','d-none')>" id="frm_alerts"){$"#<@('error/message')>"}
 
+        #! if @@(amounts,"#total") > 0
+        {#$
         div(class="accordion" id="opciones_liquidacion")
         {
             div(class="accordion-item")
@@ -187,7 +190,7 @@ module "form.procesar.dk"
                                     div(class="d-flex gap-2 align-items-center justify-content-end my-2")
                                     {
                                         label(class="form-label" "for"="txt_importe"){$"Importe:"}
-                                        input(class="form-control form-control-sm rounded-0 w-25" type="number" name="" value="#<@@(entity,'#total')>" id="txt_importe" disabled="")
+                                        input(class="form-control form-control-sm rounded-0 w-25" type="number" name="" value="#<@@(amounts,'#total')>" id="txt_importe" disabled="")
                                     }
                                 }
 
@@ -269,7 +272,7 @@ module "form.procesar.dk"
                                     div(class="d-flex gap-2 align-items-center justify-content-end my-2")
                                     {
                                         label(class="form-label" "for"="txt_importe"){$"Importe:"}
-                                        input(class="form-control form-control-sm rounded-0 w-25" type="number" name="" id="txt_importe" value="#<@@(entity,'#total')>" disabled="")
+                                        input(class="form-control form-control-sm rounded-0 w-25" type="number" name="" id="txt_importe" value="#<@@(amounts,'#total')>" disabled="")
                                     }
                                 }
 
@@ -327,7 +330,7 @@ module "form.procesar.dk"
                                     div(class="d-flex gap-2 align-items-center justify-content-end my-2")
                                     {
                                         label(class="form-label" "for"="txt_importe"){$"Importe:"}
-                                        input(class="form-control form-control-sm rounded-0 w-25" type="number" name="" id="txt_importe" value="#<@@(entity,'#total')>" disabled="")
+                                        input(class="form-control form-control-sm rounded-0 w-25" type="number" name="" id="txt_importe" value="#<@@(amounts,'#total')>" disabled="")
                                     }
                                 }
 
@@ -339,6 +342,49 @@ module "form.procesar.dk"
             }
             }
         }
+        }
+        #! else
+        {#$
+        form(class="row" action="./" method="POST" id="form_liquidacion_na")
+        {
+            input(type="hidden" name="iventa" value="#<@@(entity,'#sys_pk')>")
+            input(type="hidden" name="formapago" value="#<@fp_na>")
+
+            div(class="col-lg-8 col-md-10 col-sm-12")
+            {
+                div(class="row mb-2")
+                {
+                    div(class="col-lg-4 col-md-4")
+                    {
+                        label(class="form-label" "for"="txt_cliente"){$"Cliente:"}
+                        input(class="form-control form-control-sm rounded-0" type="text" name="" value="#<@@(entity,'$dcliente')>" id="txt_cliente" disabled="")
+                    }
+                    div(class="col-lg-4 col-md-4")
+                    {
+                        label(class="form-label" "for"="txt_referencia"){$"Referencia:"}
+                        input(class="form-control form-control-sm rounded-0" type="text" name="" value="#<@@(entity,'$referencia')>" id="txt_referencia" disabled="")
+                    }
+                    div(class="col-lg-4 col-md-4")
+                    {
+                        label(class="form-label" "for"="txt_documento"){$"Documento:"}
+                        input(class="form-control form-control-sm rounded-0" type="text" name="" value="#<@@(entity,'$cdocumento')>" id="txt_documento" disabled="")
+                    }
+                    div(class="col-lg-4 col-md-4")
+                    {
+                        label(class="form-label" "for"="txt_fecha"){$"Fecha:"}
+                        input(class="form-control form-control-sm rounded-0" type="date" name="" value="#<@@(entity,'$fecha')>" id="txt_fecha" disabled="")
+                    }
+                    div(class="col-lg-4 col-md-4")
+                    {
+                        label(class="form-label" "for"="txt_fvencimiento"){$"Vencimiento:"}
+                        input(class="form-control form-control-sm rounded-0" type="date" name="" value="#<@@(entity,'$vencimiento')>" id="txt_fvencimiento" disabled="")
+                    }
+                }
+
+                button(type="submit" class="btn btn-primary btn-sm float-end"){$"Aceptar"}
+            } 
+        }
+        }
 
         #$
         script(type="text/javascript")
@@ -347,7 +393,7 @@ module "form.procesar.dk"
                 const sel_divisa = document.getElementById("sel_divisa");
                 const txt_tcambio = document.getElementById("txt_tcambio");
 
-                sel_divisa.addEventListener("change", () => {
+                if (sel_divisa) sel_divisa.addEventListener("change", () => {
                     const opt_divisa = sel_divisa.options[sel_divisa.selectedIndex];
                     txt_tcambio.value = Number(opt_divisa.getAttribute("data-tcambio") ?? "1");
                 });

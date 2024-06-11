@@ -44,12 +44,12 @@ module "VentaController"
             point @list to Venta.obtenerDocumentosIncluidos
             break
         }
-        case "obtener-lotes-xproducto"
+        case "obtener-lotes-de-producto"
         {
             point @list to Venta.obtenerLotesDeProducto
             break
         }
-        case "obtener-series-xproducto"
+        case "obtener-series-de-producto"
         {
             point @list to Venta.obtenerSeriesDeProducto
             break

@@ -253,6 +253,29 @@ module "Lista de consultas MySQL"
     WHERE d.fk_venta_detalle = @_entity_id;
     "
 
+    @qry_imp_procesar = "
+    SELECT
+        IFNULL(SUM(IFNULL(d.precio,0) * IFNULL(d.cantidad,0)),0) AS subtotal,
+        IFNULL(SUM(IFNULL(d.descuento1,0) + IFNULL(d.descuento2,0)),0) AS descuentos,
+        IFNULL(SUM(IFNULL(d.impuesto1,0) + IFNULL(d.impuesto2,0) + IFNULL(d.impuesto3,0) + IFNULL(d.impuesto4,0)),0) AS impuestos,
+        IFNULL(SUM((((((
+            (IFNULL(d.precio,0) * IFNULL(d.cantidad,0))
+            - IFNULL(d.descuento1,0))
+            - IFNULL(d.descuento2,0))
+            + IFNULL(d.impuesto1,0))
+            + IFNULL(d.impuesto2,0))
+            + IFNULL(d.impuesto3,0))
+            + IFNULL(d.impuesto4,0)
+        ),0) AS total
+    FROM dventa AS d
+        LEFT JOIN dcardex AS dc ON dc.rventa = d.sys_pk
+        LEFT JOIN dventa AS d2 ON d.doc_partida = d2.sys_pk
+        LEFT JOIN dcardex AS dc2 ON dc2.rventa = d2.sys_pk
+    WHERE
+        d.fk_venta_detalle = IFNULL(@_entity_id,@iventa)
+        AND (dc.rventa IS NULL AND dc2.rventa IS NULL)
+    "
+
     @qry_liberar_documentos = "
     UPDATE venta AS a
         INNER JOIN dventa AS b ON b.fk_venta_detalle = a.sys_pk
@@ -276,6 +299,7 @@ module "Lista de consultas MySQL"
     WHERE NOT IFNULL(lot.sys_deleted,0)
         AND lxa.cantidad > 0
         AND lot.iproducto = @iproducto
+        AND lxa.ialmacen = @ialmacen
     "
 
     @qry_series_de_producto = "
@@ -290,6 +314,7 @@ module "Lista de consultas MySQL"
     WHERE NOT IFNULL(ser.sys_deleted,0)
         AND ser.status IN (1,4)
         AND ser.iproducto = @iproducto
+        AND ser.ialmacen = @ialmacen
     "
 
     @qry_docs_venta = "SELECT a.id, a.const FROM cdocumentos AS a INNER JOIN cfg_doc_ventas AS b ON a.id = b.documento ORDER BY a.id ASC"

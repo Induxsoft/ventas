@@ -207,6 +207,23 @@ module ":Venta"
         return dbr.list(db,@qry_list_series,params)
     }
 
+    obtenerImportesAProcesar::&db,&params
+    {
+        return dbr.rec(db,@qry_imp_procesar,params)
+    }
+
+    getPrintTitles::&db
+    {
+        new data
+        {
+            @"title": dbr.vars.getd(db,"FXCA108","")
+            @"subtitle": dbr.vars.getd(db,"FXCA109","")
+            @"subtitle_2": dbr.vars.getd(db,"FXCA110","")
+            @"footer": dbr.vars.getd(db,"FXCA111","")
+        }
+        return data
+    }
+
     setZonaImpuesto::&db,&params
     {
         /**
@@ -243,6 +260,7 @@ module ":Venta"
 
                 using data
                 {
+                    @"amounts*": obtenerImportesAProcesar(db,params)
                     @"cfg_doc_venta*": dbr.rec(db,@qry_cfg_doc_vnt,params)
                     @"list_doc_dep*": dbr.list(db,@qry_docs_deposito,@null)
                     @"list_cta_chq*": dbr.list(db,@qry_list_cta_chq,@null)
@@ -315,6 +333,7 @@ module ":Venta"
 
     prepareList::&db,&params,&data
     {
+        data<"print_titles*"> : Venta.getPrintTitles(db)
         data<"list_doc_vnt*"> : dbr.list(db,@qry_docs_venta,@null)
         data<"list_stt_fin*"> : dbr.list(db,"SELECT id, const FROM cstatusfinancieros ORDER BY id ASC",@null)
         data<"list_stt_adm*"> : dbr.list(db,"SELECT id, const FROM cstatusadministrativos ORDER BY id ASC",@null)
@@ -457,9 +476,10 @@ module ":Venta"
 
         for i = 0; i < list.count(detalle)
         {
-            ref prod = list.obj(detalle,i)
+            ref producto = list.obj(detalle,i)
+            ref prod = record.copy(producto,"iproducto,descripcion,reqlote,reqserie,lote,fcad,serie")
+            ref temp = record.create()
             
-            new data {}
             sys_info = ""
 
             //#region Establecer lote
@@ -467,10 +487,8 @@ module ":Venta"
             {
                 ref lote = dbr.rec(db,"SELECT sys_pk, numero FROM lote WHERE numero=@lote AND iproducto=@iproducto LIMIT 1",prod)
                 if isnull(lote) { do rise_error(500,"El número de lote indicado para "+@@(prod,"$descripcion")+" no existe, indique uno diferente.") }
-                else
-                {
-                    data<"lote"> : @@(lote,"#sys_pk")
-                }
+                
+                temp<"lote"> : @@(lote,"#sys_pk")
             }
             //#endregion
             
@@ -479,17 +497,15 @@ module ":Venta"
             {
                 ref serie = dbr.rec(db,"SELECT sys_pk, numero, status FROM serie WHERE numero=@serie AND iproducto=@iproducto LIMIT 1",prod)
                 if isnull(serie) { do rise_error(500,"El número de serie indicado para "+@@(prod,"$descripcion")+" no existe, indique uno diferente.") }
-                else
-                {
-                    if @@(serie,"#status") != @stt_serie_disponible && @@(serie,"#status") != @stt_serie_devuelto_por_cliente
-                    { do rise_error(500,"El número de serie indicado para "+@@(prod,"$descripcion")+" no se encuentra disponible, indique uno diferente") }
-                    data<"serie"> : @@(serie,"#sys_pk")
-                }
+                if @@(serie,"#status") != @stt_serie_disponible && @@(serie,"#status") != @stt_serie_devuelto_por_cliente
+                { do rise_error(500,"El número de serie indicado para "+@@(prod,"$descripcion")+" no se encuentra disponible, indique uno diferente") }
+                
+                temp<"serie"> : @@(serie,"#sys_pk")
             }
             //#endregion
 
-            if field.exist(data,"lote") || field.exist(data,"serie") { sys_info = to.json(data) }
-            prod<"sys_info"> : sys_info
+            if field.exist(temp,"lote") || field.exist(temp,"serie") { sys_info = to.json(temp) }
+            producto<"sys_info"> : sys_info
         }
 
         return detalle
@@ -532,6 +548,44 @@ module ":Venta"
         }
 
         return response
+    }
+
+    validateFields::&db,&params,&data
+    {
+        emision = trim(@@(data,"$fecha"))
+        fentrega = trim(@@(data,"$fentrega"))
+        vencimiento = trim(@@(data,"$vencimiento"))
+        fembarque = trim(@@(data,"$fembarque"))
+
+        if emision == "" { do rise_error(500,"Debe indicar la fecha de emisión del documento `fecha`.") }
+        if @@(data,"#iagente") <= 0 { do field.remove(data,"iagente") }
+        if @@(data,"#irepartidor") <= 0 { do field.remove(data,"irepartidor") }
+        if @@(data,"#iporteador") <= 0 { do field.remove(data,"iporteador") }
+
+        ndt_emision = ndatetime.fromstr(emision,"yyyy-MM-dd")
+        data<"fecha*"> : str2dt(emision)
+
+        do field.remove(data,"fentrega")
+        if fentrega != ""
+        {
+            ndt_fentrega = ndatetime.fromstr(fentrega,"yyyy-MM-dd")
+            if ndatetime.diff(ndt_fentrega,ndt_emision,"d") < 0 { do rise_error(500,"La fecha de entrega no puede ser inferior a la fecha de emisión.") }
+            data<"fentrega*"> : str2dt(fentrega)
+        }
+        do field.remove(data,"vencimiento")
+        if vencimiento != ""
+        {
+            ndt_vencimiento = ndatetime.fromstr(vencimiento,"yyyy-MM-dd")
+            if ndatetime.diff(ndt_vencimiento,ndt_emision,"d") < 0 { do rise_error(500,"La fecha de vencimiento no puede ser inferior a la fecha de emisión.") }
+            data<"vencimiento*"> : str2dt(vencimiento)
+        }
+        do field.remove(data,"fembarque")
+        if fembarque != ""
+        {
+            ndt_fembarque = ndatetime.fromstr(fembarque,"yyyy-MM-dd")
+            if ndatetime.diff(ndt_fembarque,ndt_emision,"d") < 0 { do rise_error(500,"La fecha de embarque no puede ser inferior a la fecha de emisión.") }
+            data<"fembarque*"> : str2dt(fembarque)
+        }
     }
 
     validateStatus::&db,&params,&data
@@ -725,10 +779,6 @@ module ":Venta"
             @"sys_user": @@(@http_context, "$session/user/uid")
             @"auditado": @false
             @"contabilizado": @false
-            @"fecha*": if(@@(data,"fecha")!="", str2dt(@@(data,"fecha")), @null)
-            @"fentrega*": if(@@(data,"fentrega")!="", str2dt(@@(data,"fentrega")), @null)
-            @"vencimiento*": if(@@(data,"vencimiento")!="", str2dt(@@(data,"vencimiento")), @null)
-            @"fembarque*": if(@@(data,"fembarque")!="", str2dt(@@(data,"fembarque")), @null)
             @"notas": trim(@@(data,"$notas"))
             @"referencia": serie + padleft(str(folio),ref_size,"0")
             @"ifolio": @@(dtfolio,"#sys_pk")
@@ -738,10 +788,6 @@ module ":Venta"
             @"statusfinanciero": @stt_fin_na
             @"_detalle*" : _detalle
         }
-
-        if @@(venta,"#iagente") <= 0 { do field.remove(venta,"iagente") }
-        if @@(venta,"#irepartidor") <= 0 { do field.remove(venta,"irepartidor") }
-        if @@(venta,"#iporteador") <= 0 { do field.remove(venta,"iporteador") }
 
         using @childs
         {
@@ -755,6 +801,7 @@ module ":Venta"
             }
         }
         
+        do validateFields(db,params,venta)
         do validateStatus(db,params,venta)
         do setLoteSerie(db,@@(venta,"&_detalle"))
         ref entity = entity.create(db,params,venta)
@@ -789,17 +836,9 @@ module ":Venta"
         using venta
         {
             @"sys_lastuser": @@(@http_context, "$session/user/uid")
-            @"fecha*": if(@@(data,"fecha")!="", str2dt(@@(data,"fecha")), @null)
-            @"fentrega*": if(@@(data,"fentrega")!="", str2dt(@@(data,"fentrega")), @null)
-            @"vencimiento*": if(@@(data,"vencimiento")!="", str2dt(@@(data,"vencimiento")), @null)
-            @"fembarque*": if(@@(data,"fembarque")!="", str2dt(@@(data,"fembarque")), @null)
             @"notas": trim(@@(data,"$notas"))
             @"_detalle*" : _detalle
         }
-
-        if @@(venta,"#iagente") <= 0 { do field.remove(venta,"iagente") }
-        if @@(venta,"#irepartidor") <= 0 { do field.remove(venta,"irepartidor") }
-        if @@(venta,"#iporteador") <= 0 { do field.remove(venta,"iporteador") }
 
         using @childs
         {
@@ -816,6 +855,7 @@ module ":Venta"
         do dbr.apps.action.pre("VD12")
         do dbr.begin(db)
         
+        do validateFields(db,params,venta)
         do validateStatus(db,params,venta)
         do setLoteSerie(db,@@(venta,"&_detalle"))
         ref entity = entity.update(db,params,venta)
@@ -852,6 +892,11 @@ module ":Venta"
 
         switch @@(data,"#formapago")
         {
+            case @fp_na
+            {
+                do erp.ventas.procesos.liquidacionNoAplica(db,@@(data,"#iventa"))
+                break
+            }
             case @fp_contado
             {
                 do erp.ventas.procesos.liquidacionContado(db,data)
@@ -890,7 +935,7 @@ module ":Venta"
             @"faplicacion": lib.hoy("yyyy-MM-dd")
             @"documento": @cNotaCredito
             @"fecha": hoy("yyyy-MM-dd")
-            @"notas": "Bonificación a: " + @@(data,"$dcliente") + " por cancelación de la venta " + @@(data,"$referencia")
+            @"notas": "Bonificación por cancelación de la venta " + @@(data,"$referencia")
             @"referencia": "B-" + @@(data,"$referencia")
             @"tcambio": @@(data,"#tipocambio")
             @"importe": @@(data,"#total")
