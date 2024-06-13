@@ -12,6 +12,27 @@ function trigger(elementOrSelector,eventName)
     element.dispatchEvent(event);
 }
 
+/**
+ * @param {string} selector selector del contenedor de la alerta.
+ * @param {string} content contenido HTML de la alerta.
+ * @param {number} timeout cantidad en segundos en la que sera visible la alerta.
+ * @returns 
+ */
+function show_alert(selector,content,timeout)
+{
+    const alert = document.querySelector(selector);
+    if (!alert) return;
+    if (!content) return;
+    
+    alert.classList.remove("d-none");
+    alert.innerHTML = content;
+
+    setTimeout(function() {
+        alert.classList.add("d-none");
+        alert.innerHTML = "";
+    }, (timeout * 1000));
+}
+
 function path_concat(p1,p2,...px)
 {
     p1 = p1.toString().replaceAll("\\","/");
@@ -130,23 +151,17 @@ function bsModal(id)
 function showModal(id) { bsModal(id).show() }
 function closeModal(id) { bsModal(id).hide() }
 
-/**
- * @param {string} selector selector del contenedor de la alerta.
- * @param {string} content contenido HTML de la alerta.
- * @param {number} timeout cantidad en segundos en la que sera visible la alerta.
- * @returns 
- */
-function show_alert(selector,content,timeout)
+function createFullElement(tagName, attributes={}, innerHTML="")
 {
-    const alert = document.querySelector(selector);
-    if (!alert) return;
-    if (!content) return;
+    const element = document.createElement(tagName);
+    const keys = Object.keys(attributes);
     
-    alert.classList.remove("d-none");
-    alert.innerHTML = content;
-
-    setTimeout(function() {
-        alert.classList.add("d-none");
-        alert.innerHTML = "";
-    }, (timeout * 1000));
+    keys.forEach(k => element.setAttribute(k, attributes[k]));
+    if (innerHTML.trim() !== "")
+    {
+        let content = document.createTextNode(innerHTML.trim());
+        element.appendChild(content);
+    }
+    
+    return element;
 }

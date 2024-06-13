@@ -48,6 +48,7 @@ module ""
     @stt_serie_devuelto_a_proveedor = 3
     @stt_serie_devuelto_por_cliente = 4
     @stt_serie_ensamblado = 5
+    @stt_serie_no_disponible = 6
     // cformaspago
     @fp_na = 0
     @fp_contado = 1

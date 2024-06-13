@@ -2,18 +2,19 @@
 #!
 module ":erp.ventas.procesos"
 {
-    setStatusToRelatedDocs::&db,iventa
+    setStatusToRelatedDocs::&db,iventa,formapago
     {
-        new params { @"iventa": parse.num(iventa) }
+        new params { @"iventa": iventa }
         
         sql_related_docs = "
         SELECT dv2.fk_venta_detalle AS rventa
         FROM dventa AS dv
             INNER JOIN dventa dv2 ON dv.doc_partida = dv2.sys_pk
-        WHERE dv.fk_venta_detalle = @icompra
+        WHERE dv.fk_venta_detalle = @iventa
         GROUP BY dv2.fk_venta_detalle
         "
         ref relatedDocs = dbr.list(db,sql_related_docs,params)
+        if list.count(relatedDocs) <= 0 { return }
 
         start_transaction = @false
 
@@ -26,21 +27,17 @@ module ":erp.ventas.procesos"
         {
             ref doc = list.obj(relatedDocs,i)
             
-            new status
+            if dbr.num(db,"SELECT SUM(IFNULL(xfacturar,cantidad)) FROM dventa WHERE fk_venta_detalle = @rventa",doc) == 0 
+            { do erp.ventas.procesos.setStatus(db,@@(doc,"#rventa"),formapago) }
+            else
             {
-                @"statusentrega": @stt_ent_xentregar
-                @"statusfacturacion": @stt_fac_xfacturar
+                new status
+                {
+                    @"statusentrega": @stt_ent_xentregar
+                    @"statusfacturacion": @stt_fac_xfacturar
+                }
+                do dbr.update(db,"venta",status,"sys_pk=@rventa",doc)
             }
-
-            xfacturar = dbr.num(db,"SELECT SUM(IFNULL(xfacturar,cantidad)) FROM dventa WHERE fk_venta_detalle = @rventa",doc)
-            
-            if xfacturar <= 0
-            {
-                status<"statusentrega"> : @stt_ent_entregado
-                status<"statusfacturacion"> : @stt_fac_facturado
-            }
-            
-            do dbr.update(db,"venta",status,"sys_pk=@rventa",doc)
         }
 
         if start_transaction { do dbr.commit(db) }
@@ -89,6 +86,20 @@ module ":erp.ventas.procesos"
             if dbr.in_transaction(db) { do dbr.rollback(db) }
             do rise_error(last_error_code(),last_error())
         }
+    }
+
+    devolverSerie::&db,&item
+    {
+        if @@(item,"#iserie") == 0 { return }
+        
+        sql = ftext("
+        UPDATE serie SET
+            sys_timestamp = now(),
+            sys_recver = IFNULL(sys_recver,0) + 1,
+            status = #<@stt_serie_devuelto_por_cliente>
+        WHERE sys_pk = @iserie
+        ")
+        do dbr.execute(db,sql,item)
     }
 
     salidaInventario::&db,iventa,icategoria
@@ -283,13 +294,107 @@ module ":erp.ventas.procesos"
                 @"sys_recver": 0
                 @"fk_cardex_movimientos": last_id
             }
-
+            do erp.ventas.procesos.devolverSerie(db,itm)
             do dbr.insert(db,"dcardex",dcardex)
         }
 
         if start_transaction { do dbr.commit(db) }
 
         return last_id
+
+        exception
+        {
+            if dbr.in_transaction(db) { do dbr.rollback(db) }
+            do rise_error(last_error_code(),last_error())
+        }
+    }
+
+    setStatus::&db,iventa,formapago
+    {
+        namespace "erp.ventas.procesos"
+
+        new params { @"iventa": iventa }
+        ref venta = dbr.rec(db,ftext("SELECT v.documento, (f.sys_pk IS NOT NULL) AS facturado FROM venta v LEFT JOIN venta f ON v.aplicadoa = f.sys_pk AND f.documento = #<@cFactura> WHERE v.sys_pk = @iventa;"),params)
+
+        ref fpago_edofin = record.create()
+        fpago_edofin<str(@fp_na)> : @stt_fin_na
+        fpago_edofin<str(@fp_contado)> : @stt_fin_saldado
+        fpago_edofin<str(@fp_credito)> : @stt_fin_con_adeudo
+        fpago_edofin<str(@fp_financiado)> : @stt_fin_saldado
+        fpago_edofin<str(@fp_consignado)> : @stt_fin_consignado
+
+        new status
+        {
+            @"formapago": formapago
+            @"statusadministrativo": @stt_adm_procesado
+            @"statusentrega": @stt_ent_na
+            @"statusfacturacion": @stt_fac_na
+            @"statusfinanciero": @stt_fin_na
+        }
+
+        switch @@(venta,"#documento")
+        {
+            case @cCotizacion
+            {
+                using status
+                {
+                    @"formapago": @fp_na
+                    @"statusadministrativo": @stt_adm_cerrado
+                }
+                break
+            }
+            case @cPedido
+            {
+                using status
+                {
+                    @"formapago": @fp_na
+                    @"statusadministrativo": @stt_adm_cerrado
+                    @"statusentrega": @stt_ent_xentregar
+                }
+                break
+            }
+            case @cRemision
+            {
+                using status
+                {
+                    @"statusentrega": @stt_ent_entregado
+                    @"statusfacturacion": if(@@(venta,"#facturado"), @stt_fac_facturado, @stt_fac_xfacturar)
+                    @"statusfinanciero": field.dnum(fpago_edofin,formapago,@stt_fin_na)
+                }
+                break
+            }
+            case @cFactura
+            {
+                using status
+                {
+                    @"statusentrega": @stt_ent_entregado
+                    @"statusfinanciero": field.dnum(fpago_edofin,formapago,@stt_fin_na)
+                }
+                break
+            }
+            case @cNotaCredito
+            {
+                using status
+                {
+                    @"statusentrega": @stt_ent_entregado
+                    @"statusfacturacion": @stt_fac_xfacturar
+                    @"statusfinanciero": field.dnum(fpago_edofin,formapago,@stt_fin_na)
+                }
+                break
+            }
+        }
+
+        start_transaction = @false
+        
+        if not(dbr.in_transaction(db)) {
+            do dbr.begin(db)
+            start_transaction = @true
+        }
+
+        do dbr.update(db,"venta",status,"sys_pk = @iventa",params)
+        if formapago != @fp_na { do setStatusToRelatedDocs(db,iventa,formapago) }
+
+        if start_transaction { do dbr.commit(db) }
 
         exception
         {
@@ -315,16 +420,7 @@ module ":erp.ventas.procesos"
         }
 
         // Establecer los estados correspondientes.
-        new params { @"iventa": iventa }
-        new status
-        {
-            @"formapago": @@(@FORMAS_PAGO,"cNO_APLICA")
-            @"statusadministrativo": @@(@EDO_ADMIN,"cPROCESADO")
-            @"statusentrega": @@(@EDO_ENTREGA,"cNO_APLICA")
-            @"statusfacturacion": @@(@EDO_FACTURACION,"cNO_APLICA")
-            @"statusfinanciero": @@(@EDO_FINANCIERO,"cNO_APLICA")
-        }
-        do dbr.update(db,"venta",status,"sys_pk = @iventa",params)
+        do erp.ventas.procesos.setStatus(db,iventa,@fp_na)
 
         if start_transaction { do dbr.commit(db) }
 
@@ -357,6 +453,13 @@ module ":erp.ventas.procesos"
     */
     liquidacionContado::&db,&data
     {
+        start_transaction = @false
+
+        if not(dbr.in_transaction(db)) {
+            do dbr.begin(db)
+            start_transaction = @true
+        }
+
         ref amounts = dbr.rec(db,@qry_imp_procesar,data)
         ref _deposito = record.copy(data,"faplicacion,referencia,documento,icategoria,icuenta,concepto")
         using _deposito
@@ -366,28 +469,12 @@ module ":erp.ventas.procesos"
             @"importe": @@(amounts,"#total")
         }
 
-        start_transaction = @false
-
-        if not(dbr.in_transaction(db)) {
-            do dbr.begin(db)
-            start_transaction = @true
-        }
-
         // Generar movimiento de salida de inventario y aplicar.
         do erp.inventario.aplicar_mov(db,erp.ventas.procesos.salidaInventario(db,@@(data,"#iventa"),@@(data,"#icategoria")),@true)
         // Realizar depósito a la cuenta.
         do erp.efectivo.movimientos.deposito(db,_deposito)
         // Establecer los estados correspondientes.
-        do erp.ventas.procesos.setStatusToRelatedDocs(db,@@(data,"#iventa"))
-        new status
-        {
-            @"formapago": @fp_contado
-            @"statusadministrativo": @stt_adm_procesado
-            @"statusentrega": @stt_ent_entregado
-            @"statusfacturacion": @stt_fac_xfacturar
-            @"statusfinanciero": @stt_fin_saldado
-        }
-        do dbr.update(db,"venta",status,"sys_pk=@iventa",data)
+        do erp.ventas.procesos.setStatus(db,@@(data,"#iventa"),@fp_contado)
 
         if start_transaction { do dbr.commit(db) }
 
@@ -421,6 +508,13 @@ module ":erp.ventas.procesos"
     */
     liquidacionCredito::&db,&data
     {
+        start_transaction = @false
+
+        if not(dbr.in_transaction(db)) {
+            do dbr.begin(db)
+            start_transaction = @true
+        }
+
         ref amounts = dbr.rec(db,@qry_imp_procesar,data)
         ref _cxc = record.copy(data,"flimite,referencia,documento,tcambio,concepto,icliente")
         using _cxc
@@ -430,28 +524,12 @@ module ":erp.ventas.procesos"
             @"importe": @@(amounts,"#total")
         }
 
-        start_transaction = @false
-
-        if not(dbr.in_transaction(db)) {
-            do dbr.begin(db)
-            start_transaction = @true
-        }
-
         // Generar movimiento de salida de inventario y aplicar.
         do erp.inventario.aplicar_mov(db,erp.ventas.procesos.salidaInventario(db,@@(data,"#iventa"),@@(data,"#icategoria")),@true)
         // Agregar documento por cobrar (dcxc) y afectar el saldo del cliente.
         do erp.cxc.movimientos.crearCxC(db,_cxc)
         // Establecer los estados correspondientes.
-        do erp.ventas.procesos.setStatusToRelatedDocs(db,@@(data,"#iventa"))
-        new status
-        {
-            @"formapago": @fp_credito
-            @"statusadministrativo": @stt_adm_procesado
-            @"statusentrega": @stt_ent_entregado
-            @"statusfacturacion": @stt_fac_xfacturar
-            @"statusfinanciero": @stt_fin_con_adeudo
-        }
-        do dbr.update(db,"venta",status,"sys_pk=@iventa",data)
+        do erp.ventas.procesos.setStatus(db,@@(data,"#iventa"),@fp_credito)
 
         if start_transaction { do dbr.commit(db) }
 
@@ -482,17 +560,7 @@ module ":erp.ventas.procesos"
         // Generar movimiento de salida de inventario y aplicar.
         do erp.inventario.aplicar_mov(db,erp.ventas.procesos.salidaInventario(db,iventa,icategoria),@true)
         // Establecer los estados correspondientes.
-        do erp.ventas.procesos.setStatusToRelatedDocs(db,iventa)
-        new params { @"iventa": iventa }
-        new status
-        {
-            @"formapago": @fp_consignado
-            @"statusadministrativo": @stt_adm_procesado
-            @"statusentrega": @stt_ent_entregado
-            @"statusfacturacion": @stt_fac_xfacturar
-            @"statusfinanciero": @stt_fin_consignado
-        }
-        do dbr.update(db,"venta",status,"sys_pk=@iventa",params)
+        do erp.ventas.procesos.setStatus(db,iventa,@fp_consignado)
 
         if start_transaction { do dbr.commit(db) }
 

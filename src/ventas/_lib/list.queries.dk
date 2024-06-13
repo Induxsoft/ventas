@@ -35,7 +35,7 @@ module "Lista de consultas MySQL"
         #<joins>
     WHERE NOT IFNULL(vnt.sys_deleted,0)
         #<conditions>
-    ORDER BY vnt.fecha ASC
+    ORDER BY vnt.sys_dtcreated ASC
     LIMIT #<@default_max_rows>
     "
 

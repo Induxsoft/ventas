@@ -224,10 +224,10 @@ var venta =
             {
                 switch (this.cur_stt_adm) {
                     case 0: //No aplica
-                        hideControls(["btn_guardar","btn_cerrar","btn_procesar"],false);
+                        hideControls(["btn_guardar","btn_cerrar","btn_procesar","btn_add_doc"],false);
                         break;
                     case 1: //Abierto
-                        hideControls(["btn_guardar","btn_cerrar","btn_procesar","btn_cancelar"],false);
+                        hideControls(["btn_guardar","btn_cerrar","btn_procesar","btn_cancelar","btn_add_doc"],false);
                         break;
                     case 2: //Cerrado
                         hideControls(["btn_reabrir","btn_procesar","btn_cancelar"],false);
@@ -699,10 +699,10 @@ var venta =
             descuentos: i.descuentos,
             impuestos: i.impuestos,
             importe: i.total,
-            lote: "",
-            fcad: "",
-            serie: "",
-            notas: "",
+            lote: (p.lote || ""),
+            fcad: (p.fcad || ""),
+            serie: (p.serie || ""),
+            notas: (p.notas || ""),
 
             // campos para el insert.
             descuento1: i.descuentos,
@@ -744,17 +744,7 @@ var venta =
         let available_row = (_productos.length > 0) ? _productos.length : 0;
         
         if (dtarray.length === _productos.length) this.table.AddRow();
-
-        if (producto.origen !== "")
-        {
-            producto["notas"] = "Documento origen: "+producto.origen;
-
-            // const tr = this.table.GetTrByIndex(available_row);
-            // tr.querySelectorAll("td").forEach(td => {
-            //     td.style.backgroundColor = "#888888";
-            //     td.style.color = "#FFFFFF";
-            // });
-        }
+        if (producto.origen !== "" && producto.notas === "") producto["notas"] = "Documento origen: "+producto.origen;
         
         dtarray[available_row] = producto
         // this.table.UpdateRow(available_row);
@@ -797,6 +787,15 @@ var venta =
             this.table.DeleteRow(curr_row);
             this.tableSummary();
             this.toggleEdtColumns();
+
+            if (data_row.origen !== "")
+            {
+                let dventa = dtarray.filter(obj => obj.origen === data_row.origen)
+                if (dventa.length === 0) {
+                    let venta = Object.values(this.docs_included).find(obj => obj.referencia === data_row.origen);
+                    delete this.docs_included[venta.sys_pk];
+                }
+            }
         }
         else { this.table.DeleteRow(curr_row); }
     },

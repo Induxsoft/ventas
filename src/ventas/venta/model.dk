@@ -59,6 +59,7 @@ module ":Venta"
                 WHEN #<@cPedido> THEN vnt.documento = #<@cCotizacion>
                 WHEN #<@cRemision> THEN vnt.documento IN (#<@cCotizacion>,#<@cPedido>)
                 WHEN #<@cFactura> THEN vnt.documento IN (#<@cCotizacion>,#<@cPedido>,#<@cRemision>)
+                WHEN #<@cNotaCredito> THEN vnt.documento IN (#<@cRemision>,#<@cFactura>)
             END
         )
         AND (vnt.referencia LIKE CONCAT('%',@search,'%'))
@@ -149,6 +150,7 @@ module ":Venta"
     obtenerDVenta::&db,&params
     {
         new p { @"_entity_id": @@(params,"#iventa") }
+        do Venta.setZonaImpuesto(db,p)
 
         selects = ",
         vnt.referencia AS origen,
@@ -159,7 +161,8 @@ module ":Venta"
 
         joins = "INNER JOIN venta AS vnt ON dt.fk_venta_detalle = vnt.sys_pk"
 
-        return dbr.list(db,ftext(@qry_dventa),p)
+        ref dventa = Venta.recoverLoteSerie(db,dbr.list(db,ftext(@qry_dventa),p))
+        return dventa
     }
 
     obtenerLotesDeProducto::&db,&params
@@ -400,7 +403,7 @@ module ":Venta"
 
                     params<"fdr_from"> : ult_30_days
                 }
-                if not(field.exist(params,"fdr_to")) { params<"fdr_to"> : hoy("yyyy-MM-dd") }
+                if not(field.exist(params,"fdr_to")) { params<"fdr_to"> : date_str(now(),"yyyy-MM-dd") }
 
                 if trim(@@(params,"$fdr_from")) != "" && trim(@@(params,"$fdr_to")) != ""
                 {
@@ -477,7 +480,7 @@ module ":Venta"
         for i = 0; i < list.count(detalle)
         {
             ref producto = list.obj(detalle,i)
-            ref prod = record.copy(producto,"iproducto,descripcion,reqlote,reqserie,lote,fcad,serie")
+            ref prod = record.copy(producto,"iproducto,descripcion,reqlote,reqserie,lote,fcad,serie,origen")
             ref temp = record.create()
             
             sys_info = ""
@@ -497,7 +500,7 @@ module ":Venta"
             {
                 ref serie = dbr.rec(db,"SELECT sys_pk, numero, status FROM serie WHERE numero=@serie AND iproducto=@iproducto LIMIT 1",prod)
                 if isnull(serie) { do rise_error(500,"El número de serie indicado para "+@@(prod,"$descripcion")+" no existe, indique uno diferente.") }
-                if @@(serie,"#status") != @stt_serie_disponible && @@(serie,"#status") != @stt_serie_devuelto_por_cliente
+                if trim(field.dstr(prod,"origen","")) == "" && @@(serie,"#status") != @stt_serie_disponible && @@(serie,"#status") != @stt_serie_devuelto_por_cliente
                 { do rise_error(500,"El número de serie indicado para "+@@(prod,"$descripcion")+" no se encuentra disponible, indique uno diferente") }
                 
                 temp<"serie"> : @@(serie,"#sys_pk")
@@ -632,13 +635,21 @@ module ":Venta"
                 if new_stt_adm == @stt_adm_na || new_stt_adm == @stt_adm_cerrado { do rise_error(500,"Estado inválido, no es posible actualizar.") }
 
                 if new_stt_adm == @stt_adm_abierto { @url_redir = @VNT_EDITAR }
-                else if new_stt_adm == @stt_adm_procesado { @url_redir = @VNT_PROCESAR }
-                else if new_stt_adm == @stt_adm_cancelado { @url_redir = @VNT_CANCELAR }
+                else if new_stt_adm == @stt_adm_procesado {
+                    data<"statusadministrativo"> : @stt_adm_cerrado
+                    @url_redir = @VNT_PROCESAR
+                }
+                else if new_stt_adm == @stt_adm_cancelado {
+                    data<"statusadministrativo"> : @stt_adm_cerrado
+                    @url_redir = @VNT_CANCELAR
+                }
                 break
             }
             case @stt_adm_procesado
             {
                 if new_stt_adm != @stt_adm_cancelado { do rise_error(500,"Estado inválido, no es posible actualizar.") }
+                
+                data<"statusadministrativo"> : @stt_adm_procesado
                 @url_redir = @VNT_CANCELAR
                 break
             }
@@ -934,7 +945,7 @@ module ":Venta"
         {
             @"faplicacion": lib.hoy("yyyy-MM-dd")
             @"documento": @cNotaCredito
-            @"fecha": hoy("yyyy-MM-dd")
+            @"fecha": lib.hoy("yyyy-MM-dd")
             @"notas": "Bonificación por cancelación de la venta " + @@(data,"$referencia")
             @"referencia": "B-" + @@(data,"$referencia")
             @"tcambio": @@(data,"#tipocambio")
