@@ -60,6 +60,7 @@ module "Lista de consultas MySQL"
         ) AS total,
         vnt.tipocambio,
         vnt.idivisa,
+        vnt.ifolio,
         vnt.icconsumo,
         vnt.icliente,
         vnt.iagente,
@@ -92,7 +93,7 @@ module "Lista de consultas MySQL"
         LEFT JOIN cstatusentrega AS ent ON vnt.statusentrega = ent.id
         LEFT JOIN cstatusfacturacion AS fac ON vnt.statusfacturacion = fac.id
         LEFT JOIN cstatusfinancieros AS fin ON vnt.statusfinanciero = fin.id
-    WHERE vnt.#<@keyfield> = @_entity_id
+    WHERE vnt.#<@keyfield> = IFNULL(@_entity_id,@iventa)
     "
 
     @qry_dventa = "
@@ -155,7 +156,7 @@ module "Lista de consultas MySQL"
         LEFT JOIN lote AS l ON dc.ilote = l.sys_pk
         LEFT JOIN serie AS s ON dc.iserie = s.sys_pk
         #<joins>
-    WHERE dt.fk_venta_detalle = IFNULL(@_entity_id,@sys_pk)
+    WHERE dt.fk_venta_detalle = COALESCE(@_entity_id,@iventa,@sys_pk)
     "
 
     @qry_buscar_cliente = "
@@ -178,7 +179,7 @@ module "Lista de consultas MySQL"
         p.sys_pk,
         p.codigo,
         p.descripcion,
-        p.costoultimo AS precio,
+        p.precio1 AS precio,
         1 AS cantidad,
         0 AS descuentos,
         TRIM(p.unidad) AS unidada,

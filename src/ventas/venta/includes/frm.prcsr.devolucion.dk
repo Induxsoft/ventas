@@ -1,0 +1,75 @@
+#$
+form(class="row" action="./" method="POST" id="form_devolucion")
+{
+    input(type="hidden" name="iventa" value="#<@@(entity,'#sys_pk')>")
+    input(type="hidden" name="documento" value="#<@@(entity,'#documento')>")
+    input(type="hidden" name="formapago" value="#<@fp_na>")
+
+    div(class="col-lg-8 col-md-10 col-sm-12")
+    {
+        div(class="row mb-2")
+        {
+            div(class="col-lg-4 col-md-4")
+            {
+                label(class="form-label" "for"="txt_cliente"){$"Cliente:"}
+                input(class="form-control form-control-sm rounded-0" type="text" name="" value="#<@@(entity,'$dcliente')>" id="txt_cliente" disabled="")
+            }
+            div(class="col-lg-4 col-md-4")
+            {
+                label(class="form-label" "for"="txt_referencia"){$"Referencia:"}
+                input(class="form-control form-control-sm rounded-0" type="text" name="" value="#<@@(entity,'$referencia')>" id="txt_referencia" disabled="")
+            }
+            div(class="col-lg-4 col-md-4")
+            {
+                label(class="form-label" "for"="txt_documento"){$"Documento:"}
+                input(class="form-control form-control-sm rounded-0" type="text" name="" value="#<@@(entity,'$cdocumento')>" id="txt_documento" disabled="")
+            }
+
+            div(class="col-12 py-1")
+            {
+                #!
+                egreso = field.dstr(ifnull(@("&./form"),record.create()), "egreso", "GD15")
+                #$
+                div(class="form-check form-check-inline")
+                {
+                    input(class="form-check-input" type="radio" name="egreso" id="rdb_retiro" value="GD15" "#<ifstr(egreso=='GD15','checked','')>"="" required="")
+                    label(class="form-check-label" "for"="rdb_retiro"){$"Realizar egreso de efectivo"}
+                }
+
+                div(class="form-check form-check-inline")
+                {
+                    input(class="form-check-input" type="radio" name="egreso" id="rdb_bonificacion" value="GB27" "#<ifstr(egreso=='GB27','checked','')>"="" required="")
+                    label(class="form-check-label" "for"="rdb_bonificacion"){$"Bonificar cuenta del cliente"}
+                }
+            }
+            div(class="col-lg-6 col-md-6 col-sm-6" id="div_sel_cuenta" "#<ifstr(egreso=='GB27','hidden','')>"="")
+            {
+                // label(class="form-label" "for"="sel_cuenta"){$"Cuenta:"}
+                ##
+                do uie.dbSelect(sel_cuenta)
+                ##
+            }
+            div(class="col-lg-6 col-md-6 col-sm-6" id="div_cat_egreso" "#<ifstr(egreso=='GB27','hidden','')>"="")
+            {
+                // label(class="form-label" "for"="sel_cat_egreso"){$"Categoria:"}
+                ##
+                do uie.dbSelect(sel_cat_egreso)
+                ##
+            }
+            
+            div(class="col-12")
+            {
+                label(class="form-label" "for"="txt_concepto"){$"Concepto:"}
+                textarea(class="form-control rounded-0" name="concepto" id="txt_concepto" required=""){$"Devolución de venta"}
+            }
+
+            div(class="d-flex gap-2 align-items-center justify-content-end my-2")
+            {
+                label(class="form-label" "for"="txt_importe"){$"Importe:"}
+                input(class="form-control form-control-sm rounded-0 w-25" type="number" name="" id="txt_importe" value="#<@@(entity,'#total')>" disabled="")
+            }
+        }
+
+        button(type="submit" class="btn btn-primary btn-sm float-end"){$"Aceptar"}
+    } 
+}

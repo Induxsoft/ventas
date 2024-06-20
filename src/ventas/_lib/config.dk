@@ -16,6 +16,7 @@ module ""
     @cFactura = 4
     @cNotaCredito = 5
     @cTicket = 6
+    @cRetiro = 67
     // cstatusadministrativos
 	@stt_adm_na = 0
 	@stt_adm_abierto = 1
@@ -65,6 +66,7 @@ module ""
     @CSS_MAIN = "/$/ventas/css/main.css"   
     @JS_MAIN = "/$/ventas/js/main.js"
     @JS_VENTA = "/$/ventas/js/venta.js"
+    @JS_PROCESAR = "/$/ventas/js/procesar.js"
 
     //* ======================================== [ _PACKAGE ]
     @URL_BUSCAR_CLIENTE = "/!/ventas/venta/?_view=buscar-cliente&search=@search"

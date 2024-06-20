@@ -248,6 +248,7 @@ module ":Venta"
 
     prepareView::&db,&params,&data
     {
+        //#region prepareView()
         namespace "Venta"
 
         is_new = (@@(params,"$_entity_id") == "_new")
@@ -261,6 +262,11 @@ module ":Venta"
                 params<"doctype"> : @@(data,"#entity/documento")
                 data<"entity/tcambio"> : @@(data,"#entity/tipocambio")
 
+                ref cat_movinv = dbr.list(db,@qry_cat_movinv,@null)
+                go foreach.lobj(value:obj) with(cat_movinv) {
+                    obj<"tcategoria"> : HtmlEncode(@@(obj,"$tcategoria"))
+                }
+
                 using data
                 {
                     @"amounts*": obtenerImportesAProcesar(db,params)
@@ -269,7 +275,8 @@ module ":Venta"
                     @"list_cta_chq*": dbr.list(db,@qry_list_cta_chq,@null)
                     @"list_divisas*": dbr.list(db,@qry_list_divisas,@null)
                     @"list_cat_ingreso*": dbr.list(db,@qry_cat_ingreso,@null)
-                    @"list_cat_movinv*": dbr.list(db,@qry_cat_movinv,@null)
+                    @"list_cat_egreso*": dbr.list(db,@qry_cat_egreso,@null)
+                    @"list_cat_movinv*": cat_movinv
                 }
                 break
             }
@@ -436,6 +443,7 @@ module ":Venta"
 
     recoverLoteSerie::&db,&detalle
     {
+        //#region recoverLoteSerie()
         if isnull(detalle) { return detalle }
         do Venta.setLoteSerieVar(db)
         if not(@enable_lotes) && not(@enable_series) { return detalle }
@@ -471,21 +479,23 @@ module ":Venta"
         return detalle
     }
 
-    setLoteSerie::&db,&detalle
+    setLoteSerie::&db,&detalle,doctype
     {
+        //#region setLoteSerie()
         if isnull(detalle) { return detalle }
         do Venta.setLoteSerieVar(db)
         if not(@enable_lotes) && not(@enable_series) { return detalle }
+
+        devolucion = (doctype == @cNotaCredito)
 
         for i = 0; i < list.count(detalle)
         {
             ref producto = list.obj(detalle,i)
             ref prod = record.copy(producto,"iproducto,descripcion,reqlote,reqserie,lote,fcad,serie,origen")
             ref temp = record.create()
-            
+
             sys_info = ""
 
-            //#region Establecer lote
             if trim(@@(prod,"$lote")) != ""
             {
                 ref lote = dbr.rec(db,"SELECT sys_pk, numero FROM lote WHERE numero=@lote AND iproducto=@iproducto LIMIT 1",prod)
@@ -493,19 +503,18 @@ module ":Venta"
                 
                 temp<"lote"> : @@(lote,"#sys_pk")
             }
-            //#endregion
             
-            //#region Establecer serie
             if trim(@@(prod,"$serie")) != ""
             {
                 ref serie = dbr.rec(db,"SELECT sys_pk, numero, status FROM serie WHERE numero=@serie AND iproducto=@iproducto LIMIT 1",prod)
                 if isnull(serie) { do rise_error(500,"El número de serie indicado para "+@@(prod,"$descripcion")+" no existe, indique uno diferente.") }
-                if trim(field.dstr(prod,"origen","")) == "" && @@(serie,"#status") != @stt_serie_disponible && @@(serie,"#status") != @stt_serie_devuelto_por_cliente
+                if trim(field.dstr(prod,"origen","")) == "" && not(devolucion) && @@(serie,"#status") != @stt_serie_disponible && @@(serie,"#status") != @stt_serie_devuelto_por_cliente
                 { do rise_error(500,"El número de serie indicado para "+@@(prod,"$descripcion")+" no se encuentra disponible, indique uno diferente") }
+                if trim(field.dstr(prod,"origen","")) == "" && devolucion && @@(serie,"#status") != @stt_serie_vendido
+                { do rise_error(500,"El número de serie indicado para "+@@(prod,"$descripcion")+" no corresponde a una serie vendida, indique uno diferente") }
                 
                 temp<"serie"> : @@(serie,"#sys_pk")
             }
-            //#endregion
 
             if field.exist(temp,"lote") || field.exist(temp,"serie") { sys_info = to.json(temp) }
             producto<"sys_info"> : sys_info
@@ -534,6 +543,7 @@ module ":Venta"
 
     changeStatus::&db,&params,&data
     {
+        //#region changeStatus()
         do Venta.validateStatus(db,params,data)
         new status
         {
@@ -555,6 +565,7 @@ module ":Venta"
 
     validateFields::&db,&params,&data
     {
+        //#region validateFields()
         emision = trim(@@(data,"$fecha"))
         fentrega = trim(@@(data,"$fentrega"))
         vencimiento = trim(@@(data,"$vencimiento"))
@@ -593,6 +604,7 @@ module ":Venta"
 
     validateStatus::&db,&params,&data
     {
+        //#region validateStatus()
         if trim(@@(params,"$_entity_id")) == "" { params<"_entity_id"> : @@(data,@keyfield) }
 
         @url_redir = @VNT_LISTAR
@@ -660,6 +672,7 @@ module ":Venta"
 
     validateAccess::&db,&params,&data
     {
+        //#region validateAccess()
         switch @@(params,"$_view")
         {
             case "procesar"
@@ -697,6 +710,7 @@ module ":Venta"
 
     list::&db,&params
     {
+        //#region list()
         do dbr.apps.action.grant("VD10")
 
         do Venta.evaluateListFilters(params)
@@ -721,6 +735,7 @@ module ":Venta"
 
     read::&db,&params
     {
+        //#region read()
         do dbr.apps.action.grant("VD10")
 
         if not(isset("@read_entity_only")){ @read_entity_only = @false }
@@ -743,6 +758,7 @@ module ":Venta"
 
     blank::&db,&params
     {
+        //#region blank()
         do dbr.apps.action.grant("VD10")
 
         new data {}
@@ -761,6 +777,7 @@ module ":Venta"
 
     create::&db,&params,&data
     {
+        //#region create()
         namespace "Venta"
 
         @use_transaction = @false
@@ -814,7 +831,7 @@ module ":Venta"
         
         do validateFields(db,params,venta)
         do validateStatus(db,params,venta)
-        do setLoteSerie(db,@@(venta,"&_detalle"))
+        do setLoteSerie(db,@@(venta,"&_detalle"),@@(venta,"#documento"))
         ref entity = entity.create(db,params,venta)
         do documentsIncluded(db,@@(venta,"$docs_included_id"),@@(entity,"#sys_pk"))
         do updateAmounts(db,@@(entity,"#sys_pk"))
@@ -836,6 +853,7 @@ module ":Venta"
 
     update::&db,&params,&data
     {
+        //#region update()
         namespace "Venta"
         
         @use_transaction = @false
@@ -868,7 +886,7 @@ module ":Venta"
         
         do validateFields(db,params,venta)
         do validateStatus(db,params,venta)
-        do setLoteSerie(db,@@(venta,"&_detalle"))
+        do setLoteSerie(db,@@(venta,"&_detalle"),@@(venta,"#documento"))
         ref entity = entity.update(db,params,venta)
         do documentsIncluded(db,@@(venta,"$docs_included_id"),@@(entity,"#sys_pk"))
         do updateAmounts(db,@@(entity,"#sys_pk"))
@@ -895,6 +913,7 @@ module ":Venta"
 
     process::&db,params,&data
     {
+        //#region process()
         @use_transaction = @false
         @read_entity_only = @true
 
@@ -905,7 +924,7 @@ module ":Venta"
         {
             case @fp_na
             {
-                do erp.ventas.procesos.liquidacionNoAplica(db,@@(data,"#iventa"))
+                do erp.ventas.procesos.liquidacionNoAplica(db,data)
                 break
             }
             case @fp_contado
@@ -947,7 +966,7 @@ module ":Venta"
             @"documento": @cNotaCredito
             @"fecha": lib.hoy("yyyy-MM-dd")
             @"notas": "Bonificación por cancelación de la venta " + @@(data,"$referencia")
-            @"referencia": "B-" + @@(data,"$referencia")
+            @"referencia": @@(data,"$referencia")+"-B"
             @"tcambio": @@(data,"#tipocambio")
             @"importe": @@(data,"#total")
             @"icliente": @@(data,"#icliente")
@@ -958,6 +977,7 @@ module ":Venta"
 
     cancel::&db,&params,&data
     {
+        //#region cancel()
         @use_transaction = @false
         @read_entity_only = @true
 

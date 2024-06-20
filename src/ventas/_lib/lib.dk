@@ -5,6 +5,9 @@ module "Funciones de propósito general:lib"
 {
     if not(isset("@http_context")) && isset("@crud_context") { ref @http_context = ifnull(@@(@crud_context,"&http"),record.create()) }
 
+    do _map_function(-1,"System.Net.WebUtility","HtmlEncode","HtmlEncode","System.String","$")
+    do _map_function(-1,"System.Net.WebUtility","HtmlDecode","HtmlDecode","System.String","$")
+
     function hoy(fmt)
     {
         return date_str(now(),str(fmt))
@@ -28,7 +31,13 @@ module "Funciones de propósito general:lib"
         for i = 0; i < list.count(keys)
         {
             key = list.str(keys,i)
-            do list.add(values,@@(record,key))
+            // 1 - $ | 2 - # | 3 - * | 0 - not exist
+            switch field.typeof(record,key)
+            {
+                case 1 { do list.add(values,field.str(record,key)) }
+                case 2 { do list.add(values,field.num(record,key)) }
+                case 3 { do list.add(values,field.obj(record,key)) }
+            }
         }
         return values
     }
@@ -36,31 +45,6 @@ module "Funciones de propósito general:lib"
     function record.combine(&obj1,&obj2)
     {
         return record.copyexin(obj2,obj1,"*",",","",":")
-    }
-
-    function newrec()
-    {
-        new record
-        {
-            @"sys_pk": 0 // Clave primaria para la tabla (alcance local)
-            @"sys_guid": uuid() // GUID que puede usarse como clave primaria de alcance global
-            @"sys_dtcreated*": now() // Fecha y hora de creación del registro
-            @"sys_timestamp*": now() // Fecha y hora de la última actualización del registro (marca de tiempo con precisión hasta segundos)
-            @"sys_info": ""
-            @"sys_user": "" // UserId del usuario logueado que creo el registro.
-            @"sys_lastuser": "" // UserId del usuario logueado que modifico el registro.
-            @"sys_exported": @false // Indica si el registro ha sido exportado por las utilidades de transporte de datos
-            @"sys_dtexported*": @null // Indica la fecha en que se exportó por última vez
-            @"sys_recver": 0 // Número de versión de instancia de registro
-            @"sys_deleted": @false // Indica si la fila está marcada como eliminada
-            /**
-            * Clave foránea que indica si se ha establecido un bloqueo pesimista sobre la fila.
-            * Este campo admite valores Nulos que significan que el registro no está bloqueado.
-            * No se admiten duplicados
-            */
-            @"sys_lock*": @null
-        }
-        return record
     }
 
     function date_format(str,fmt)
@@ -155,6 +139,31 @@ module "Funciones de propósito general:lib"
             ref post:from.json(post_string)
         }
         return post
+    }
+
+    function newrec()
+    {
+        new record
+        {
+            @"sys_pk": 0 // Clave primaria para la tabla (alcance local)
+            @"sys_guid": uuid() // GUID que puede usarse como clave primaria de alcance global
+            @"sys_dtcreated*": now() // Fecha y hora de creación del registro
+            @"sys_timestamp*": now() // Fecha y hora de la última actualización del registro (marca de tiempo con precisión hasta segundos)
+            @"sys_info": ""
+            @"sys_user": "" // UserId del usuario logueado que creo el registro.
+            @"sys_lastuser": "" // UserId del usuario logueado que modifico el registro.
+            @"sys_exported": @false // Indica si el registro ha sido exportado por las utilidades de transporte de datos
+            @"sys_dtexported*": @null // Indica la fecha en que se exportó por última vez
+            @"sys_recver": 0 // Número de versión de instancia de registro
+            @"sys_deleted": @false // Indica si la fila está marcada como eliminada
+            /**
+            * Clave foránea que indica si se ha establecido un bloqueo pesimista sobre la fila.
+            * Este campo admite valores Nulos que significan que el registro no está bloqueado.
+            * No se admiten duplicados
+            */
+            @"sys_lock*": @null
+        }
+        return record
     }
 
     function form(name,type,&obj)
