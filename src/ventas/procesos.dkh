@@ -747,7 +747,7 @@ module ":erp.ventas.procesos"
         }
 
         ref amounts = dbr.rec(db,@qry_imp_procesar,data)
-        ref _cxc = record.copy(data,"flimite,referencia,documento,tcambio,concepto,icliente")
+        ref _cxc = record.copy(data,"flimite,referencia,documento,tcambio,concepto,icliente,iventa")
         using _cxc
         {
             @"aplicable": @true
