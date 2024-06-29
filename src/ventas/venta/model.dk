@@ -48,8 +48,11 @@ module ":Venta"
 
     buscarDocumento::&db,&params
     {
-        joins = "INNER JOIN dventa AS dv ON vnt.sys_pk = dv.fk_venta_detalle"
-
+        joins = "INNER JOIN dventa AS dv ON vnt.sys_pk = dv.fk_venta_detalle
+                LEFT JOIN dcxc as cxc on vnt.sys_pk=cxc.iventa"
+        
+        saldo_cxc=" (IFNULL(cxc.debe,0) + IFNULL(cxc.intmoratorios,0) - IFNULL(cxc.pagos,0) - IFNULL(cxc.bonificaciones,0) )"
+        
         conditions = ftext("
         AND vnt.statusadministrativo != #<@stt_adm_cancelado>
         AND vnt.aplicadoa IS NULL
@@ -57,8 +60,8 @@ module ":Venta"
         AND (
             CASE @doctype
                 WHEN #<@cPedido> THEN vnt.documento = #<@cCotizacion>
-                WHEN #<@cRemision> THEN vnt.documento IN (#<@cCotizacion>,#<@cPedido>)
-                WHEN #<@cFactura> THEN vnt.documento IN (#<@cCotizacion>,#<@cPedido>,#<@cRemision>)
+                WHEN #<@cRemision> THEN vnt.documento IN (#<@cCotizacion>,#<@cPedido>) 
+                WHEN #<@cFactura> THEN vnt.documento IN (#<@cCotizacion>,#<@cPedido>,#<@cRemision>) and if(vnt.formapago=#<@fp_credito> and vnt.documento=#<@cRemision>,#<saldo_cxc>=0,true)
                 WHEN #<@cNotaCredito> THEN vnt.documento IN (#<@cRemision>,#<@cFactura>)
             END
         )
