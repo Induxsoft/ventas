@@ -111,7 +111,11 @@ module "error.dk"
 				}
 				#$
 				div(class="alert alert-primary overflow-auto" role="alert"){$"#<@('$error/message')>"}
-				button(type="button" onclick="window.history.back()" class="btn"){$"Volver"}
+				div(class="d-flex gap-2 justify-content-center")
+				{
+					button(type="button" onclick="window.history.back();" class="btn"){$"Volver"}
+					button(type="button" onclick="window.location.reload();" class="btn"){$"Recargar"}
+				}
 				// img(src="/$/ventas/img/not-found.svg" class="img-fluid py-5" alt="Not Found")
 			}
 		}

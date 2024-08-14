@@ -118,8 +118,11 @@ var venta =
         
         this.table.setInputKey("codigo",ik_producto);
         this.table.setInputKey("descripcion",ik_producto);
+        if (this.enable_lotes) this.table.setInputKey("lote",ik_lot_prod);
+        if (this.enable_series) this.table.setInputKey("serie",ik_ser_prod);
 
         this.table.onTdPaint = (td,irow,icol,field) => this.coloringIncludedRows(td,irow,icol,field);
+        this.table.ButtonOnClick = (irow,icol,coldef) => this.cellsButtonClickHandler(irow,icol,coldef);
 
         this.table.Events[evt.EnterCell] = (e) => 
         {
@@ -132,7 +135,7 @@ var venta =
             if (Object.keys(producto ?? {}).length < this.table.Columns.length) return;
 
             this.disableIncludedRows(curr_col,producto);
-            this.disableCells(curr_col,coldef.field,producto);
+            // this.disableCells(curr_col,coldef.field,producto);
         };
         this.table.Events[evt.StartEdition] = (e) => { this.fillUnitCell(e) };
         this.table.Events[evt.BeforeUpdateCell] = (e) => { this.validateRowCells(e) };
@@ -807,6 +810,29 @@ var venta =
         {
             td.style.backgroundColor = "#888888";
             td.style.color = "#FFFFFF";
+        }
+    },
+
+    cellsButtonClickHandler(irow,icol,coldef)
+    {
+        switch (coldef.field) {
+            case "codigo":
+            case "descripcion":
+                const ik_producto = document.getElementById("ik_producto");
+                ik_producto.searchText("",false);
+                break;
+            case "lote":
+                const ik_lot_prod = document.getElementById("ik_lot_prod");
+                this.launchIkLoteSerie(ik_lot_prod);
+                break;
+            case "serie":
+                const ik_ser_prod = document.getElementById("ik_ser_prod");
+                this.launchIkLoteSerie(ik_ser_prod);
+                break;
+        
+            default:
+            console.warn("Controlador de click no implementado");
+                break;
         }
     },
 

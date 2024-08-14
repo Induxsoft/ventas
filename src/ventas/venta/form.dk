@@ -305,7 +305,7 @@ module "form.dk"
                 }
             }
 
-            div(class="d-flex justify-content-end align-items-center border-top gap-1 px-2 my-2" id="tbl_action_bar")
+            div(class="d-flex justify-content-end align-items-center border gap-1 px-2 mt-2" id="tbl_action_bar")
             {
                 small(class="flex-grow-1 text-muted"){$"Seleccione los productos en la cuadrícula"}
 
@@ -324,7 +324,7 @@ module "form.dk"
                 button(class="btn btn-sm rounded-0" type="button" id="btn_del_row" title="Eliminar fila"){$"#<@ICON_REMOVE_ROW>"}
             }
             div(class="alert alert-danger rounded-0 mb-1 py-0 d-none" role="alert" id="tbl_alerts"){$""}
-            div(class="" id="div_tbl_productos" style="width:auto; min-width:100%; max-height:55vh; display:flex;")
+            div(class="border border-top-0" id="div_tbl_productos" style="width:auto; min-width:100%; height:55vh; display:flex;")
             {
                 "edit-table"(id="tbl_productos" data="#<to.json(detail)>" "auto-confirm"="true" style="width:100%;"
                 "row-height"="1.2rem"
@@ -352,13 +352,13 @@ module "form.dk"
                             #! if @enable_lotes
                             {
                                 #$
-                                "edit-th"(type="Text" field="lote"){$"Lote"}
-                                "edit-th"(type="Date" field="fcad"){$"Caducidad"}
+                                "edit-th"(type="Text" field="lote" button="true" readonly="true"){$"Lote"}
+                                "edit-th"(type="Date" field="fcad" readonly="true"){$"Caducidad"}
                             }
                             #! if @enable_series
                             {
                                 #$
-                                "edit-th"(type="Text" field="serie"){$"Serie"}
+                                "edit-th"(type="Text" field="serie" button="true" readonly="true"){$"Serie"}
                             }
                             "edit-th"(type="Memo" field="notas"){$"Notas"}
                         }
