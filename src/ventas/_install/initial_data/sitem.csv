@@ -6,3 +6,4 @@ VD11,Crear documento de venta,ventas.venta
 VD12,Editar documento de venta,ventas.venta
 VD13,Procesar documento de venta,ventas.venta
 VD14,Cancelar documento de venta,ventas.venta
+VD15,Re-abrir documento de venta,ventas.venta

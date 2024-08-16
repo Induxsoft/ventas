@@ -1,6 +1,6 @@
 "id","title","shorttitle","icon16x16","href","_blank","appid","itemtype","req_context_item_id","act_type"
 
 "VD11","Crear documento de venta","Crear","","/!/ventas/venta/_new/","0","ventas.venta","DET01C","0","action"
-"VD12","Editar documento de venta","Editar","","/!/ventas/venta/@_src_context_item_id/","0","ventas.venta","DET01C","1","action"
+"VD12","Editar documento de venta","Detalles","","/!/ventas/venta/@_src_context_item_id/","0","ventas.venta","DET01C","1","action"
 "VD13","Procesar documento de venta","Procesar","","/!/ventas/venta/@_src_context_item_id/procesar/","0","ventas.venta","DET01C","1","action"
 "VD14","Cancelar documento de venta","Cancelar","","/!/ventas/venta/@_src_context_item_id/cancelar/","0","ventas.venta","DET01C","1","action"

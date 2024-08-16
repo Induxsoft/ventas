@@ -322,7 +322,11 @@ module ":Venta"
 
                 params<"doctype"> : idocumento
 
-                if not(is_new){ data<"detail*"> : Venta.recoverLoteSerie(db,dbr.list(db,@childs_query,params)) }
+                if not(is_new)
+                {
+                    data<"detail*"> : Venta.recoverLoteSerie(db,dbr.list(db,@childs_query,params))
+                    data<"titles*"> : Venta.getPrintTitles(db)
+                }
 
                 using data
                 {
@@ -346,7 +350,7 @@ module ":Venta"
 
     prepareList::&db,&params,&data
     {
-        data<"print_titles*"> : Venta.getPrintTitles(db)
+        data<"titles*"> : Venta.getPrintTitles(db)
         data<"list_doc_vnt*"> : dbr.list(db,@qry_docs_venta,@null)
         data<"list_stt_fin*"> : dbr.list(db,"SELECT id, const FROM cstatusfinancieros ORDER BY id ASC",@null)
         data<"list_stt_adm*"> : dbr.list(db,"SELECT id, const FROM cstatusadministrativos ORDER BY id ASC",@null)
@@ -562,8 +566,9 @@ module ":Venta"
             @"entity*": entity
             @"url_redir": replace(@url_redir,"@iventa",@@(entity,"#sys_pk"))
         }
-
         return response
+
+        exception{ do catch(db,params,data) }
     }
 
     validateFields::&db,&params,&data
@@ -614,6 +619,8 @@ module ":Venta"
         
         cur_stt_adm = dbr.num(db,ftext("SELECT statusadministrativo FROM venta WHERE #<@keyfield> = @_entity_id"),params)
         new_stt_adm = @@(data,"#statusadministrativo")
+
+        if @@(params,"#_entity_id")>0 && new_stt_adm==@stt_adm_abierto { do dbr.apps.action.grant("VD15") }
 
         switch cur_stt_adm
         {
@@ -1040,19 +1047,25 @@ module ":Venta"
 
     catch::&db,&params,&data
     {
+        //#region catch
         do errordet(@error_det)
-        if isnull(data) { ref data:record.create() }
-        if dbr.in_transaction(db) { do dbr.rollback(db) }
-
         code = last_error_code()
         error = last_error()
 
-        ref FormData = record.copy(data,"*")
-        do record.clear(data)
-        data<"form*"> : FormData
-
+        if dbr.in_transaction(db) { do dbr.rollback(db) }
         if isset("@@_action_context") { do dbr.apps.action.log() }
-        do Venta.prepareView(db,params,data)
+
+        if @@(params,"$_operation")=="create" || @@(params,"$_operation")=="update"
+        {
+            if isnull(data) { ref data:record.create() }
+
+            ref FormData = record.copy(data,"*")
+            do record.clear(data)
+            data<"form*"> : FormData
+            
+            do Venta.prepareView(db,params,data)
+        }
+        
         do rise_error(code,error)
     }
 }

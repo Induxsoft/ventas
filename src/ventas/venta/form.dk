@@ -14,6 +14,7 @@ module "form.dk"
     ref @_GET = ifnull(@("&parameters"),record.create())
     ref entity = ifnull(@("&./entity"),record.create())
     ref detail = ifnull(@("&./detail"),list.create())
+    ref titles = ifnull(@("&./titles"),record.create())
     ref dtcliente = ifnull(@("&./dtcliente"),record.create())
     ref dtagente = ifnull(@("&./dtagente"),record.create())
     ref dtrepartidor = ifnull(@("&./dtrepartidor"),record.create())
@@ -138,49 +139,148 @@ module "form.dk"
         #!
     }
     point print_buttons to fn_print_buttons
-
     new nav_config
     {
         @"title": ifstr(is_new, "Nuevo documento", @@(entity,"$referencia"))
         @"buttons*": print_buttons
         @"urlexit": "../"
-        member @"hidden" { @"print": @true }
+        member @"hidden" { @"print": if(@enable_editing, @true, @false) }
     }
 
-    #$
-    div(class="container")
+    #$ div(class="container" id="view")
     {
-        #!
-        do uie.printV12FormBar(nav_config)
-        #$
         link(href="#<@CSS_MAIN>" rel="stylesheet")
-        
-        div(class="container-section #<ifstr(not(@enable_editing),'disabled-all','')>" id="work_area")
-        {
-            div(class="alert alert-danger overflow-auto mb-2 #<ifstr(@('$error/message')!='','','d-none')>" id="frm_alerts"){$"#<@('error/message')>"}
+        style
+        {$'
+            table tr th { font-size:.9rem; font-weight:500; outline:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; -o-text-overflow:ellipsis; }
+            table tr td { font-size:.8rem; }
 
-            form(method="POST" action="./" id="frm_venta")
+            @media print { #div_tbl_productos { max-height:unset !important; overflow:hidden; } }
+        '}
+
+        section(id="top_area")
+        {
+            #!
+            do uie.printV12FormBar(nav_config)
+            #$
+
+            div(class="d-flex gap-2 #<ifstr(is_new,'d-none','')>")
+            {
+                small{b{$"Edo. administrativo: "} $"#<@@(entity,'$stt_adm')>"}
+                small{b{$"Edo. entrega: "} $"#<@@(entity,'$stt_ent')>"}
+                small{b{$"Edo. facturación: "} $"#<@@(entity,'$stt_fac')>"}
+                small{b{$"Edo. financiero: "} $"#<@@(entity,'$stt_fin')>"}
+            }
+
+            nav
+            {
+                div(class="nav nav-tabs mb-2" id="nav-tab" role="tablist")
+                {
+                    button(class="nav-link py-1 active" type="button" role="tab" id="nav-general-tab" "data-bs-toggle"="tab" "data-bs-target"="#nav-general" "aria-controls"="nav-general" "aria-selected"="true"){$"General"}
+                    button(class="nav-link py-1" type="button" role="tab" id="nav-mrdata-tab" "data-bs-toggle"="tab" "data-bs-target"="#nav-mrdata" "aria-controls"="nav-mrdata" "aria-selected"="false"){$"Más datos"}
+                    button(class="nav-link py-1" type="button" role="tab" id="nav-transportacion-tab" "data-bs-toggle"="tab" "data-bs-target"="#nav-transportacion" "aria-controls"="nav-transportacion" "aria-selected"="false"){$"Transportación"}
+                }
+            }
+        }
+        
+        section(class="#<ifstr(not(@enable_editing),'disabled-all','')>" id="work_area")
+        {
+            div(class="show-on-print")
+            {
+                p(class="text-center my-0"){$"#<@@(titles,'$title')>"}
+                p(class="text-center my-0"){$"#<@@(titles,'$subtitle')>"}
+                p(class="text-center my-0"){$"#<@@(titles,'$subtitle_2')>"}
+
+                div(class="row")
+                {
+                    div(class="col-3 text-start")
+                    {
+                        small(class="d-block"){ $"#<cut(@('$http/session/user/name'),25)>" }
+                        small(class="d-block"){ $"#<date_str(now(),'dd/MMM/yyyy')>" }
+                    }
+                    div(class="col-6 text-center")
+                    {
+                        h4(class=""){$"Documento de venta"}
+                    }
+                    div(class="col-3 text-end")
+                    {
+                        small(class="d-block" id=""){$""}
+                        small(class="d-block" id=""){$""}
+                        small(class="d-block" id=""){$""}
+                    }
+                }
+            }
+
+            section(class="show-on-print" id="master")
+            {
+                table(class="table table-sm table-bordered")
+                {
+                    thead
+                    {
+                        tr(class="bg-light-gray")
+                        {
+                            th(class="text-center"){$"Referencia"}
+                            th(class="text-center"){$"Documento"}
+                            th(class="text-center"){$"Emisión"}
+                            th(class="text-center"){$"Vencimiento"}
+                            th(class="text-center"){$"Divisa"}
+                        }
+                    }
+                    tbody
+                    {
+                        tr
+                        {
+                            td{$"#<@@(entity,'$referencia')>"}
+                            td(class="text-center"){$"#<@@(entity,'$cdocumento')>"}
+                            td(class="text-center"){$"#<@@(entity,'$fecha')>"}
+                            td(class="text-center"){$"#<@@(entity,'$vencimiento')>"}
+                            td(class="text-center"){$"#<@@(entity,'$cdivisa')>"}
+                        }
+                    }
+                }
+                table(class="table table-sm table-bordered my-2")
+                {
+                    tbody
+                    {
+                        tr
+                        {
+                            th(class="bg-light-gray"){$"Cliente:"}
+                            td{$"#<@@(dtcliente,'$codigo')>"}
+                            td{$"#<@@(dtcliente,'$nombre')>"}
+                        }
+                        tr
+                        {
+                            th(class="bg-light-gray"){$"Vendedor:"}
+                            td{$"#<@@(dtagente,'$codigo')>"}
+                            td{$"#<@@(dtagente,'$nombre')>"}
+                        }
+                        tr
+                        {
+                            th(class="bg-light-gray"){$"Repartidor:"}
+                            td{$"#<@@(dtrepartidor,'$codigo')>"}
+                            td{$"#<@@(dtrepartidor,'$nombre')>"}
+                        }
+                        tr
+                        {
+                            th(class="bg-light-gray"){$"Porteador:"}
+                            td{$"#<@@(dtporteador,'$codigo')>"}
+                            td{$"#<@@(dtporteador,'$descripcion')>"}
+                        }
+                    }
+                }
+
+                label(class="form-label fw-bolder mb-2 w-100") {
+                    $"Notas:"
+                    div(class="fw-normal" style="white-space:pre-wrap;"){$"#<@@(entity,'$notas')>"}
+                }
+            }
+
+            div(class="alert alert-danger overflow-auto mb-2 #<ifstr(@('$error/message')!='','','d-none')>" id="frm_alerts"){$"#<@('error/message')>"}
+            form(class="hide-on-print" method="POST" action="./" id="frm_venta")
             {
                 input(type="hidden" name="sys_pk" value="#<@@(entity, '#sys_pk')>")
                 input(type="hidden" name="sys_recver" value="#<@@(entity, '#sys_recver')>")
 
-                div(class="d-flex gap-2 #<ifstr(is_new,'d-none','')>")
-                {
-                    small{b{$"Edo. administrativo: "} $"#<@@(entity,'$stt_adm')>"}
-                    small{b{$"Edo. entrega: "} $"#<@@(entity,'$stt_ent')>"}
-                    small{b{$"Edo. facturación: "} $"#<@@(entity,'$stt_fac')>"}
-                    small{b{$"Edo. financiero: "} $"#<@@(entity,'$stt_fin')>"}
-                }
-
-                nav(class="")
-                {
-                    div(class="nav nav-tabs mb-2" id="nav-tab" role="tablist")
-                    {
-                        button(class="nav-link py-1 active" type="button" role="tab" id="nav-general-tab" "data-bs-toggle"="tab" "data-bs-target"="#nav-general" "aria-controls"="nav-general" "aria-selected"="true"){$"General"}
-                        button(class="nav-link py-1" type="button" role="tab" id="nav-mrdata-tab" "data-bs-toggle"="tab" "data-bs-target"="#nav-mrdata" "aria-controls"="nav-mrdata" "aria-selected"="false"){$"Más datos"}
-                        button(class="nav-link py-1" type="button" role="tab" id="nav-transportacion-tab" "data-bs-toggle"="tab" "data-bs-target"="#nav-transportacion" "aria-controls"="nav-transportacion" "aria-selected"="false"){$"Transportación"}
-                    }
-                }
                 div(class="tab-content")
                 {
                     div(class="tab-pane fade show active" id="nav-general" role="tabpanel" "aria-labelledby"="nav-general-tab")
@@ -305,7 +405,7 @@ module "form.dk"
                 }
             }
 
-            div(class="d-flex justify-content-end align-items-center border gap-1 px-2 mt-2" id="tbl_action_bar")
+            div(class="hide-on-print d-flex justify-content-end align-items-center border gap-1 px-2 mt-2" id="tbl_action_bar")
             {
                 small(class="flex-grow-1 text-muted"){$"Seleccione los productos en la cuadrícula"}
 
@@ -324,14 +424,20 @@ module "form.dk"
                 button(class="btn btn-sm rounded-0" type="button" id="btn_del_row" title="Eliminar fila"){$"#<@ICON_REMOVE_ROW>"}
             }
             div(class="alert alert-danger rounded-0 mb-1 py-0 d-none" role="alert" id="tbl_alerts"){$""}
-            div(class="border border-top-0" id="div_tbl_productos" style="width:auto; min-width:100%; height:55vh; display:flex;")
+            div(class="border border-top-0" id="div_tbl_productos" style="width:auto; min-width:100%; max-height:55vh; display:flex;")
             {
                 "edit-table"(id="tbl_productos" data="#<to.json(detail)>" "auto-confirm"="true" style="width:100%;"
                 "row-height"="1.2rem"
                 "control-styles"="
-                    tr th { font-size:.9rem; outline:none !important; font-weight:500 !important; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; -o-text-overflow:ellipsis; }
+                    tr th { font-size:.9rem; font-weight:500 !important; outline:none !important; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; -o-text-overflow:ellipsis; }
                     tr td { font-size:.8rem; }
                     #__table_input { font-size:unset !important; }
+
+                    @media print
+                    {
+                        tr th { background-color: #DCDCDC; }
+                        tr td { background-color: #FFF !important; color:#000 !important; }
+                    }
                 ")
                 {
                     "edit-thead"
@@ -364,14 +470,6 @@ module "form.dk"
                         }
                     }
                 }
-            }
-
-            div(class="d-flex justify-content-between w-100 bg-light p-2 border")
-            {
-                b{$"Subtotal: " span(id="lbl_subtotal"){$""}}
-                b{$"Descuentos: " span(id="lbl_descuentos"){$""}}
-                b{$"Impuestos: " span(id="lbl_impuestos"){$""}}
-                b{$"Total: " span(id="lbl_total"){$""}}
             }
 
             div(class="modal fade" id="mdl_docs_included" tabindex="-1" "aria-hidden"="true" "data-bs-backdrop"="true")
@@ -431,6 +529,19 @@ module "form.dk"
                 "input-key"(id="ik_ser_prod" "data-key"="sys_pk" "data-search"="numero" "data-text"="cstatus" "data-source"="#<@URL_OBTENER_SERIES_DE_PRODUCTO>" columns="numero,cstatus,num_lote" colcaptions="Número,Estado,No.Lote" "control-styles"="#container{display:none !important;}"){$""}
 
                 "input-key"(id="ik_link_doc" "data-key"="sys_pk" "data-search"="referencia" "data-text"="cdocumento" "data-source"="#<@URL_BUSCAR_DOCUMENTO>" columns="cdocumento,referencia,fecha" colcaptions="Documento,Referencia,Fecha" "control-styles"="#container{display:none !important;}"){$""}
+            }
+
+            div(class="show-on-print"){p(class="fixed-bottom text-center my-1"){$"#<@@(titles,'$footer')>"}}
+        }
+
+        section(id="bottom_area")
+        {
+            div(class="d-flex justify-content-between w-100 bg-light p-2 border")
+            {
+                b{$"Subtotal: " span(id="lbl_subtotal"){$""}}
+                b{$"Descuentos: " span(id="lbl_descuentos"){$""}}
+                b{$"Impuestos: " span(id="lbl_impuestos"){$""}}
+                b{$"Total: " span(id="lbl_total"){$""}}
             }
         }
 
