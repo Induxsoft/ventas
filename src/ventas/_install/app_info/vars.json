@@ -74,6 +74,74 @@
                         "keyfield":"val"
                     }
                 }
+            },
+            {
+                "varname": "v12.ventas.pago",
+                "vardefault": "",
+                "varvalue": "VDC01",
+                "varcaption": "Cobro de ventas al contado",
+                "varhelp": "Categorías para ventas",
+                "vartype": "string",
+                "varinput": {
+                    "control": "select",
+                    "source":{
+                        "type":"query",
+                        "query":"select codigo, descripcion from categoria where tipo=1",
+                        "keyfield":"codigo",
+                        "showfield":"descripcion"
+                    }
+                }
+            },
+            {
+                "varname": "v12.ventas.entrada",
+                "vardefault": "",
+                "varvalue": "VDC02",
+                "varcaption": "Entradas por ventas",
+                "varhelp": "Categorías para ventas",
+                "vartype": "string",
+                "varinput": {
+                    "control": "select",
+                    "source":{
+                        "type":"query",
+                        "query":"select codigo, descripcion from categoria where tipo=3",
+                        "keyfield":"codigo",
+                        "showfield":"descripcion"
+                    }
+                }
+            },
+            {
+                "varname": "v12.ventas.devinv",
+                "vardefault": "",
+                "varvalue": "VDC03",
+                "varcaption": "Salida por devolución de ventas",
+                "varhelp": "Categorías para ventas",
+                "vartype": "string",
+                "varinput": {
+                    "control": "select",
+                    "source":{
+                        "type":"query",
+                        "query":"select codigo, descripcion from categoria where tipo=3",
+                        "keyfield":"codigo",
+                        "showfield":"descripcion"
+                    }
+                }
+            },
+            {
+                "varname": "v12.ventas.devefec",
+                "vardefault": "",
+                "varvalue": "VDC04",
+                "varcaption": "Egreso de efectivo por devolución de ventas",
+                "varhelp": "Categorías para ventas",
+                "vartype": "string",
+                "varinput": {
+                    "control": "select",
+                    "source":{
+                        "type":"query",
+                        "query":"select codigo, descripcion from categoria where tipo=2",
+                        "keyfield":"codigo",
+                        "showfield":"descripcion"
+                    }
+                }
             }
         ]
     }
