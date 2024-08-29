@@ -19,13 +19,16 @@ module "form.dk"
     ref dtagente = ifnull(@("&./dtagente"),record.create())
     ref dtrepartidor = ifnull(@("&./dtrepartidor"),record.create())
     ref dtporteador = ifnull(@("&./dtporteador"),record.create())
+    ref dvspred = ifnull(@("&./dvspred"),record.create())
     // ref docs_included = ifnull(@("&./docs_included"),record.create())
 
-	@_entities_type = @("$parameters/_entities_type")
+	@DECIMAL_PRECISION = @("#parameters/decimals")
+    @_entities_type = @("$parameters/_entities_type")
 	@_entity_id = @("$parameters/_entity_id")
 
 	is_new = (@_entity_id == "_new")
     cur_stt_adm = @@(entity,"#statusadministrativo")
+    num_step = "0."+padright("",(@DECIMAL_PRECISION-1),"0")+"1"
     
     @enable_lotes = @("#./enable_lotes")
     @enable_series = @("#./enable_series")
@@ -40,16 +43,7 @@ module "form.dk"
     }
     "
 
-    function fixEdtDataArray(&list,length)
-    {
-        add = (length - list.count(list))
-        repeat add
-        {
-            do list.add(list,record.create())
-        }
-    }
-
-    do fixEdtDataArray(detail,10)
+    do lib.AutoFillRows(detail,15)
 
     new sel_documento
     {
@@ -87,6 +81,9 @@ module "form.dk"
         @"selected": lib.form('serie','tx',entity)
     }
 
+    divisa_selected = lib.form("idivisa","nm",entity)
+    if divisa_selected <= 0 { divisa_selected = @@(dvspred,"#sys_pk") }
+
     new sel_divisa
     {
         @"datatable*": ifnull(@("&./list_divisas"),list.create())
@@ -104,7 +101,7 @@ module "form.dk"
             @"data-codigo": "#<@@(row,'$codigo')>"
             @"data-tcambio": "#<@@(row,'#tcambio')>"
         }
-        @"selected": lib.form("idivisa","nm",entity)
+        @"selected": divisa_selected
     }
 
     new sel_cconsumo
@@ -290,7 +287,7 @@ module "form.dk"
                             div(class="col-lg-12 col-md-12 col-sm-12")
                             {
                                 label(class="form-label fw-bold" "for"="ik_cliente"){$"Cliente:"}
-                                "input-key"(name="icliente" id="ik_cliente" "data-key"="sys_pk" "data-search"="codigo" "data-text"="nombre" "data-source"="#<@URL_BUSCAR_CLIENTE>" "data-value"="#<to.json(dtcliente)>" columns="codigo,nombre,dtipo" colcaptions="Código,Nombre,Tipo" required="true" "control-styles"="#<ik_sm_style>"){$""}
+                                "input-key"(name="icliente" id="ik_cliente" "data-key"="sys_pk" "data-search"="codigo" "data-text"="nombre" "data-source"="#<@URL_BUSCAR_CLIENTE>" "data-value"="#<to.json(dtcliente)>" columns="codigo,nombre,dtipo,cdivisa" colcaptions="Código,Nombre,Tipo,Divisa" required="true" "control-styles"="#<ik_sm_style>"){$""}
                             }
                             div(class="col-lg-3 col-md-3 col-sm-4 col-6")
                             {
@@ -337,7 +334,7 @@ module "form.dk"
                             div(class="col-lg-2 col-md-3 col-sm-4 col-4")
                             {
                                 label(class="form-label fw-bold" "for"="txt_tipocambio"){$"T. Cambio:"}
-                                input(class="form-control form-control-sm rounded-0" type="number" name="tipocambio" value="#<lib.form('tipocambio','nm',entity)>" min="1" step="0.000001" id="txt_tipocambio")
+                                input(class="form-control form-control-sm rounded-0" type="number" name="tipocambio" value="#<lib.form('tipocambio','nm',entity)>" min="1" step="#<num_step>" id="txt_tipocambio")
                             }
                             div(class="col-lg-3 col-md-3 col-sm-4")
                             {
@@ -361,7 +358,7 @@ module "form.dk"
                             div(class="col-lg-2 col-md-3 col-sm-4")
                             {
                                 label(class="form-label" "for"="txt_pcomision"){$"% Comisión:"}
-                                input(class="form-control form-control-sm rounded-0" type="number" name="pcomision" value="#<lib.form('pcomision','nm',entity)>" min="0" step="0.000001" id="txt_pcomision")
+                                input(class="form-control form-control-sm rounded-0" type="number" name="pcomision" value="#<lib.form('pcomision','nm',entity)>" min="0" step="#<num_step>" id="txt_pcomision")
                             }
                             div(class="col-12")
                             {
@@ -414,14 +411,13 @@ module "form.dk"
 
                 small(class="text-muted"){$"|"}
 
-                button(class="btn btn-sm rounded-0" type="button" id="btn_add_prod" title="Agregar producto"){$"#<@ICON_BOX_4> Agregar"}
                 button(class="btn btn-sm rounded-0" type="button" id="btn_add_lote" title="Agregar lote al producto"){$"#<@ICON_123> Agregar lote"}
                 button(class="btn btn-sm rounded-0" type="button" id="btn_add_serie" title="Agregar serie al producto"){$"#<@ICON_ABC> Agregar serie"}
 
                 small(class="text-muted"){$"|"}
 
-                button(class="btn btn-sm rounded-0" type="button" id="btn_add_row" title="Agregar fila"){$"#<@ICON_ADD_ROW>"}
-                button(class="btn btn-sm rounded-0" type="button" id="btn_del_row" title="Eliminar fila"){$"#<@ICON_REMOVE_ROW>"}
+                button(class="btn btn-sm rounded-0" type="button" id="btn_add_row" title="Agregar producto"){$"#<@ICON_BOX_4> Agregar"}
+                button(class="btn btn-sm rounded-0" type="button" id="btn_del_row" title="Eliminar fila"){$"#<@ICON_REMOVE_ROW> Remover"}
             }
             div(class="alert alert-danger rounded-0 mb-1 py-0 d-none" role="alert" id="tbl_alerts"){$""}
             div(class="border border-top-0" id="div_tbl_productos" style="width:auto; min-width:100%; max-height:55vh; display:flex;")
@@ -448,13 +444,13 @@ module "form.dk"
                             "edit-th"(type="Text" field="codigo" button="true"){$"Código"}
                             "edit-th"(type="Text" field="descripcion" button="true"){$"Descripción"}
                             "edit-th"(type="Select" field="unidad" options="{}"){$"Unidad"}
-                            "edit-th"(type="Number" field="precio" textalign="end" format="true" thousandssep="true" decs="4"){$"Precio"}
+                            "edit-th"(type="Number" field="precio" textalign="end" format="true" thousandssep="true" decs="#<@DECIMAL_PRECISION>"){$"Precio"}
                             "edit-th"(type="NoEditable" field="cotizado" textalign="center"){$"Cotizado"}
-                            "edit-th"(type="Number" field="cantidad" textalign="center"){$"Cantidad"}
-                            "edit-th"(type="NoEditable" field="subtotal" textalign="end" format="true" thousandssep="true" decs="4"){$"Subtotal"}
-                            "edit-th"(type="Number" field="descuentos" textalign="end" format="true" thousandssep="true" decs="4"){$"Descuentos"}
-                            "edit-th"(type="NoEditable" field="impuestos" textalign="end" format="true" thousandssep="true" decs="4"){$"Impuestos"}
-                            "edit-th"(type="NoEditable" field="importe" textalign="end" format="true" thousandssep="true" decs="4"){$"Importe"}
+                            "edit-th"(type="Number" field="cantidad" textalign="center" format="true" decs="#<@DECIMAL_PRECISION>"){$"Cantidad"}
+                            "edit-th"(type="NoEditable" field="subtotal" textalign="end" format="true" thousandssep="true" decs="#<@DECIMAL_PRECISION>"){$"Subtotal"}
+                            "edit-th"(type="Number" field="descuentos" textalign="end" format="true" thousandssep="true" decs="#<@DECIMAL_PRECISION>"){$"Descuentos"}
+                            "edit-th"(type="NoEditable" field="impuestos" textalign="end" format="true" thousandssep="true" decs="#<@DECIMAL_PRECISION>"){$"Impuestos"}
+                            "edit-th"(type="NoEditable" field="importe" textalign="end" format="true" thousandssep="true" decs="#<@DECIMAL_PRECISION>"){$"Importe"}
                             #! if @enable_lotes
                             {
                                 #$
@@ -504,9 +500,9 @@ module "form.dk"
                                             "edit-th"(type="NoEditable" field="fecha"){$"Fecha"}
                                             "edit-th"(type="NoEditable" field="vencimiento"){$"Vencimiento"}
                                             "edit-th"(type="NoEditable" field="cdivisa"){$"Divisa"}
-                                            "edit-th"(type="NoEditable" field="tipocambio" textalign="end" format="true" thousandssep="true" decs="6"){$"T.C"}
-                                            "edit-th"(type="NoEditable" field="subtotal" textalign="end" format="true" thousandssep="true" decs="4"){$"Subtotal"}
-                                            "edit-th"(type="NoEditable" field="total" textalign="end" format="true" thousandssep="true" decs="4"){$"total"}
+                                            "edit-th"(type="NoEditable" field="tipocambio" textalign="end" format="true" thousandssep="true" decs="#<@DECIMAL_PRECISION>"){$"T.C"}
+                                            "edit-th"(type="NoEditable" field="subtotal" textalign="end" format="true" thousandssep="true" decs="#<@DECIMAL_PRECISION>"){$"Subtotal"}
+                                            "edit-th"(type="NoEditable" field="total" textalign="end" format="true" thousandssep="true" decs="#<@DECIMAL_PRECISION>"){$"total"}
                                         }
                                     }
                                 }
@@ -522,13 +518,13 @@ module "form.dk"
 
             div
             {
-                "input-key"(id="ik_producto" "data-key"="sys_pk" "data-search"="codigo" "data-text"="descripcion" "data-source"="#<@URL_BUSCAR_PRODUCTO>" columns="codigo,descripcion" colcaptions="Código,Descripción" "box-title-text"="Seleccione un producto de la lista" "control-styles"="#container{display:none !important;}"){$""}
+                "input-key"(id="ik_producto" "data-key"="sys_pk" "data-search"="codigo" "data-text"="descripcion" "data-source"="#<@URL_BUSCAR_PRODUCTO>" columns="codigo,descripcion,divisa" colcaptions="Código,Descripción,Divisa" "box-title-text"="Seleccione un producto de la lista" "hidden-input"="false" "control-styles"="#container{display:none !important;}"){$""}
 
-                "input-key"(id="ik_lot_prod" "data-key"="sys_pk" "data-search"="numero" "data-text"="fcaducidad" "data-source"="#<@URL_OBTENER_LOTES_DE_PRODUCTO>" columns="numero,cantidad,fcaducidad" colcaptions="Número,Cantidad,F.Caducidad" "control-styles"="#container{display:none !important;}"){$""}
+                "input-key"(id="ik_lot_prod" "data-key"="sys_pk" "data-search"="numero" "data-text"="fcaducidad" "data-source"="#<@URL_OBTENER_LOTES_DE_PRODUCTO>" columns="numero,cantidad,fcaducidad" colcaptions="Número,Cantidad,F.Caducidad" "hidden-input"="false" "control-styles"="#container{display:none !important;}"){$""}
 
-                "input-key"(id="ik_ser_prod" "data-key"="sys_pk" "data-search"="numero" "data-text"="cstatus" "data-source"="#<@URL_OBTENER_SERIES_DE_PRODUCTO>" columns="numero,cstatus,num_lote" colcaptions="Número,Estado,No.Lote" "control-styles"="#container{display:none !important;}"){$""}
+                "input-key"(id="ik_ser_prod" "data-key"="sys_pk" "data-search"="numero" "data-text"="cstatus" "data-source"="#<@URL_OBTENER_SERIES_DE_PRODUCTO>" columns="numero,cstatus,num_lote" colcaptions="Número,Estado,No.Lote" "hidden-input"="false" "control-styles"="#container{display:none !important;}"){$""}
 
-                "input-key"(id="ik_link_doc" "data-key"="sys_pk" "data-search"="referencia" "data-text"="cdocumento" "data-source"="#<@URL_BUSCAR_DOCUMENTO>" columns="cdocumento,referencia,fecha" colcaptions="Documento,Referencia,Fecha" "control-styles"="#container{display:none !important;}"){$""}
+                "input-key"(id="ik_link_doc" "data-key"="sys_pk" "data-search"="referencia" "data-text"="cdocumento" "data-source"="#<@URL_BUSCAR_DOCUMENTO>" columns="cdocumento,referencia,fecha" colcaptions="Documento,Referencia,Fecha" "hidden-input"="false" "control-styles"="#container{display:none !important;}"){$""}
             }
 
             div(class="show-on-print"){p(class="fixed-bottom text-center my-1"){$"#<@@(titles,'$footer')>"}}
@@ -561,6 +557,7 @@ module "form.dk"
                 venta.url_exit = "#<@VNT_LISTAR>";
                 venta.idocumento = #<@@(entity,"#documento")>;
                 venta.cur_stt_adm = #<@@(entity,"#statusadministrativo")>;
+                venta.decimals = #<@DECIMAL_PRECISION>;
                 venta.enable_lotes = #<@enable_lotes>;
                 venta.enable_series = #<@enable_series>;
                 venta.init();

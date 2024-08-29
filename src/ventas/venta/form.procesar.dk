@@ -14,9 +14,15 @@ module "form.procesar.dk"
     ref amounts = ifnull(@("&./amounts"),record.create())
     ref cfgdoc = ifnull(@("&./cfg_doc_venta"),record.create())
 
-    show_form_contado = (not(field.exist(@("&."),"form")) || @("#./form/formapago") == @fp_contado)
-    show_form_credito = (field.exist(@("&."),"form") && @("#./form/formapago") == @fp_credito)
-    show_form_consignado = (field.exist(@("&."),"form") && @("#./form/formapago") == @fp_consignado)
+    @DECIMAL_PRECISION = @("#parameters/decimals")
+
+    print_opt_contado = (@@(entity,"#saldo") == 0)
+    exist_fd = field.exist(@("&."),"form")
+    num_step = "0."+padright("",(@DECIMAL_PRECISION-1),"0")+"1"
+
+    show_form_contado = (print_opt_contado && (not(exist_fd) || @("#./form/formapago") == @fp_contado))
+    show_form_credito = (not(print_opt_contado) || (exist_fd && @("#./form/formapago") == @fp_credito))
+    show_form_consignado = (exist_fd && @("#./form/formapago") == @fp_consignado)
 
     new sel_doc_deposito
     {
@@ -145,8 +151,43 @@ module "form.procesar.dk"
         #! else if @@(amounts,"#total") > 0
         {
             #$
+            div(class="row mb-4")
+            {
+                div(class="col-lg-4 col-md-4")
+                {
+                    label(class="form-label fw-bold"){"Cliente:"}
+                    label(class="d-block"){$"#<@@(entity,'$dcliente')>"}
+                }
+                div(class="col-lg-4 col-md-4")
+                {
+                    label(class="form-label fw-bold"){"Referencia:"}
+                    label(class="d-block"){$"#<@@(entity,'$referencia')>"}
+                }
+                div(class="col-lg-4 col-md-4")
+                {
+                    label(class="form-label fw-bold"){"Documento:"}
+                    label(class="d-block"){$"#<@@(entity,'$cdocumento')>"}
+                }
+                div(class="col-lg-4 col-md-4")
+                {
+                    label(class="form-label fw-bold"){"Divisa:"}
+                    label(class="d-block"){$"#<@@(entity,'$cdivisa')>"}
+                }
+                div(class="col-lg-4 col-md-4")
+                {
+                    label(class="form-label fw-bold"){"Tipo de cambio:"}
+                    label(class="d-block"){$"#<round(@@(entity,'#tipocambio'),@DECIMAL_PRECISION)>"}
+                }
+                div(class="col-lg-4 col-md-4")
+                {
+                    label(class="form-label fw-bold"){"Importe:"}
+                    label(class="d-block"){$"#<lib.number_format(@@(amounts,'#total'))>"}
+                }
+            }
+
             div(class="accordion" id="opciones_liquidacion")
             {
+                #! if print_opt_contado {#$
                 div(class="accordion-item")
                 {
                     h2(class="accordion-header" id="headingOne") {
@@ -162,6 +203,7 @@ module "form.procesar.dk"
                         }
                     }
                 }
+                }#$
 
                 div(class="accordion-item")
                 {
@@ -179,25 +221,23 @@ module "form.procesar.dk"
                     }
                 }
 
-                #! if parse.bool(@@(cfgdoc,"consigna"))
+                #! if parse.bool(@@(cfgdoc,"consigna")) {#$
+                div(class="accordion-item")
                 {
-                    #$
-                    div(class="accordion-item")
+                    h2(class="accordion-header" id="headingThree") {
+                        button(class="accordion-button py-2 #<ifstr(show_form_consignado,'','collapsed')>" type="button" "data-bs-toggle"="collapse" "data-bs-target"="#collapseThree" "aria-expanded"="true" "aria-controls"="collapseThree"){$"Consignación"}
+                    }
+                    div(id="collapseThree" class="accordion-collapse collapse #<ifstr(show_form_consignado,'show','')>" "aria-labelledby"="headingThree" "data-bs-parent"="#opciones_liquidacion")
                     {
-                        h2(class="accordion-header" id="headingThree") {
-                            button(class="accordion-button py-2 #<ifstr(show_form_consignado,'','collapsed')>" type="button" "data-bs-toggle"="collapse" "data-bs-target"="#collapseThree" "aria-expanded"="true" "aria-controls"="collapseThree"){$"Consignación"}
-                        }
-                        div(id="collapseThree" class="accordion-collapse collapse #<ifstr(show_form_consignado,'show','')>" "aria-labelledby"="headingThree" "data-bs-parent"="#opciones_liquidacion")
+                        div(class="accordion-body")
                         {
-                            div(class="accordion-body")
-                            {
-                                ##
-                                #include "./includes/frm.prcsr.consignado.dk"
-                                ##
-                            }
+                            ##
+                            #include "./includes/frm.prcsr.consignado.dk"
+                            ##
                         }
                     }
                 }
+                }#$
             }
         }
         #! else
@@ -213,6 +253,9 @@ module "form.procesar.dk"
         script(type="text/javascript")
         {$'
             document.addEventListener("DOMContentLoaded", () => {
+                procesar.total = #<@@(amounts,"#total")>;
+                procesar.tcambio = #<@@(entity,"#tipocambio")>;
+                procesar.decimals = #<@DECIMAL_PRECISION>;
                 procesar.init();
             });
         '}

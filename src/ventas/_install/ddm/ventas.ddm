@@ -636,10 +636,10 @@ model "erp.ventas"
     entity "cardex" : "TableModel"
     {
         @"aplicado" bool
-        @"descripcion" string(8192)
+        @"valuado" bool
         @"fecha" date
         @"referencia" string(255) unique required
-        @"valuado" bool
+        @"descripcion" string(8192)
         // @"doccompra" ref:"compra"
         // @"docorden" ref:"orden"
         @"docventa" ref:"venta"

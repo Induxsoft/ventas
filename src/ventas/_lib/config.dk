@@ -2,7 +2,13 @@
 #!
 module ""
 {
-    if not(isset("@http_context")) && isset("@crud_context") { ref @http_context = @@(@crud_context,"&http") }
+    if not(isset("@http_context")) && isset("@crud_context") { ref @http_context = ifnull(@@(@crud_context,"&http"),record.create()) }
+
+    // aplcxc.destino (aplicación de las cuentas por cobrar)
+    @CXC_DESTINO_APLICACION_INT_FINANCIEROS = 1
+    @CXC_DESTINO_APLICACION_INT_MORATORIOS = 2
+    @CXC_DESTINO_APLICACION_BONIFICACIONES = 3
+    @CXC_DESTINO_APLICACION_PAGOS = 4
 	
 	@curr_ndt = ndatetime.now()
     @curr_year = ndatetime.year(@curr_ndt)
@@ -16,6 +22,7 @@ module ""
     @cFactura = 4
     @cNotaCredito = 5
     @cTicket = 6
+    @cNotaCargo = 17
     @cRetiro = 67
     // cstatusadministrativos
 	@stt_adm_na = 0
@@ -57,6 +64,11 @@ module ""
     @fp_financiado = 3
     @fp_consignado = 4
 
+    // Formato de presentación
+    @THOUSANDS_SEPARATOR = ","
+	@DECIMAL_SEPARATOR = "."
+	@DECIMAL_PRECISION = 2
+
     @default_max_rows = 250 // limite de registros para las vistas de lista.
     @error_det = @false // Mostrar detalles del error: @true -> {code} description [Ln 000] | @false -> description
     @enable_lotes = @true // habilitar captura de lotes de los productos.
@@ -74,7 +86,7 @@ module ""
     @URL_BUSCAR_AGENTE = "/!/ventas/venta/?_view=buscar-agente&search=@search"
     @URL_BUSCAR_REPARTIDOR = "/!/ventas/venta/?_view=buscar-repartidor&search=@search"
     @URL_BUSCAR_PORTEADOR = "/!/ventas/venta/?_view=buscar-porteador&search=@search"
-    @URL_BUSCAR_DOCUMENTO = "/!/ventas/venta/?_view=buscar-documento&search=@search&icliente=@icliente&doctype=@doctype"
+    @URL_BUSCAR_DOCUMENTO = "/!/ventas/venta/?_view=buscar-documento&search=@search&icliente=@icliente&idivisa=@idivisa&doctype=@doctype"
     @URL_OBTENER_DOCUMENTOS_INCLUIDOS = "/!/ventas/venta/?_view=obtener-documentos&iventa=@iventa"
     @URL_OBTENER_DVENTA = "/!/ventas/venta/?_view=obtener-dventa&iventa=@iventa"
     @URL_OBTENER_LOTES_DE_PRODUCTO = "/!/ventas/venta/?_view=obtener-lotes-de-producto&iproducto=@iproducto&ialmacen=@ialmacen"

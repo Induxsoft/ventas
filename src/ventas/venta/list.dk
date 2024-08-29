@@ -14,8 +14,10 @@ module "list.dk"
     ref data = ifnull(@("&./data"),list.create())
     ref titles = ifnull(@("&./titles"),record.create())
 
-	@_entities_type = @("$parameters/_entities_type")
-	table_id = "tbl_"+@_entities_type
+	@DECIMAL_PRECISION = @("#parameters/decimals")
+    @_entities_type = @("$parameters/_entities_type")
+	
+    table_id = "tbl_"+@_entities_type
 
     ref list_years = lib.list_years(10,0)
     fdr_year_opt = ""
@@ -137,7 +139,7 @@ module "list.dk"
                 @"align": "end"
                 @"format": @true
                 @"thousandssep": @true
-                @"decs": 6
+                @"decs": @DECIMAL_PRECISION
             }
             member @"total"
             {
@@ -145,16 +147,21 @@ module "list.dk"
                 @"align": "end"
                 @"format": @true
                 @"thousandssep": @true
-                @"decs": 2
+                @"decs": @DECIMAL_PRECISION
+            }
+            member @"forma_pago"
+            {
+                @"caption": "Forma de pago"
+                @"align": "center"
             }
             member @"stt_fin"
             {
                 @"caption": "Estado financiero"
                 @"align": "center"
             }
-            member @"forma_pago"
+            member @"stt_fac"
             {
-                @"caption": "Forma de pago"
+                @"caption": "Estado de facturación"
                 @"align": "center"
             }
             member @"stt_adm"

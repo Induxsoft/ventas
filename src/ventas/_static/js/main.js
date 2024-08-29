@@ -72,6 +72,13 @@ function url_decode(url)
     return atob(url);
 }
 
+function isValidFloat(number,decimals)
+{
+    const regex = "^\([0-9]+\.?[0-9]{0,"+decimals+"})$";
+    const preg = new RegExp(regex);
+    return preg.test(number);
+}
+
 function readonlyControls(elementsId=[], value=true)
 {
     elementsId.forEach(id => {

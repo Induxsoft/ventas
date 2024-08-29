@@ -2,7 +2,6 @@
 form(class="row" action="./" method="POST" id="form_liquidacion_na")
 {
     input(type="hidden" name="iventa" value="#<@@(entity,'#sys_pk')>")
-    input(type="hidden" name="documento" value="#<@@(entity,'#documento')>")
     input(type="hidden" name="formapago" value="#<@fp_na>")
 
     div(class="col-lg-8 col-md-10 col-sm-12")

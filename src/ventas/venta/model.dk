@@ -48,21 +48,19 @@ module ":Venta"
 
     buscarDocumento::&db,&params
     {
-        joins = "INNER JOIN dventa AS dv ON vnt.sys_pk = dv.fk_venta_detalle
-                LEFT JOIN dcxc as cxc on vnt.sys_pk=cxc.iventa"
-        
-        saldo_cxc=" (IFNULL(cxc.debe,0) + IFNULL(cxc.intmoratorios,0) - IFNULL(cxc.pagos,0) - IFNULL(cxc.bonificaciones,0) )"
+        joins = "INNER JOIN dventa AS dv ON vnt.sys_pk = dv.fk_venta_detalle"
         
         conditions = ftext("
-        AND vnt.statusadministrativo != #<@stt_adm_cancelado>
+        AND vnt.statusadministrativo = #<@stt_adm_procesado>
         AND vnt.aplicadoa IS NULL
         AND vnt.icliente = @icliente
+        AND vnt.idivisa = @idivisa
         AND (
             CASE @doctype
                 WHEN #<@cPedido> THEN vnt.documento = #<@cCotizacion>
                 WHEN #<@cRemision> THEN vnt.documento IN (#<@cCotizacion>,#<@cPedido>) 
-                WHEN #<@cFactura> THEN vnt.documento IN (#<@cCotizacion>,#<@cPedido>,#<@cRemision>) and if(vnt.formapago=#<@fp_credito> and vnt.documento=#<@cRemision>,#<saldo_cxc>=0,true)
-                WHEN #<@cNotaCredito> THEN vnt.documento IN (#<@cRemision>,#<@cFactura>)
+                WHEN #<@cFactura> THEN vnt.documento IN (#<@cCotizacion>,#<@cPedido>,#<@cTicket>,#<@cRemision>)
+                WHEN #<@cNotaCredito> THEN vnt.documento IN (#<@cTicket>,#<@cRemision>,#<@cFactura>)
             END
         )
         AND (vnt.referencia LIKE CONCAT('%',@search,'%'))
@@ -70,7 +68,7 @@ module ":Venta"
         HAVING SUM(IFNULL(dv.xfacturar,0)) > 0
         ")
 
-        if @@(params,"#icliente") > 0 && @@(params,"#doctype") > 0 && trim(@@(params,"$search")) != "" { return dbr.list(db,ftext(@qry_list_venta),params) }
+        if @@(params,"#icliente")>0 && @@(params,"#idivisa")>0 && @@(params,"#doctype")>0 && trim(@@(params,"$search"))!="" { return dbr.list(db,ftext(@qry_list_venta),params) }
 
         return list.create()
     }
@@ -254,6 +252,7 @@ module ":Venta"
         //#region prepareView()
         namespace "Venta"
 
+        if not(field.exist(params,"decimals")){ params<"decimals"> : parse.num(dbr.vars.get(db,"FXCA001")) }
         is_new = (@@(params,"$_entity_id") == "_new")
 
         switch @@(params,"$_view")
@@ -263,7 +262,7 @@ module ":Venta"
                 if not(field.exist(data,"entity")){ data<"entity*"> : entity.read(db,params) }
 
                 params<"doctype"> : @@(data,"#entity/documento")
-                data<"entity/tcambio"> : @@(data,"#entity/tipocambio")
+                data<"entity/saldo"> : dbr.num(db,@qry_saldo_venta,params)
 
                 ref cat_movinv = dbr.list(db,@qry_cat_movinv,@null)
                 go foreach.lobj(value:obj) with(cat_movinv) {
@@ -334,6 +333,7 @@ module ":Venta"
                     @"dtagente*": ifnull(obtenerAgente(db,iagente),record.create())
                     @"dtrepartidor*": ifnull(obtenerRepartidor(db,irepartidor),record.create())
                     @"dtporteador*": ifnull(obtenerPorteador(db,iporteador),record.create())
+                    @"dvspred*": dbr.localize.money(db,@dbr.localize.default.money_code)
                     // @"docs_included*": obtenerDocumentosIncluidos(db,params)
                     @"list_doc_vnt*": dbr.list(db,@qry_docs_venta,@null)
                     @"list_divisas*": dbr.list(db,@qry_list_divisas,@null)
@@ -350,6 +350,9 @@ module ":Venta"
 
     prepareList::&db,&params,&data
     {
+        //#region prepareList()
+        if not(field.exist(params,"decimals")){ params<"decimals"> : parse.num(dbr.vars.get(db,"FXCA001")) }
+
         data<"titles*"> : Venta.getPrintTitles(db)
         data<"list_doc_vnt*"> : dbr.list(db,@qry_docs_venta,@null)
         data<"list_stt_fin*"> : dbr.list(db,"SELECT id, const FROM cstatusfinancieros ORDER BY id ASC",@null)
@@ -358,7 +361,7 @@ module ":Venta"
 
     evaluateListFilters::&params
     {
-        //#region Set default filters
+        //#region set default filters
         if not(field.exist(params,"fil_doc_vnt")) { params<"fil_doc_vnt"> : -1 }
         if not(field.exist(params,"fil_stt_fin")) { params<"fil_stt_fin"> : -1 }
         if not(field.exist(params,"fil_stt_adm")) { params<"fil_stt_adm"> : -1 }
@@ -927,6 +930,7 @@ module ":Venta"
         @use_transaction = @false
         @read_entity_only = @true
 
+        do rise_error(0,to.json(data))
         do dbr.apps.action.pre("VD13")
         do dbr.begin(db)
 
@@ -934,7 +938,7 @@ module ":Venta"
         {
             case @fp_na
             {
-                do erp.ventas.procesos.liquidacionNoAplica(db,data)
+                do erp.ventas.procesos.liquidacionNoAplica(db,@@(data,"#iventa"))
                 break
             }
             case @fp_contado
@@ -949,7 +953,7 @@ module ":Venta"
             }
             case @fp_consignado
             {
-                do erp.ventas.procesos.liquidacionConsignado(db,@@(data,"#iventa"),@@(data,"#icategoria"))
+                do erp.ventas.procesos.liquidacionConsignado(db,@@(data,"#iventa"))
                 break
             }
             default { do rise_error(500,"Forma de pago no implementado") }
@@ -968,6 +972,7 @@ module ":Venta"
 
     reverseCxC::&db,&data
     {
+        //#region reverseCxC()
         if @@(data,"#formapago") != @fp_credito { return }
 
         new bonificacion

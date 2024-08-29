@@ -1,8 +1,8 @@
 var venta =
 {
-    formId:"", form:null, tableId:"", table:null, coldef:null, _GET:{}, docs_included:{},
+    formId:"", form:null, ff:null, tableId:"", table:null, coldef:null, _GET:{}, docs_included:{},
     url_exit:"", url_get_fultimo:"", url_get_series:"", url_change_status:"", url_get_dventa:"", url_get_docs_included:"", url_get_lotser:"",
-    last_unit:"", last_tcambio:1, is_new:false, idocumento:0, cur_stt_adm:0, enable_lotes:true, enable_series:true, error_timeout:7,
+    last_unit:"", last_tcambio:1, is_new:false, idocumento:0, cur_stt_adm:0, decimals:2, enable_lotes:true, enable_series:true, error_timeout:7, is_on_submit:false, is_requesting:false,
 
     init()
     {
@@ -22,16 +22,18 @@ var venta =
         const btn_procesar = document.getElementById("btn_procesar");
         const btn_cancelar = document.getElementById("btn_cancelar");
         this.form = document.getElementById(this.formId);
+        this.ff = this.form.elements;
         this.table = document.getElementById(this.tableId);
         this.is_new = (this._GET["_entity_id"] === "_new");
 
         if (ik_cliente) ik_cliente.change_event = (data) => {
+            if (!data) return;
             sel_divisa.value = data.idivisa;
             txt_tipocambio.value = data.tcambio;
             trigger(txt_tipocambio,"change");
         }
 
-        if (ik_agente) ik_agente.change_event = (data) => { txt_pcomision.value = data.pcomision; }
+        if (ik_agente) ik_agente.change_event = (data) => { txt_pcomision.value = Number(data.pcomision); }
         
         if (sel_divisa) sel_divisa.addEventListener("change", () => {
             const opt_divisa = sel_divisa.options[sel_divisa.selectedIndex];
@@ -96,7 +98,6 @@ var venta =
         const ik_link_doc = document.getElementById("ik_link_doc");
         const btn_add_row = document.getElementById("btn_add_row");
         const btn_del_row = document.getElementById("btn_del_row");
-        const btn_add_prod = document.getElementById("btn_add_prod");
         const btn_add_lote = document.getElementById("btn_add_lote");
         const btn_add_serie = document.getElementById("btn_add_serie");
         const btn_add_doc = document.getElementById("btn_add_doc");
@@ -107,9 +108,8 @@ var venta =
         ik_lot_prod.change_event = (data) => this.addLoteToProduct(data);
         ik_ser_prod.change_event = (data) => this.addSerieToProduct(data);
         ik_link_doc.change_event = (data) => this.includeDVenta(data);
-        btn_add_row.addEventListener("click", () => this.table.AddRow());
+        btn_add_row.addEventListener("click", () => ik_producto.searchText("",false));
         btn_del_row.addEventListener("click", () => this.delProduct());
-        btn_add_prod.addEventListener("click", () => ik_producto.searchText("",false));
         btn_add_lote.addEventListener("click", () => this.launchIkLoteSerie(ik_lot_prod));
         btn_add_serie.addEventListener("click", () => this.launchIkLoteSerie(ik_ser_prod));
         btn_add_doc.addEventListener("click", () => this.launchIkLinkDocument(ik_link_doc));
@@ -186,6 +186,7 @@ var venta =
                 break;
             }
             case 3: //Remisión
+            case 6: //Ticket
             {
                 this.table.changeColumnTitle("cotizado","Pedido");
                 switch (this.cur_stt_adm) {
@@ -351,18 +352,20 @@ var venta =
 
     launchIkLinkDocument(ik_link_doc)
     {
-        const ik_cliente = document.getElementById("ik_cliente");
-        let dtcte = ik_cliente.getValue() ?? {};
+        let icliente = Number(this.ff["icliente"].value);
+        let idivisa = Number(this.ff["sel_divisa"].value);
+        let doctype = Number(this.ff["sel_documento"].value);
         
-        if (Number(dtcte.sys_pk ?? "-1") <= 0) {
+        if (icliente <= 0) {
             alert("Debe seleccionar un cliente para continuar");
-            return;
+            return
         }
 
         let params = 
         {
-            icliente: Number(dtcte.sys_pk),
-            doctype: Number(this.form.elements["sel_documento"].value)
+            icliente: icliente,
+            idivisa: idivisa,
+            doctype: doctype
         }
 
         let endpoint = InduxsoftCrudlModel.UrlReplace(ik_link_doc.getAttribute("data-source"),params);
@@ -443,13 +446,16 @@ var venta =
     submit(relbtn)
     {
         if (!this.form) return;
+        if (this.is_on_submit) return;
         if (!this.form.reportValidity()) return;
+        let _detalle = this.filterDataArray(this.table);
+        if (!this.validateLoteSerie(_detalle)) return;
+        
+        relbtn.disabled = true;
+        this.is_on_submit = true;
 
         let new_stt_adm = Number(relbtn.getAttribute("data-stt-adm"));
-        let _detalle = this.filterDataArray(this.table);
         let included = Object.keys(this.docs_included).join(",");
-
-        if (!this.validateLoteSerie(_detalle)) return;
         
         let fd = new FormData(this.form);
         fd.append("statusadministrativo",new_stt_adm);
@@ -462,7 +468,9 @@ var venta =
         const onSuccess = (data) => {
             if (data.message) {
                 alert(data.message);
-                return;
+                relbtn.disabled = false;
+                this.is_on_submit = false;
+                return
             }
 
             window.location.href = data.url_redir;
@@ -471,6 +479,8 @@ var venta =
         const onFailure = (error) => {
             let content = error.message ?? JSON.stringify(error);
             show_alert("#frm_alerts", content, this.error_timeout);
+            relbtn.disabled = false;
+            this.is_on_submit = false;
         }
 
         InduxsoftCrudlModel.InvokeService(endpoint, fd, onSuccess, onFailure, method, false, true, "", true);
@@ -504,13 +514,15 @@ var venta =
     changeStatus(relbtn)
     {
         if (!this.url_change_status) return;
+        if (this.is_on_submit) return;
 
-        let ff = this.form.elements;
+        relbtn.disabled = true;
+        this.is_on_submit = true;
         let new_stt_adm = Number(relbtn.getAttribute("data-stt-adm"));
 
         let fd = new FormData();
-        fd.append("sys_pk",Number(ff["sys_pk"].value));
-        fd.append("sys_recver",Number(ff["sys_recver"].value));
+        fd.append("sys_pk",Number(this.ff["sys_pk"].value));
+        fd.append("sys_recver",Number(this.ff["sys_recver"].value));
         fd.append("statusadministrativo",new_stt_adm);
         
         let endpoint = this.url_change_status.replace("@iventa",fd.get("sys_pk"));
@@ -519,7 +531,9 @@ var venta =
         const onSuccess = (data) => {
             if (data.message) {
                 alert(data.message);
-                return;
+                relbtn.disabled = false;
+                this.is_on_submit = false;
+                return
             }
 
             window.location.href = data.url_redir;
@@ -528,6 +542,8 @@ var venta =
         const onFailure = (error) => {
             let content = error.message ?? JSON.stringify(error);
             show_alert("#frm_alerts", content, this.error_timeout);
+            relbtn.disabled = false;
+            this.is_on_submit = false;
         }
 
         InduxsoftCrudlModel.InvokeService(endpoint, fd, onSuccess, onFailure, method, false, true, "", true);
@@ -613,8 +629,8 @@ var venta =
         const formatter = new Intl.NumberFormat(langcode, {
             style: "currency",
             currency: divisa,
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
+            minimumFractionDigits: this.decimals,
+            maximumFractionDigits: this.decimals
         });
 
         lbl_subtotal.textContent = formatter.format(subtotal);
@@ -662,14 +678,14 @@ var venta =
         {
             costo: costo,
             cantidad: cantidad,
-            subtotal: subtotal,
-            descuentos: descuentos,
-            impuestos: impuestos,
-            total: total,
-            impuesto1: impuesto1,
-            impuesto2: impuesto2,
-            impuesto3: impuesto3,
-            impuesto4: impuesto4,
+            subtotal: Math.RoundTo(subtotal,this.decimals),
+            descuentos: Math.RoundTo(descuentos,this.decimals),
+            impuestos: Math.RoundTo(impuestos,this.decimals),
+            total: Math.RoundTo(total,this.decimals),
+            impuesto1: Math.RoundTo(impuesto1,this.decimals),
+            impuesto2: Math.RoundTo(impuesto2,this.decimals),
+            impuesto3: Math.RoundTo(impuesto3,this.decimals),
+            impuesto4: Math.RoundTo(impuesto4,this.decimals),
         }
 
         return importes;

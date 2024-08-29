@@ -2,47 +2,36 @@
 form(class="row" action="./" method="POST" id="form_liquidacion_contado")
 {
     input(type="hidden" name="iventa" value="#<@@(entity,'#sys_pk')>")
+    input(type="hidden" name="referencia" value="#<@@(entity,'$referencia')>")
     input(type="hidden" name="formapago" value="#<@fp_contado>")
 
-    div(class="col-lg-9")
+    div(class="col-12")
     {
-        div(class="row gx-2")
+        div(class="row")
         {
-            div(class="col-lg-4 col-md-4")
+            div(class="col-12")
             {
-                label(class="form-label" "for"="txt_cliente"){$"Cliente:"}
-                input(class="form-control form-control-sm rounded-0" type="text" name="" value="#<@@(entity,'$dcliente')>" id="txt_cliente" disabled="")
+                label(class="form-label" "for"="txt_ref_deposito"){$"Referencia:"}
+                input(class="form-control form-control-sm rounded-0" type="text" name="ref_dep" value="#<cut(@@(entity,'$referencia'),15)+'/'+uuid()>" id="txt_ref_deposito" minlength="3" maxlength="50" required="")
             }
-            div(class="col-lg-4 col-md-4 col-sm-3")
+            div(class="col-lg-3 col-md-3 col-sm-4")
             {
-                label(class="form-label" "for"="txt_referencia"){$"Referencia:"}
-                input(class="form-control form-control-sm rounded-0" type="text" name="referencia" value="#<@@(entity,'$referencia')>" id="txt_referencia" readonly="")
-            }
-            div(class="col-lg-4 col-md-4 col-sm-3")
-            {
-                label(class="form-label" "for"="txt_fecha_aplicacion"){$"F. Aplicación:"}
+                label(class="form-label" "for"="txt_faplicacion"){$"F. Aplicación:"}
                 input(class="form-control form-control-sm rounded-0" type="date" name="faplicacion" value="#<lib.form('faplicacion','dt',@null)>" id="txt_faplicacion" required="")
             }
 
-            div(class="col-lg-4 col-md-4 col-sm-6")
+            div(class="col-lg-3 col-md-3 col-sm-8")
             {
                 label(class="form-label" "for"="sel_doc_deposito"){$"Documento:"}
                 ##
                 do uie.dbSelect(sel_doc_deposito)
                 ##
             }
-            div(class="col-lg-4 col-md-4 col-sm-6")
+            div(class="col-lg-6 col-md-6 col-sm-12")
             {
                 label(class="form-label" "for"="sel_cuenta"){$"Cuenta:"}
                 ##
                 do uie.dbSelect(sel_cuenta)
-                ##
-            }
-            div(class="col-lg-4 col-md-4 col-sm-6")
-            {
-                label(class="form-label" "for"="sel_cat_ingreso"){$"Categoría:"}
-                ##
-                do uie.dbSelect(sel_cat_ingreso)
                 ##
             }
 
@@ -55,10 +44,10 @@ form(class="row" action="./" method="POST" id="form_liquidacion_contado")
             div(class="d-flex gap-2 align-items-center justify-content-end my-2")
             {
                 label(class="form-label" "for"="txt_importe"){$"Importe:"}
-                input(class="form-control form-control-sm rounded-0 w-25" type="number" name="" value="#<@@(amounts,'#total')>" id="txt_importe" disabled="")
+                input(class="form-control form-control-sm rounded-0 w-25" type="number" name="" value="#<round(@@(amounts,'#total'),@DECIMAL_PRECISION)>" id="txt_importe" disabled="")
             }
         }
 
-        button(type="submit" class="btn btn-primary btn-sm float-end"){$"Aceptar"}
+        button(type="submit" class="btn btn-primary btn-sm w-100"){$"Aceptar"}
     } 
 }
