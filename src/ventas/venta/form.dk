@@ -125,7 +125,7 @@ module "form.dk"
 
     fn_print_buttons::
     {
-        act_btn_cls = "btn btn-sm border-secondary induxsoft-corners btn-main-action no-print"
+        act_btn_cls = "btn btn-sm border-secondary induxsoft-corners btn-main-action"
         
         #$
         button(class="#<act_btn_cls>" type="button" id="btn_guardar" "data-stt-adm"="#<@stt_adm_abierto>" title="Guardar como borrador"){$"#<@ICON_SAVE>"}
@@ -427,6 +427,15 @@ module "form.dk"
                 "control-styles"="
                     tr th { font-size:.9rem; font-weight:500 !important; outline:none !important; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; -o-text-overflow:ellipsis; }
                     tr td { font-size:.8rem; }
+                    tr td[data-cell='Origen'],
+                    tr td[data-cell='Cotizado'],
+                    tr td[data-cell='Subtotal'],
+                    tr td[data-cell='Impuestos'],
+                    tr td[data-cell='Importe']
+                    {
+                        background-color:#FAFAFA;
+                        color:#000;
+                    }
                     #__table_input { font-size:unset !important; }
 
                     @media print
@@ -497,12 +506,12 @@ module "form.dk"
                                         {
                                             "edit-th"(type="NoEditable" field="cdocumento"){$"Documento"}
                                             "edit-th"(type="NoEditable" field="referencia"){$"Referencia"}
-                                            "edit-th"(type="NoEditable" field="fecha"){$"Fecha"}
-                                            "edit-th"(type="NoEditable" field="vencimiento"){$"Vencimiento"}
-                                            "edit-th"(type="NoEditable" field="cdivisa"){$"Divisa"}
+                                            "edit-th"(type="NoEditable" field="fecha" textalign="center"){$"Fecha"}
+                                            "edit-th"(type="NoEditable" field="vencimiento" textalign="center"){$"Vencimiento"}
+                                            "edit-th"(type="NoEditable" field="cdivisa" textalign="center"){$"Divisa"}
                                             "edit-th"(type="NoEditable" field="tipocambio" textalign="end" format="true" thousandssep="true" decs="#<@DECIMAL_PRECISION>"){$"T.C"}
                                             "edit-th"(type="NoEditable" field="subtotal" textalign="end" format="true" thousandssep="true" decs="#<@DECIMAL_PRECISION>"){$"Subtotal"}
-                                            "edit-th"(type="NoEditable" field="total" textalign="end" format="true" thousandssep="true" decs="#<@DECIMAL_PRECISION>"){$"total"}
+                                            "edit-th"(type="NoEditable" field="total" textalign="end" format="true" thousandssep="true" decs="#<@DECIMAL_PRECISION>"){$"Total"}
                                         }
                                     }
                                 }
@@ -524,7 +533,7 @@ module "form.dk"
 
                 "input-key"(id="ik_ser_prod" "data-key"="sys_pk" "data-search"="numero" "data-text"="cstatus" "data-source"="#<@URL_OBTENER_SERIES_DE_PRODUCTO>" columns="numero,cstatus,num_lote" colcaptions="Número,Estado,No.Lote" "hidden-input"="false" "control-styles"="#container{display:none !important;}"){$""}
 
-                "input-key"(id="ik_link_doc" "data-key"="sys_pk" "data-search"="referencia" "data-text"="cdocumento" "data-source"="#<@URL_BUSCAR_DOCUMENTO>" columns="cdocumento,referencia,fecha" colcaptions="Documento,Referencia,Fecha" "hidden-input"="false" "control-styles"="#container{display:none !important;}"){$""}
+                "input-key"(id="ik_link_doc" "data-key"="sys_pk" "data-search"="referencia" "data-text"="cdocumento" "data-source"="#<@URL_BUSCAR_DOCUMENTO>" columns="cdocumento,referencia,fecha,vencimiento,forma_pago" colcaptions="Documento,Referencia,Fecha,Vencimiento,F. Pago" "box-title-text"="Seleccione el documento a incluir" "hidden-input"="false" "control-styles"="#container{display:none !important;}"){$""}
             }
 
             div(class="show-on-print"){p(class="fixed-bottom text-center my-1"){$"#<@@(titles,'$footer')>"}}
@@ -549,12 +558,13 @@ module "form.dk"
                 venta.formId = "frm_venta";
                 venta.tableId = "tbl_productos";
                 venta._GET = #<to.json(@("&parameters"))>;
+                venta.url_exit = "#<@VNT_LISTAR>";
                 venta.url_get_fultimo = "#<@URL_OBTENER_FULTIMO>";
                 venta.url_get_series = "#<@URL_OBTENER_SERIES>";
                 venta.url_change_status = "#<@URL_CAMBIAR_ESTADO>";
                 venta.url_get_dventa = "#<@URL_OBTENER_DVENTA>";
                 venta.url_get_docs_included = "#<@URL_OBTENER_DOCUMENTOS_INCLUIDOS>";
-                venta.url_exit = "#<@VNT_LISTAR>";
+                venta.url_get_precio = "#<@URL_OBTENER_PRECIO_PRODUCTO>";
                 venta.idocumento = #<@@(entity,"#documento")>;
                 venta.cur_stt_adm = #<@@(entity,"#statusadministrativo")>;
                 venta.decimals = #<@DECIMAL_PRECISION>;

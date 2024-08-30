@@ -1,7 +1,7 @@
 var venta =
 {
     formId:"", form:null, ff:null, tableId:"", table:null, coldef:null, _GET:{}, docs_included:{},
-    url_exit:"", url_get_fultimo:"", url_get_series:"", url_change_status:"", url_get_dventa:"", url_get_docs_included:"", url_get_lotser:"",
+    url_exit:"", url_get_fultimo:"", url_get_series:"", url_change_status:"", url_get_dventa:"", url_get_docs_included:"", url_get_lotser:"", url_get_precio:"",
     last_unit:"", last_tcambio:1, is_new:false, idocumento:0, cur_stt_adm:0, decimals:2, enable_lotes:true, enable_series:true, error_timeout:7, is_on_submit:false, is_requesting:false,
 
     init()
@@ -66,6 +66,7 @@ var venta =
         {
             this.getDocsIncluded();
             this.toggleButtonVisibility();
+            readonlyControls(["sel_divisa"], (this.filterData().length > 0));
         }
     },
 
@@ -124,6 +125,7 @@ var venta =
         this.table.onTdPaint = (td,irow,icol,field) => this.coloringIncludedRows(td,irow,icol,field);
         this.table.ButtonOnClick = (irow,icol,coldef) => this.cellsButtonClickHandler(irow,icol,coldef);
 
+        this.table.Events[evt.RowDeleted] = (e) => { readonlyControls(["sel_divisa"], (this.filterData().length > 0)) };
         this.table.Events[evt.EnterCell] = (e) => 
         {
             let coldef = e.sender.GetColumnDefOfTd(e.td);
@@ -134,7 +136,7 @@ var venta =
             this.table.Columns[curr_col].type = this.coldef[curr_col].type;
             if (Object.keys(producto ?? {}).length < this.table.Columns.length) return;
 
-            this.disableIncludedRows(curr_col,producto);
+            this.disableIncludedRows(curr_col,coldef.field,producto);
             // this.disableCells(curr_col,coldef.field,producto);
         };
         this.table.Events[evt.StartEdition] = (e) => { this.fillUnitCell(e) };
@@ -142,6 +144,13 @@ var venta =
         this.table.Events[evt.ConfirmEdition] = (e) => { this.calculateAmounts(e) };
 
         this.table._printRows();
+    },
+
+    convertirADivisa(value,tcp,tcd,mode)
+    {
+        if (mode === "doc") return Math.RoundTo(Math.div(Math.mul(value,tcp),tcd), this.decimals);
+        if (mode === "prod") return Math.RoundTo(Math.div(Math.mul(value,tcd),tcp), this.decimals);
+        return value;
     },
 
     toggleButtonVisibility()
@@ -188,7 +197,7 @@ var venta =
             case 3: //Remisión
             case 6: //Ticket
             {
-                this.table.changeColumnTitle("cotizado","Pedido");
+                this.table.changeColumnTitle("cotizado","Recibido");
                 switch (this.cur_stt_adm) {
                     case 0: //No aplica
                         hideControls(["btn_guardar","btn_cerrar","btn_procesar","btn_add_doc"],false);
@@ -207,7 +216,7 @@ var venta =
             }
             case 4: //Factura
             {
-                this.table.changeColumnTitle("cotizado","Recibido");
+                this.table.changeColumnTitle("cotizado","Facturado");
                 switch (this.cur_stt_adm) {
                     case 0: //No aplica
                         hideControls(["btn_guardar","btn_cerrar","btn_procesar","btn_add_doc"],false);
@@ -315,7 +324,6 @@ var venta =
                 alert(data.message);
                 return;
             }
-
             if (Object.keys(this.docs_included).includes(iventa.toString())) return;
 
             data.forEach(p => {
@@ -345,9 +353,8 @@ var venta =
         delete this.docs_included[venta.sys_pk];
     },
 
-    filterDataArray(edt) {
-        if (!edt) return [];
-        return (edt?.DataArray??[]).filter((row) => { return Object.keys(row??{}).length >= edt.Columns.length })
+    filterData() {
+        return (this.table?.DataArray??[]).filter((row) => { return Object.keys(row??{}).length >= this.table.Columns.length });
     },
 
     launchIkLinkDocument(ik_link_doc)
@@ -448,7 +455,7 @@ var venta =
         if (!this.form) return;
         if (this.is_on_submit) return;
         if (!this.form.reportValidity()) return;
-        let _detalle = this.filterDataArray(this.table);
+        let _detalle = this.filterData();
         if (!this.validateLoteSerie(_detalle)) return;
         
         relbtn.disabled = true;
@@ -652,9 +659,41 @@ var venta =
         return JSON.stringify(obj);
     },
 
+    precioProducto(iproducto,cantidad)
+    {
+        let params = {
+            iproducto: Number(iproducto),
+            icliente: Number(this.ff["icliente"].value),
+            icconsumo: Number(this.ff["icconsumo"].value),
+            cantidad: Number(cantidad)
+        };
+        let url = InduxsoftCrudlModel.UrlReplace(this.url_get_precio,params);
+
+        return new Promise((resolve,reject) => {
+            fetch(url).then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    alert(data.message);
+                    resolve(-1);
+                    return
+                }
+                resolve(data.precio);
+            })
+            .catch(error => {
+                alert("Ocurrio un error al obtener el precio del producto, se tomará el 'Precio 1'.");
+                console.error(error);
+                resolve(-1);
+            });
+        });
+    },
+
     calculateTaxes(prod)
     {
-        let costo = Number(prod.precio);
+        let precio = Number(prod?._precio || prod.precio);
+        let tcp = Number(prod.tipocambio);
+        let tcd = Number(this.ff["tipocambio"].value ?? "1");
+
+        let costo = this.convertirADivisa(precio,tcp,tcd,"doc");
         let cantidad = Number(prod.cantidad);
         let descuentos = Number(prod.descuentos);
         let i1_tasa = Number(prod.i1_tasa);
@@ -691,7 +730,7 @@ var venta =
         return importes;
     },
 
-    addProduct(p)
+    async addProduct(p)
     {
         if (!p) return;
 
@@ -700,9 +739,13 @@ var venta =
 
         let dtarray = this.table?.DataArray ?? [];
         let curr_row = this.table.CurrentRowIndex();
+        
+        let ialmacen = Number(opt_cconsumo.getAttribute("data-almacen"));
+        let iproducto = (p.iproducto || p.sys_pk);
+        let precio = await this.precioProducto(iproducto,1);
+        if (precio > 0) p.precio = precio;
         let i = this.calculateTaxes(p);
         let lu = this.joinUnidades(p.unidada,p.unidadb,p.unidadc,p.unidadd,p.unidade);
-        let ialmacen = Number(opt_cconsumo.getAttribute("data-almacen"));
         
         let producto = 
         {
@@ -736,7 +779,7 @@ var venta =
             xfacturar: i.cantidad,
             xsalir: i.cantidad,
             ialmacen: ialmacen,
-            iproducto: (p.sys_pk || p.iproducto),
+            iproducto: iproducto,
             documento: (p.documento || null),
             doc_partida: (p.doc_partida || null),
 
@@ -759,7 +802,7 @@ var venta =
             reqserie: p.reqserie
         }
 
-        let _productos = this.filterDataArray(this.table);
+        let _productos = this.filterData();
         let available_row = (_productos.length > 0) ? _productos.length : 0;
         
         if (dtarray.length === _productos.length) this.table.AddRow();
@@ -771,6 +814,7 @@ var venta =
         this.table.NavTo(available_row,2);
         this.tableSummary();
         this.toggleEdtColumns();
+        readonlyControls(["sel_divisa"], true);
     },
 
     edtProduct(producto, rowIndex) {
@@ -822,10 +866,10 @@ var venta =
     coloringIncludedRows(td,irow,icol,field)
     {
         let obj = this.table.DataArray[irow];
-        if (obj.doc_partida)
+        if (obj.doc_partida && (field!="cantidad" && field!="notas"))
         {
-            td.style.backgroundColor = "#888888";
-            td.style.color = "#FFFFFF";
+            td.style.backgroundColor = "#FFFFE1"; //"#888";
+            td.style.color = "#0000FF"; //"#FFF";
         }
     },
 
@@ -852,10 +896,10 @@ var venta =
         }
     },
 
-    disableIncludedRows(icol,data)
+    disableIncludedRows(icol,field,data)
     {
         // Deshabilitar edición a las filas incluidas por un documento tercero.
-        if (data.doc_partida) this.table.Columns[icol].type = "NoEditable";
+        if (data.doc_partida && (field!="cantidad" && field!="notas")) this.table.Columns[icol].type = "NoEditable";
         else this.table.Columns[icol].type = this.coldef[icol].type;
     },
 
@@ -1053,7 +1097,15 @@ var venta =
             return;
         }
 
-        if (field === "precio") producto["precio"] = Number(e.text.trim());
+        if (field === "precio")
+        {
+            let precio = Number(e.text.trim());
+            let tcp = Number(producto.tipocambio);
+            let tcd = Number(this.ff["tipocambio"].value ?? "1");
+
+            producto["precio"] = precio;
+            producto["_precio"] = this.convertirADivisa(precio,tcp,tcd,"prod");
+        }
         if (field === "cantidad")
         {
             let cantidad = Number(e.text.trim());

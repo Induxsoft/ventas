@@ -34,6 +34,10 @@ module "VentaController"
             point @list to Venta.buscarPorteador
             break
         }
+        case "obtener-precio-producto"
+        {
+            point @list to Venta.obtenerPrecioProducto
+        }
         case "obtener-dventa"
         {
             point @list to Venta.obtenerDVenta

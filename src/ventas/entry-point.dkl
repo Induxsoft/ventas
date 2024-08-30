@@ -22,6 +22,26 @@ module "Controller configs"
 
 	@base_path = "ventas"
 	@path_root = ""
+
+	if not(field.exist(@@(@http_context,"&session"),"resource")) { @http_context<"session/resource*"> : record.create() }
+	if not(field.exist(@@(@http_context,"&session/resource"),"properties")) { @http_context<"session/resource/properties*"> : record.create() }
+	if not(field.exist(@@(@http_context,"&session/resource/properties"),"web_meta_tags")) { @http_context<"session/resource/properties/web_meta_tags*"> : record.create() }
+	if not(field.exist(@@(@http_context,"&session/resource/properties/web_meta_tags"),"web_page")) {@http_context<"session/resource/properties/web_meta_tags/web_page*"> : record.create() }
+	if not(field.exist(@@(@http_context,"&session/resource/properties"),"web_page")) { @http_context<"session/resource/properties/web_page*"> : record.create() }
+
+	ref parameters = @@(@http_context,"&request/get")
+	
+	web_title = "Ventas"
+	if field.dstr(parameters,"_entity_id","")!="" { web_title = ifstr((parameters._entity_id=="_new"), "Nueva venta", "Editar venta") }
+	if field.exist(parameters,"_view") {
+		switch parameters._view
+		{
+			case "procesar" { web_title = "Procesar venta" }
+			case "cancelar" { web_title = "Cancelar venta" }
+		}
+	}
+
+	@http_context<"session/resource/properties/web_meta_tags/title"> : web_title
 	
 	// Enmascaramiento de enrutamiento (Ejemplos)
 	// Definición de patrones de rutas con base en parámetros GET (request/get)

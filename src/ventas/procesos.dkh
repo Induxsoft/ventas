@@ -12,17 +12,20 @@ module ":erp.ventas.procesos"
 	// #include "ventas/_lib/config.dk"
     // #include "ventas/_lib/list.queries.dk"
 
-    @convertir_a_divisa_documento = 1
-    @convertir_a_divisa_producto = 2
+    new @convertir_a
+    {
+        @"divisa_documento": 1
+        @"divisa_producto": 2
+    }
     
     convertirADivisa::value,tcprd,tcdoc,mode
     {
         //#region convertirADivisa()
 
-        if mode == @convertir_a_divisa_documento {
+        if mode == @convertir_a.divisa_documento {
             return div((value * tcprd), tcdoc)
         }
-        if mode == @convertir_a_divisa_producto {
+        if mode == @convertir_a.divisa_producto {
             return div((value * tcdoc), tcprd)
         }
 
@@ -217,7 +220,7 @@ module ":erp.ventas.procesos"
                 }
 
                 salidas = @@(item,"#cantidad")
-                abonos = convertirADivisa(@@(item,"#abonos"),@@(item,"#tipocambio"),@@(venta,"#tipocambio"),@convertir_a_divisa_producto)
+                abonos = convertirADivisa(@@(item,"#abonos"),@@(item,"#tipocambio"),@@(venta,"#tipocambio"),@convertir_a.divisa_producto)
                 
                 new dcardex
                 {
@@ -690,7 +693,7 @@ module ":erp.ventas.procesos"
                 left join venta v on x.iventa = v.sys_pk
             where a.aplicadoa = @pk_cxc
                 and a.destino = #<@CXC_DESTINO_APLICACION_BONIFICACIONES>
-                and c.documento is null
+                and v.documento is null
             ")
             bonis = round(dbr.num(db,sql_bonis,obj), decs)
 
@@ -1177,8 +1180,9 @@ module ":erp.ventas.procesos"
             start_transaction = @true
         }
 
-        iventa, documento << data
-        
+        iventa = @@(data,"#iventa")
+        documento = @@(data,"#iventa")
+
         if documento == @cNotaCredito { do erp.ventas.procesos.devolucion(db,data) }
 
         // Actualizar 'xfacturar' de los productos incluidos

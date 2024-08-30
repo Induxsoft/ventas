@@ -149,6 +149,7 @@ module "Lista de consultas MySQL"
         dt.documento,
         dt.doc_partida,
 
+        ((dt.precio * vnt.tipocambio) / dt.tipocambio) AS _precio,
         (CONVERT(REPLACE(SUBSTRING_INDEX(i.i1venta, '|', @zimpuesto),'%',''), DECIMAL) / 100) AS i1_tasa,
         (CONVERT(REPLACE(SUBSTRING_INDEX(i.i2venta, '|', @zimpuesto),'%',''), DECIMAL) / 100) AS i2_tasa,
         (CONVERT(REPLACE(SUBSTRING_INDEX(i.i3venta, '|', @zimpuesto),'%',''), DECIMAL) / 100) AS i3_tasa,
@@ -168,6 +169,7 @@ module "Lista de consultas MySQL"
     FROM dventa AS dt
         INNER JOIN producto AS p ON dt.iproducto = p.sys_pk
         INNER JOIN cfgimpuesto AS i ON p.impuestos = i.sys_pk
+        INNER JOIN venta AS vnt ON dt.fk_venta_detalle = vnt.sys_pk
         LEFT JOIN dventa AS dt2 ON dt.doc_partida = dt2.sys_pk
         LEFT JOIN venta AS src ON dt.documento = src.sys_pk
         LEFT JOIN dcardex AS dc ON dc.rventa = dt.sys_pk
@@ -225,8 +227,8 @@ module "Lista de consultas MySQL"
         (CONVERT(REPLACE(SUBSTRING_INDEX(imp.i4venta, '|', @zimpuesto),'%',''), DECIMAL) / 100) AS i4_tasa
         #<selects>
     FROM producto AS p
-        INNER JOIN divisa AS dvs ON dvs.sys_pk = p.idivisa
-        INNER JOIN cfgimpuesto AS imp ON imp.sys_pk = p.impuestos
+        INNER JOIN divisa AS dvs ON p.idivisa = dvs.sys_pk
+        INNER JOIN cfgimpuesto AS imp ON p.impuestos = imp.sys_pk
         #<joins>
     WHERE NOT IFNULL(p.sys_deleted,0)
         #<conditions>

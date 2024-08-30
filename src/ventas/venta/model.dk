@@ -52,7 +52,7 @@ module ":Venta"
         
         conditions = ftext("
         AND vnt.statusadministrativo = #<@stt_adm_procesado>
-        AND vnt.aplicadoa IS NULL
+        -- AND vnt.aplicadoa IS NULL
         AND vnt.icliente = @icliente
         AND vnt.idivisa = @idivisa
         AND (
@@ -164,6 +164,38 @@ module ":Venta"
 
         ref dventa = Venta.recoverLoteSerie(db,dbr.list(db,ftext(@qry_dventa),p))
         return dventa
+    }
+
+    obtenerPrecioProducto::&db,&params
+    {
+        if not(field.exist(params,"decimals")){ params<"decimals"> : parse.num(dbr.vars.get(db,"FXCA001")) }
+        iproducto, icliente, icconsumo, cantidad, decimals << params
+
+        // Precio seleccionado para el cliente.
+        precio = dbr.num(db,"select ifnull(precio,0) from cliente where sys_pk = @icliente",params)
+        // Precio seleccionado paea el centro de consumo.
+        if precio == 6 { precio = dbr.num(db,"select ifnull(precio,0) from cconsumo where sys_pk = @icconsumo",params) }
+        // Campo 'precio#' de la tabla 'producto'.
+        field = "precio"+str(precio)
+
+        new response
+        {
+            @"success": @true
+            @"precio": dbr.num(db,ftext("select round(ifnull(#<field>,0),@decimals) from producto where sys_pk = @iproducto"),params)
+        }
+        return response
+
+        exception
+        {
+            do errordet(@false)
+            code = last_error_code()
+            error = last_error()
+            if contains(error,"Unknown column") {
+                code = 404
+                error = "No fue posible obtener el precio del producto para el Cliente o Centro de consumo seleccionado. En su lugar se tomará el 'Precio 1'."
+            }
+            do rise_error(code,error)
+        }
     }
 
     obtenerLotesDeProducto::&db,&params
