@@ -2,7 +2,6 @@
 form(class="row" action="./" method="POST" id="form_liquidacion_contado")
 {
     input(type="hidden" name="iventa" value="#<@@(entity,'#sys_pk')>")
-    input(type="hidden" name="referencia" value="#<@@(entity,'$referencia')>")
     input(type="hidden" name="formapago" value="#<@fp_contado>")
 
     div(class="col-12")
@@ -11,8 +10,8 @@ form(class="row" action="./" method="POST" id="form_liquidacion_contado")
         {
             div(class="col-12")
             {
-                label(class="form-label" "for"="txt_ref_deposito"){$"Referencia:"}
-                input(class="form-control form-control-sm rounded-0" type="text" name="ref_dep" value="#<cut(@@(entity,'$referencia'),15)+'/'+uuid()>" id="txt_ref_deposito" minlength="3" maxlength="50" required="")
+                label(class="form-label" "for"="txt_referencia"){$"Referencia:"}
+                input(class="form-control form-control-sm rounded-0" type="text" name="referencia" value="#<cut(@@(entity,'$referencia'),15)+'/'+uuid()>" id="txt_referencia" minlength="3" maxlength="50" required="")
             }
             div(class="col-lg-3 col-md-3 col-sm-4")
             {

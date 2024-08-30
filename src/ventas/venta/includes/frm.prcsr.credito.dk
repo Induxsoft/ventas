@@ -28,7 +28,7 @@ form(class="row" action="./" method="POST" id="form_liquidacion_credito")
             div(class="col-lg-3 col-md-3 col-sm-4")
             {
                 label(class="form-label" "for"="txt_tcambio"){$"Tipo de cambio:"}
-                input(class="form-control form-control-sm rounded-0" type="number" name="c_tcambio" value="#<round(lib.form('c_tcambio','nm',entity),@DECIMAL_PRECISION)>" id="txt_tcambio" min="1" step="#<num_step>" required="")
+                input(class="form-control form-control-sm rounded-0" type="number" name="c_tcambio" value="#<round(lib.form('c_tcambio','nm',entity),@DECIMAL_PRECISION)>" id="txt_tcambio" min="1" step="#<num_step>" required="" disabled="")
             }
 
             div(class="col-12")

@@ -107,6 +107,9 @@ module "Lista de consultas MySQL"
 
     @qry_dventa = "
     SELECT
+        dt.sys_pk,
+        dt.sys_recver,
+        IFNULL(dt.sys_info,'') AS sys_info,
         IFNULL(src.referencia,'') AS origen,
         p.codigo,
         p.descripcion,
@@ -159,7 +162,6 @@ module "Lista de consultas MySQL"
         IFNULL(p.factorc,0) AS factorc,
         IFNULL(p.factord,0) AS factord,
         IFNULL(p.factore,0) AS factore,
-        IFNULL(dt.sys_info,'') AS sys_info,
         p.reqlote,
         p.reqserie
         #<selects>

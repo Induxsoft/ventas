@@ -266,7 +266,7 @@ model "erp.ventas"
         @"uf_fechainhabilitacion" datetime
         @"uf_grupoprod" int
     }
-    // caja
+    // Catálogo de cajas
     entity "caja" : "TableModel"
     {
         @"codcuenta" string(50) unique
@@ -287,6 +287,17 @@ model "erp.ventas"
         @"uf_horacorte5" time
         @"uf_cortereq_vntadic" int
         @"uf_lim_vntliber" int
+    }
+    // Datos de una cuenta en una institución financiera
+    entity "chequera" : "TableModel"
+    {
+        @"clabe" string(18) unique
+        @"codcuenta" string(50) unique
+        @"nombre" string(25) unique required
+        @"notas" string(4096)
+        @"numcuenta" string(25) unique
+        // @"ibanco" ref:"banco"
+        @"idivisa" ref:"divisa" required
     }
     // Datos de un cliente
     entity "cliente" : "TableModel"
@@ -411,7 +422,7 @@ model "erp.ventas"
         @"iporteador" ref:"porteador" required
         @"irepartidor" ref:"repartidor"
     }
-    // Catálogo de cajas
+    // Movimientos en cajas
     entity "movcaja" : "TableModel"
     {
         @"auditado" bool
@@ -442,6 +453,35 @@ model "erp.ventas"
             field "referencia"
             field "tarjetas"
             field "vales"
+        }
+    }
+    // Movimientos de una cuenta en una institución financiera
+    entity "movcuenta" : "TableModel"
+    {
+        @"aplicacion" date
+        @"auditado" bool
+        @"beneficiario" string(150)
+        @"cancelado" bool
+        @"conciliado" bool
+        @"contabilizado" bool
+        @"egreso" decimal(18,8)
+        @"fecha" date
+        @"ingreso" decimal(18,8)
+        @"notas" string(4096) required
+        @"partida" string(32)
+        @"poliza" string(32)
+        @"referencia" string(50) required
+        @"tipo" ref:"cdocumentos" required
+        @"icategoria" ref:"categoria" required
+        @"icuenta" ref:"chequera" required
+        @"uf_color" int
+        @"uf_fechacancelacion" datetime
+        @"uf_iproveedor" ref:"proveedor"
+
+        index "movcuenta_id" unique
+        {
+            field "icuenta"
+            field "referencia"
         }
     }
     // porteador
@@ -718,6 +758,7 @@ model "erp.ventas"
         @"ifolio" ref:"foliosdocumentos" required
         @"iguia" ref:"guia"
         @"imovcaja" ref:"movcaja"
+        @"imovchequera" ref:"movcuenta"
         @"iporteador" ref:"porteador"
         @"irepartidor" ref:"repartidor"
         @"uf_color" int

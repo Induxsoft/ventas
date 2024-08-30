@@ -58,8 +58,8 @@ module ":Venta"
         AND (
             CASE @doctype
                 WHEN #<@cPedido> THEN vnt.documento = #<@cCotizacion>
-                WHEN #<@cRemision> THEN vnt.documento IN (#<@cCotizacion>,#<@cPedido>) 
-                WHEN #<@cFactura> THEN vnt.documento IN (#<@cCotizacion>,#<@cPedido>,#<@cTicket>,#<@cRemision>)
+                WHEN (#<@cRemision> OR #<@cTicket>) THEN vnt.documento IN (#<@cCotizacion>,#<@cPedido>)
+                WHEN #<@cFactura> THEN vnt.documento IN (#<@cCotizacion>,#<@cPedido>,#<@cRemision>,#<@cTicket>)
                 WHEN #<@cNotaCredito> THEN vnt.documento IN (#<@cTicket>,#<@cRemision>,#<@cFactura>)
             END
         )
@@ -535,13 +535,16 @@ module ":Venta"
 
     updateAmounts::&db,vnt_sys_pk
     {
+        //#region updateAmounts()
         new params { @"_entity_id": vnt_sys_pk }
         ref amounts = dbr.rec(db,@qry_imp_venta,params)
+        do field.remove(amounts,"total")
         do dbr.update(db,"venta",amounts,ftext("#<@keyfield> = @_entity_id"),params)
     }
 
     documentsIncluded::&db,documents,iventa
     {
+        //#region documentsIncluded()
         new params { @"iventa": parse.num(iventa) }
         documents = trim(str(documents))
 
@@ -841,7 +844,7 @@ module ":Venta"
                 @"fields": "sys_info,cantidad,descuento1,descuento2,factor,impuesto1,impuesto2,impuesto3,impuesto4,notas,precio,status,tipocambio,unidad,xfacturar,xsalir,documento,doc_partida,ialmacen,iproducto"
             }
         }
-        
+
         do validateFields(db,params,venta)
         do validateStatus(db,params,venta)
         do setLoteSerie(db,@@(venta,"&_detalle"),@@(venta,"#documento"))
@@ -890,7 +893,7 @@ module ":Venta"
                 @"keyfield": "sys_pk"
                 @"table": "dventa"
                 @"select_query": @childs_query
-                @"fields": "sys_info,cantidad,descuento1,descuento2,factor,impuesto1,impuesto2,impuesto3,impuesto4,notas,precio,status,tipocambio,unidad,xfacturar,xsalir,documento,doc_partida,ialmacen,iproducto"
+                @"fields": "sys_pk,sys_recver,sys_info,cantidad,descuento1,descuento2,factor,impuesto1,impuesto2,impuesto3,impuesto4,notas,precio,status,tipocambio,unidad,xfacturar,xsalir,documento,doc_partida,ialmacen,iproducto"
             }
         }
 
@@ -930,7 +933,6 @@ module ":Venta"
         @use_transaction = @false
         @read_entity_only = @true
 
-        do rise_error(0,to.json(data))
         do dbr.apps.action.pre("VD13")
         do dbr.begin(db)
 
@@ -938,7 +940,7 @@ module ":Venta"
         {
             case @fp_na
             {
-                do erp.ventas.procesos.liquidacionNoAplica(db,@@(data,"#iventa"))
+                do erp.ventas.procesos.liquidacionNoAplica(db,data)
                 break
             }
             case @fp_contado
@@ -970,66 +972,46 @@ module ":Venta"
         exception{ do Venta.catch(db,params,data) }
     }
 
-    reverseCxC::&db,&data
-    {
-        //#region reverseCxC()
-        if @@(data,"#formapago") != @fp_credito { return }
-
-        new bonificacion
-        {
-            @"faplicacion": lib.hoy("yyyy-MM-dd")
-            @"documento": @cNotaCredito
-            @"fecha": lib.hoy("yyyy-MM-dd")
-            @"notas": "Bonificación por cancelación de la venta " + @@(data,"$referencia")
-            @"referencia": @@(data,"$referencia")+"-B"
-            @"tcambio": @@(data,"#tipocambio")
-            @"importe": @@(data,"#total")
-            @"icliente": @@(data,"#icliente")
-        }
-
-        do erp.cxc.movimientos.bonificarCliente(db,bonificacion)
-    }
-
     cancel::&db,&params,&data
     {
         //#region cancel()
         @use_transaction = @false
         @read_entity_only = @true
-
-        ref entity = entity.read(db,params)
         
         do dbr.apps.action.pre("VD14")
         do dbr.begin(db)
 
-        switch @@(entity,"#documento")
+        switch @@(data,"#documento")
         {
             case @cPedido
             {
-                doctype = @cCotizacion
                 // Liberar a las cotizaciones relacionadas (`aplicadoa` y `xfacturar`).
+                doctype = @cCotizacion
                 do dbr.execute(db,ftext(@qry_liberar_documentos),params)
                 break
             }
             case @cRemision
             {
-                doctype = ftext("#<@cCotizacion>,#<@cPedido>")
                 // Liberar a las cotizaciones o pedidos relacionados (`aplicadoa` y `xfacturar`).
+                doctype = ftext("#<@cCotizacion>,#<@cPedido>")
                 do dbr.execute(db,ftext(@qry_liberar_documentos),params)
+
                 // Realizar la entrada de todos los productos que salieron por este documento al mismo costo de la salida.
-                do erp.inventario.aplicar_mov(db,erp.ventas.procesos.entradaInventarioMismoCostoSalida(db,@@(data,"#iventa"),@@(data,"#icategoria")),@false)
+                do erp.ventas.procesos.cancelacion(db,@@(data,"#sys_pk"))
                 // Generar un movimiento a CxC inverso al que hubiere generado.
-                do Venta.reverseCxC(db,entity)
+                do erp.ventas.procesos.reverseCxC(db,@@(data,"#sys_pk"))
                 break
             }
             case @cFactura
             {
-                doctype = ftext("#<@cCotizacion>,#<@cPedido>,#<@cRemision>")
                 // Liberar a las cotizaciones, pedidos o recepciones relacionadas (`aplicadoa` y `xfacturar`).
+                doctype = ftext("#<@cCotizacion>,#<@cPedido>,#<@cRemision>,#<@cTicket>")
                 do dbr.execute(db,ftext(@qry_liberar_documentos),params)
+
                 // Realizar la entrada de todos los productos que salieron por este documento al mismo costo de la salida, con excepción de las salidas que se habían realizado por remisiones consolidadas en la factura.
-                do erp.inventario.aplicar_mov(db,erp.ventas.procesos.entradaInventarioMismoCostoSalida(db,@@(data,"#iventa"),@@(data,"#icategoria")),@false)
+                do erp.ventas.procesos.cancelacion(db,@@(data,"#sys_pk"))
                 // Generar un movimiento a CxC inverso al que hubiere generado.
-                do Venta.reverseCxC(db,entity)
+                do erp.ventas.procesos.reverseCxC(db,@@(data,"#sys_pk"))
                 break
             }
             case @cNotaCredito { do rise_error(500,"No es posible cancelar una nota de crédito.") }
@@ -1037,9 +1019,14 @@ module ":Venta"
         }
 
         // Establecer el estado del documento como cancelado.
-        do dbr.execute(db,ftext("UPDATE venta SET statusadministrativo = #<@stt_adm_cancelado> WHERE sys_pk = @iventa"),data)
-        
-        entity<"statusadministrativo"> : @stt_adm_cancelado
+        new rec
+        {
+            @"sys_pk": @@(data,"#sys_pk")
+            @"sys_recver": @@(data,"#sys_recver")
+            @"sys_lastuser": @@(@http_context, "$session/user/uid")
+            @"statusadministrativo": @stt_adm_cancelado
+        }
+        ref entity = entity.update(db,params,rec)
 
         do dbr.apps.action.pos(entity)
         do dbr.commit(db)

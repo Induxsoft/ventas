@@ -47,7 +47,7 @@
                     "source":{
                         "type":"list",
                         "values":[
-                            {"val":"1", "text":"Si"},
+                            {"val":"1", "text":"Sí"},
                             {"val":"0", "text":"No"}
                         ],
                         "showfield":"text",
@@ -67,7 +67,7 @@
                     "source":{
                         "type":"list",
                         "values":[
-                            {"val":"1", "text":"Si"},
+                            {"val":"1", "text":"Sí"},
                             {"val":"0", "text":"No"}
                         ],
                         "showfield":"text",
@@ -140,6 +140,46 @@
                         "query":"select codigo, descripcion from categoria where tipo=2",
                         "keyfield":"codigo",
                         "showfield":"descripcion"
+                    }
+                }
+            },
+            {
+                "varname": "v12.ventas.01",
+                "vardefault": "1",
+                "varvalue": "1",
+                "varcaption": "Intentar desaplicar salidas al cancelar ventas",
+                "varhelp": "",
+                "vartype": "bool",
+                "varinput": {
+                    "control": "select",
+                    "source":{
+                        "type":"list",
+                        "values":[
+                            {"val":"1", "txt":"Sí"},
+                            {"val":"0", "txt":"No"}
+                        ],
+                        "showfield":"txt",
+                        "keyfield":"val"
+                    }
+                }
+            },
+            {
+                "varname": "v12.ventas.02",
+                "vardefault": "1",
+                "varvalue": "1",
+                "varcaption": "Eliminar movimiento desaplicado al cancelar",
+                "varhelp": "",
+                "vartype": "bool",
+                "varinput": {
+                    "control": "select",
+                    "source":{
+                        "type":"list",
+                        "values":[
+                            {"val":"1", "txt":"Sí"},
+                            {"val":"0", "txt":"No"}
+                        ],
+                        "showfield":"txt",
+                        "keyfield":"val"
                     }
                 }
             }

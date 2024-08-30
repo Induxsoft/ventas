@@ -12,6 +12,23 @@ module ":erp.ventas.procesos"
 	// #include "ventas/_lib/config.dk"
     // #include "ventas/_lib/list.queries.dk"
 
+    @convertir_a_divisa_documento = 1
+    @convertir_a_divisa_producto = 2
+    
+    convertirADivisa::value,tcprd,tcdoc,mode
+    {
+        //#region convertirADivisa()
+
+        if mode == @convertir_a_divisa_documento {
+            return div((value * tcprd), tcdoc)
+        }
+        if mode == @convertir_a_divisa_producto {
+            return div((value * tcdoc), tcprd)
+        }
+
+        return value
+    }
+
     asignarLoteSerie::&db,&item,&dcardex
     {
         //#region asignarLoteSerie()
@@ -147,7 +164,7 @@ module ":erp.ventas.procesos"
             d.tipocambio,
             d.ialmacen,
             d.iproducto,
-            (IFNULL(d.cantidad,0) * IFNULL(d.precio,0)) AS abonos,
+            ((IFNULL(d.precio,0) * IFNULL(d.cantidad,0)) - IFNULL(d.descuento1,0) - IFNULL(d.descuento2,0)) AS abonos,
             IFNULL(d.xfacturar,0) AS xfacturar,
             IFNULL(d.doc_partida,0) AS doc_partida,
             IFNULL(d.sys_info,'') AS sys_info,
@@ -198,6 +215,9 @@ module ":erp.ventas.procesos"
                     do dbr.insert(db,"cardex",cardex)
                     pk_cardex = dbr.num(db,"select last_insert_id();",@null)
                 }
+
+                salidas = @@(item,"#cantidad")
+                abonos = convertirADivisa(@@(item,"#abonos"),@@(item,"#tipocambio"),@@(venta,"#tipocambio"),@convertir_a_divisa_producto)
                 
                 new dcardex
                 {
@@ -208,9 +228,9 @@ module ":erp.ventas.procesos"
                     @"sys_recver": 0
                     @"ialmacen": @@(item,"#ialmacen")
                     @"iproducto": @@(item,"#iproducto")
-                    @"salidas": @@(item,"#cantidad")
-                    @"abonos": @@(item,"#abonos")
-                    @"cpromedio": @@(item,"#precio")
+                    @"salidas": salidas
+                    @"abonos": abonos
+                    @"cpromedio": div(abonos,salidas)
                     @"tipocambio": @@(item,"#tipocambio")
                     @"rventa": @@(item,"#sys_pk")
                     @"fk_cardex_movimientos": pk_cardex
@@ -264,40 +284,43 @@ module ":erp.ventas.procesos"
         
         new params { @"iventa": parse.num(iventa) }
 
-        ref venta = dbr.rec(db,sql_venta,params)
-        ref dventa = dbr.list(db,sql_dventa,params)
-
         if not(dbr.in_transaction(db)) {
             do dbr.begin(db)
             start_transaction = @true
         }
 
+        ref venta = dbr.rec(db,sql_venta,params)
+        ref dventa = dbr.list(db,sql_dventa,params)
+
         new cardex
         {
             @"sys_pk": 0
             @"sys_guid": uuid()
-            @"sys_dtcreated*": now()
-            @"sys_timestamp*": now()
+            @"sys_dtcreated*": dbr.sql("now()")
+            @"sys_timestamp*": dbr.sql("now()")
             @"sys_recver": 0
-            @"fecha*": now()
-            @"referencia": @@(venta,"$referencia")+"E"
+            @"fecha*": dbr.sql("now()")
+            @"referencia": @@(venta,"$referencia")
             @"docventa": @@(venta,"#sys_pk")
             @"icategoria": icategoria
         }
-        do dbr.insert(db,"cardex",cardex)
-        
-        last_id = dbr.num(db,"select last_insert_id();",@null)
+        pk_cardex = 0
 
         for i = 0; i < list.count(dventa)
         {
             ref item = list.obj(dventa,i)
 
+            if pk_cardex == 0 {
+                do dbr.insert(db,"cardex",cardex)
+                pk_cardex = dbr.num(db,"select last_insert_id();",@null)
+            }
+
             new dcardex
             {
                 @"sys_pk": 0
                 @"sys_guid": uuid()
-                @"sys_dtcreated*": now()
-                @"sys_timestamp*": now()
+                @"sys_dtcreated*": dbr.sql("now()")
+                @"sys_timestamp*": dbr.sql("now()")
                 @"sys_recver": 0
                 @"ialmacen": @@(item,"#ialmacen")
                 @"iproducto": @@(item,"#iproducto")
@@ -306,15 +329,14 @@ module ":erp.ventas.procesos"
                 @"cpromedio": @@(item,"#precio")
                 @"tipocambio": @@(item,"#tipocambio")
                 @"rventa": @@(item,"#sys_pk")
-                @"fk_cardex_movimientos": last_id
+                @"fk_cardex_movimientos": pk_cardex
             }
             do devolverLoteSerie(db,item,dcardex)
             do dbr.insert(db,"dcardex",dcardex)
         }
 
         if start_transaction { do dbr.commit(db) }
-
-        return last_id
+        return pk_cardex
 
         exception
         {
@@ -361,51 +383,53 @@ module ":erp.ventas.procesos"
 
         new params { @"iventa": parse.num(iventa) }
 
-        ref venta = dbr.rec(db,sql_venta,params)
-        ref dventa = dbr.list(db,sql_dventa,params)
-
         if not(dbr.in_transaction(db)) {
             do dbr.begin(db)
             start_transaction = @true
         }
 
+        ref venta = dbr.rec(db,sql_venta,params)
+        ref dventa = dbr.list(db,sql_dventa,params)
+
         new cardex
         {
             @"sys_pk": 0
             @"sys_guid": uuid()
-            @"sys_dtcreated*": now()
-            @"sys_timestamp*": now()
+            @"sys_dtcreated*": dbr.sql("now()")
+            @"sys_timestamp*": dbr.sql("now()")
             @"sys_recver": 0
-            @"fecha*": now()
-            @"referencia": @@(venta,"$referencia")+"-E"
+            @"fecha*": dbr.sql("now()")
+            @"referencia": @@(venta,"$referencia")+"-E"+"/"+uuid()
             @"docventa": @@(venta,"#sys_pk")
             @"icategoria": icategoria
         }
-        do dbr.insert(db,"cardex",cardex)
-        
-        last_id = dbr.num(db,"select last_insert_id();",@null)
+        pk_cardex = 0
 
         for i = 0; i < list.count(dventa)
         {
             ref itm = list.obj(dventa,i)
+
+            if pk_cardex == 0 {
+                do dbr.insert(db,"cardex",cardex)
+                pk_cardex = dbr.num(db,"select last_insert_id();",@null)
+            }
             
             ref dcardex = record.copyex(itm, @null, "ialmacen,iproducto,salidas,abonos,cpromedio,tipocambio,ilote,iserie,rventa", ",", "salidas:entradas,abonos:cargos", ":")
             using dcardex
             {
                 @"sys_pk": 0
                 @"sys_guid": uuid()
-                @"sys_dtcreated*": now()
-                @"sys_timestamp*": now()
+                @"sys_dtcreated*": dbr.sql("now()")
+                @"sys_timestamp*": dbr.sql("now()")
                 @"sys_recver": 0
-                @"fk_cardex_movimientos": last_id
+                @"fk_cardex_movimientos": pk_cardex
             }
             do devolverLoteSerie(db,itm,@null)
             do dbr.insert(db,"dcardex",dcardex)
         }
 
         if start_transaction { do dbr.commit(db) }
-
-        return last_id
+        return pk_cardex
 
         exception
         {
@@ -559,6 +583,469 @@ module ":erp.ventas.procesos"
         }
     }
 
+    totalFactura::&db,ifactura
+    {
+        //#region totalFactura()
+        decs = parse.num(dbr.vars.get(db,"FXCA001"))
+        new params
+        {
+            @"ifactura": ifactura
+            @"remision": @cRemision
+            @"factura": @cFactura
+            @"ticket": @cTicket
+            @"fp_na": @fp_na
+            @"fp_contado": @fp_contado
+            @"fp_credito": @fp_credito
+            @"fp_financiado": @fp_financiado
+            @"fp_consignado": @fp_consignado
+            @"decs": decs
+        }
+
+        sql_factura = "
+        SELECT
+            f.sys_pk,
+            f.referencia,
+            f.icliente,
+            ROUND(f.subtotal - f.descuento1 - f.descuento2 + f.impuesto1 + f.impuesto2 + f.impuesto3 + f.impuesto4, @decs) total,
+            ROUND(f.tipocambio, @decs) tcd,
+            ROUND(dc.tcambio, @decs) tcc,
+            ROUND(f.tipocambio / dc.tcambio, @decs) factor
+        FROM venta f
+            INNER JOIN cliente c ON f.icliente = c.sys_pk
+            INNER JOIN divisa dc ON c.idivisa = dc.sys_pk
+        WHERE f.sys_pk = @ifactura
+        "
+
+        sql_total_directo = "
+        SELECT
+            ROUND(IFNULL(SUM(
+                (d.precio * d.cantidad)
+                - IFNULL(d.descuento1,0)
+                - IFNULL(d.descuento2,0)
+                + IFNULL(d.impuesto1,0)
+                + IFNULL(d.impuesto2,0)
+                + IFNULL(d.impuesto3,0)
+                + IFNULL(d.impuesto4,0))
+            ,0),@decs) total
+        FROM dventa d
+            INNER JOIN venta f ON d.fk_venta_detalle = f.sys_pk
+            LEFT JOIN venta r ON d.documento = r.sys_pk
+        WHERE (d.documento IS NULL OR (r.formapago = @fp_consignado OR r.formapago = @fp_na))
+            AND f.sys_pk = @ifactura
+        "
+
+        sql_detalle = "
+        SELECT
+            fc.sys_pk AS pk_fac,
+            rm.sys_pk AS pk_rem,
+            x.sys_pk AS pk_cxc,
+            rm.referencia,
+            fp.id ifp, fp.const cfp,
+            x.icliente,
+            (rm.subtotal - rm.descuento1 - rm.descuento2 + rm.impuesto1 + rm.impuesto2 + rm.impuesto3 + rm.impuesto4) AS total,
+            SUM(((IFNULL(d.precio,0) * IFNULL(d.cantidad,0))
+                - IFNULL(d.descuento1,0)
+                - IFNULL(d.descuento2,0))
+                + IFNULL(d.impuesto1,0)
+                + IFNULL(d.impuesto2,0)
+                + IFNULL(d.impuesto3,0)
+                + IFNULL(d.impuesto4,0)
+            ) AS facturado,
+            ROUND(SUM(((IFNULL(d.precio,0) * IFNULL(d.cantidad,0)) - IFNULL(d.descuento1,0) - IFNULL(d.descuento2,0)) + IFNULL(d.impuesto1,0) + IFNULL(d.impuesto2,0) + IFNULL(d.impuesto3,0) + IFNULL(d.impuesto4,0)) / (rm.subtotal - rm.descuento1 - rm.descuento2 + rm.impuesto1 + rm.impuesto2 + rm.impuesto3 + rm.impuesto4), @decs) proporcion,
+            IFNULL(x.pagos,0) pagos,
+            IFNULL(x.bonificaciones,0) bonificaciones,
+            (IFNULL(x.debe,0) + IFNULL(x.intmoratorios,0) - IFNULL(x.pagos,0) - IFNULL(x.bonificaciones,0)) AS saldo
+        FROM dventa d
+            INNER JOIN venta fc ON d.fk_venta_detalle = fc.sys_pk
+            INNER JOIN venta rm ON d.documento = rm.sys_pk
+            INNER JOIN cformaspago fp ON rm.formapago = fp.id
+            LEFT JOIN dcxc x ON x.iventa = rm.sys_pk
+        WHERE d.fk_venta_detalle = @ifactura
+            AND fc.documento = @factura
+            AND (rm.documento = @remision OR rm.documento = @ticket)
+        GROUP BY rm.sys_pk
+        "
+
+        ref factura = dbr.rec(db,sql_factura,params)
+        ref detalles = dbr.list(db,sql_detalle,params)
+
+        ref _detalles = record.create()
+        _contado = 0
+        _credito = 0
+        _directo = (dbr.num(db,sql_total_directo,params) * @@(factura,"#factor"))
+        _pagos = 0
+        _bonificaciones = 0
+
+        for i=0; i<list.count(detalles)
+        {
+            ref obj = list.obj(detalles,i)
+
+            obj<"total"> : round(@@(obj,"#total") * @@(factura,"#factor"), decs)
+            obj<"facturado"> : round(@@(obj,"#facturado") * @@(factura,"#factor"), decs)
+
+            sql_bonis = ftext("
+            select ifnull(sum(a.importe),0)
+            from aplcxc a
+                inner join dcxc x on a.fk_dcxc_aplicadoa = x.sys_pk
+                left join venta v on x.iventa = v.sys_pk
+            where a.aplicadoa = @pk_cxc
+                and a.destino = #<@CXC_DESTINO_APLICACION_BONIFICACIONES>
+                and c.documento is null
+            ")
+            bonis = round(dbr.num(db,sql_bonis,obj), decs)
+
+            obj<"proporcion_pagos"> : div(@@(obj,"#proporcion"), div(@@(obj,"#pagos")+bonis,@@(obj,"#bonificaciones") + @@(obj,"#pagos")))
+            if @@(obj,"#proporcion_pagos")>1 { obj<"proporcion_pagos"> : 1 }
+            
+            pagos = round(@@(obj,"#pagos") * @@(obj,"#proporcion"), decs)
+            _pagos = _pagos + pagos
+            obj<"pagos"> : pagos
+
+            bonificaciones = round(@@(obj,"#bonificaciones"), decs)
+            _bonificaciones = _bonificaciones + bonificaciones
+            obj<"bonificaciones"> : bonificaciones
+
+            obj<"saldo"> : round(@@(obj,"#saldo"),decs)
+
+            if @@(obj,"#ifp") == @fp_contado
+            {
+                contado = round(@@(obj,"#total") * @@(obj,"#proporcion"), decs)
+                _contado = _contado + contado
+            }
+            if @@(obj,"#ifp") == @fp_credito
+            {
+                credito = round(@@(obj,"#total") * @@(obj,"#proporcion"), decs)
+                _credito = _credito + credito
+            }
+
+            _detalles<@@(obj,"$referencia")+"*"> : obj
+        }
+
+        new data
+        {
+            @"ifactura": @@(factura,"#sys_pk")
+            @"referencia": @@(factura,"$referencia")
+            @"icliente": @@(factura,"#icliente")
+            @"factor": @@(factura,"#factor")
+            @"total": @@(factura,"#total")
+            @"contado": round(_contado,decs)
+            @"credito": round(_credito,decs)
+            @"directo": round(_directo,decs)
+            @"pagos": round(_pagos,decs)
+            @"bonificaciones": round(_bonificaciones,decs)
+            @"detalles*": _detalles
+        }
+        return data
+    }
+
+    bonificarRemisiones::&db,&data
+    {
+        //#region bonificarRemisiones()
+        start_transaction = @false
+
+        if not(dbr.in_transaction(db)) {
+            do dbr.begin(db)
+            start_transaction = @true
+        }
+        
+        new bonificacion
+        {
+            @"aplicable": @false
+            @"documento": @cNotaCredito
+            @"referencia": @@(data,"$referencia")+"/BNDC"
+            @"fecha": date_str(now(),"yyyy-MM-dd")
+            @"flimite": date_str(now(),"yyyy-MM-dd")
+            @"icliente": @@(data,"#icliente")
+            @"tcambio": @@(data,"#tcc")
+            @"importe": @@(data,"#credito")
+            @"concepto": "Facturación de documento"
+            @"iventa": @@(data,"#ifactura")
+        }
+        pk_boni = 0
+        
+        ref detalles = @@(data,"&detalles")
+        ref lista = list.create_from_fields(detalles)
+        for i=0; i<list.count(lista)
+        {
+            key = list.str(lista,i)
+            ref rem = @@(detalles,"&"+key)
+
+            if rem.ifp == @fp_credito
+            {
+                if pk_boni == 0 { pk_boni = erp.cxc.movimientos.crearCxC(db,bonificacion) }
+
+                new aplcxc
+                {
+                    @"sys_pk": 0
+                    @"sys_guid": uuid()
+                    @"sys_dtcreated*": dbr.sql("now()")
+                    @"sys_timestamp*": dbr.sql("now()")
+                    @"sys_recver": 0
+                    @"destino": @CXC_DESTINO_APLICACION_BONIFICACIONES
+                    @"fecha*": dbr.sql("now()")
+                    @"importe": @@(rem,"#facturado")
+                    @"aplicadoa": @@(rem,"#pk_cxc")
+                    @"fk_dcxc_aplicadoa": pk_boni
+                }
+                do dbr.insert(db,"aplcxc",aplcxc)
+                do dbr.execute(db,"UPDATE dcxc SET bonificaciones = (IFNULL(bonificaciones,0) + @facturado) WHERE sys_pk = @pk_cxc",rem)
+            }
+        }
+
+        if start_transaction { do dbr.commit(db) }
+        exception
+        {
+            if start_transaction { do dbr.rollback(db) }
+            do rise_error(last_error_code(),last_error())
+        }
+    }
+
+    reaplicarPagos::&db,&totales,&data
+    {
+        //#region reaplicarPagos()
+        start_transaction = @false
+
+        if not(dbr.in_transaction(db)) {
+            do dbr.begin(db)
+            start_transaction = @true
+        }
+
+        decs = parse.num(dbr.vars.get(db,"FXCA001"))
+        new dcxc
+        {
+            @"aplicable": @true
+            @"documento": @@(data,"#documento")
+            @"fecha": date_str(now(),"yyyy-MM-dd")
+            @"flimite": @@(data,"$flimite")
+            @"importe": round(@@(totales,"#credito") + @@(totales,"#directo"), decs)
+            @"concepto": @@(data,"$concepto")
+            @"referencia": @@(data,"$referencia")
+            @"tcambio": @@(totales,"#tcc")
+            @"icliente": @@(data,"#icliente")
+            @"iventa": @@(data,"#iventa")
+        }
+        idcxc = erp.cxc.movimientos.crearCxC(db,dcxc)
+
+        ref detalles = @@(totales,"&detalles")
+        ref lista = list.create_from_fields(detalles)
+        for i=0; i<list.count(lista)
+        {
+            key = list.str(lista,i)
+            ref rem = @@(detalles,"&"+key)
+
+            if rem.ifp == @fp_credito && (rem.pagos > 0 || rem.bonificaciones > 0)
+            {
+                sql_aplicados = ftext("
+                SELECT a.sys_pk, a.importe, a.destino, a.fk_dcxc_aplicadoa, a.aplicadoa
+                FROM aplcxc a
+                    INNER JOIN dcxc c ON a.fk_dcxc_aplicadoa = c.sys_pk
+                    LEFT JOIN venta d ON c.iventa = d.sys_pk
+                WHERE IFNULL(d.documento,0) <> #<@cFactura> AND a.aplicadoa = @pk_cxc
+                ")
+                ref aplicados = dbr.list(db,sql_aplicados,rem)
+                for j=0; j<list.count(aplicados)
+                {
+                    ref apl = list.obj(aplicados,j)
+
+                    apl<"impp"> : round(@@(apl,"#importe") * @@(rem,"#proporcion_pagos"), decs)
+                    apl<"ifac"> : idcxc
+
+                    do dbr.execute(db,"UPDATE aplcxc SET importe = (importe-@impp) WHERE sys_pk = @sys_pk",apl)
+
+                    new aplcxc
+                    {
+                        @"sys_pk": 0
+                        @"sys_guid": uuid()
+                        @"sys_dtcreated*": dbr.sql("now()")
+                        @"sys_timestamp*": dbr.sql("now()")
+                        @"sys_recver": 0
+                        @"destino": @@(apl,"#destino")
+                        @"fecha*": dbr.sql("now()")
+                        @"importe": @@(apl,"#impp")
+                        @"fk_dcxc_aplicadoa": @@(apl,"#fk_dcxc_aplicadoa")
+                        @"aplicadoa": idcxc
+                    }
+                    do dbr.insert(db,"aplcxc",aplcxc)
+
+                    if apl.destino == @CXC_DESTINO_APLICACION_PAGOS
+                    {
+                        do dbr.execute(db,"UPDATE dcxc SET pagos = IFNULL(pagos,0) + @impp WHERE sys_pk = @ifac",apl)
+                        do dbr.execute(db,"UPDATE dcxc SET pagos = IFNULL(pagos,0) - @impp WHERE sys_pk = @aplicadoa",apl)
+                    }
+                    if apl.destino == @CXC_DESTINO_APLICACION_BONIFICACIONES
+                    {
+                        do dbr.execute(db,"UPDATE dcxc SET bonificaciones = IFNULL(bonificaciones,0) + @impp WHERE sys_pk = @ifac",apl)
+                        do dbr.execute(db,"UPDATE dcxc SET bonificaciones = IFNULL(bonificaciones,0) - @impp WHERE sys_pk = @aplicadoa",apl)
+                    }
+                }
+            }
+        }
+
+        if start_transaction { do dbr.commit(db) }
+        exception
+        {
+            if start_transaction { do dbr.rollback(db) }
+            do rise_error(last_error_code(),last_error())
+        }
+    }
+
+    reverseCxC::&db,iventa
+    {
+        //#region reverseCxC()
+        start_transaction = @false
+
+        iventa >> params
+
+        sql_venta = "
+        SELECT v.sys_pk, v.referencia, v.documento, v.formapago, v.imovchequera, v.icliente, v.tipocambio AS tcd, dc.tcambio AS tcc, (v.tipocambio/dc.tcambio) AS factor
+        FROM venta v
+            INNER JOIN cliente c ON v.icliente = c.sys_pk
+            INNER JOIN divisa dc ON c.idivisa = dc.sys_pk
+        WHERE v.sys_pk = @iventa
+        "
+        ref venta = dbr.rec(db,sql_venta,params)
+
+        if venta.formapago != @fp_contado && venta.formapago != @fp_credito { return }
+
+        if not(dbr.in_transaction(db)) {
+            do dbr.begin(db)
+            start_transaction = @true
+        }
+
+        new bonificacion
+        {
+            @"faplicacion": date_str(now(),"yyyy-MM-dd")
+            @"documento": @cNotaCredito
+            @"fecha": date_str(now(),"yyyy-MM-dd")
+            @"notas": "Cancelación de documento"
+            @"referencia": venta.referencia + "/BNDC"
+            @"icliente": venta.icliente
+        }
+
+        if venta.formapago == @fp_contado
+        {
+            sql_cobro = "
+            SELECT
+                mov.ingreso,
+                dvs.tcambio
+            FROM movcuenta mov
+                INNER JOIN chequera chq ON mov.icuenta = chq.sys_pk
+                INNER JOIN divisa dvs ON chq.idivisa = dvs.sys_pk
+            WHERE mov.sys_pk = @imovchequera
+            "
+            ref cobro = dbr.rec(db,sql_cobro,venta)
+
+            decs = parse.num(dbr.vars.get(db,"FXCA001"))
+            factor = div(@@(cobro,"#tcambio"),@@(venta,"#tcc"))
+
+            bonificacion<"tcambio"> : @@(venta,"#tcc")
+            bonificacion<"importe"> : round(@@(cobro,"#ingreso") * factor, decs)
+
+            do erp.cxc.movimientos.bonificarCliente(db,bonificacion)
+        }
+
+        if venta.formapago == @fp_credito
+        {
+            ref dcxc = dbr.rec(db,"SELECT sys_pk, debe, pagos, bonificaciones FROM dcxc WHERE iventa = @sys_pk AND documento = @documento",venta)
+            ref boni = dbr.rec(db,ftext("SELECT sys_pk, haber FROM dcxc WHERE iventa = @sys_pk AND documento = #<@cNotaCredito>"),venta)
+
+            bonificacion<"tipocambio"> : @@(venta,"#tcc")
+            bonificacion<"importe"> : @@(dcxc,"#debe")
+            bonificacion<"pkparent"> : @@(dcxc,"#sys_pk")
+
+            // Liberar pagos y bonificaciones
+            if (@@(dcxc,"#pagos")+@@(dcxc,"#bonificaciones")) > 0
+            {
+                ref aplcxc = dbr.list(db,"SELECT sys_pk, importe, destino, fk_dcxc_aplicadoa, aplicadoa FROM aplcxc WHERE fk_dcxc_aplicadoa=@sys_pk",dcxc)
+                for i=0; i<list.count(aplcxc)
+                {
+                    ref apl = list.obj(aplcxc,i)
+                    
+                    if apl.destino == @CXC_DESTINO_APLICACION_PAGOS {
+                        do dbr.execute(db,"UPDATE dcxc SET pagos = (IFNULL(pagos,0) - @importe) WHERE sys_pk = @fk_dcxc_aplicadoa",apl)
+                        do dbr.execute(db,"UPDATE dcxc SET pagos = (IFNULL(pagos,0) + @importe) WHERE sys_pk = @aplicadoa",apl)
+                    }
+                    if apl.destino == @CXC_DESTINO_APLICACION_BONIFICACIONES {
+                        do dbr.execute(db,"UPDATE dcxc SET bonificaciones = (IFNULL(bonificaciones,0) - @importe) WHERE sys_pk = @fk_dcxc_aplicadoa",apl)
+                        do dbr.execute(db,"UPDATE dcxc SET bonificaciones = (IFNULL(bonificaciones,0) + @importe) WHERE sys_pk = @aplicadoa",apl)
+                    }
+
+                    do dbr.delete(db,"aplcxc","sys_pk=@sys_pk",apl)
+                }
+
+                ref aplcxc = dbr.list(db,"SELECT sys_pk, importe, destino, fk_dcxc_aplicadoa, aplicadoa FROM aplcxc WHERE aplicadoa=@sys_pk",dcxc)
+                for i=0; i<list.count(aplcxc)
+                {
+                    ref apl = list.obj(aplcxc,i)
+                    
+                    if apl.destino == @CXC_DESTINO_APLICACION_PAGOS {
+                        do dbr.execute(db,"UPDATE dcxc SET xaplicar = (IFNULL(xaplicar,0) + @importe) WHERE sys_pk = @fk_dcxc_aplicadoa",apl)
+                        do dbr.execute(db,"UPDATE dcxc SET pagos = (IFNULL(pagos,0) - @importe) WHERE sys_pk = @aplicadoa",apl)
+                    }
+                    if apl.destino == @CXC_DESTINO_APLICACION_BONIFICACIONES {
+                        do dbr.execute(db,"UPDATE dcxc SET xaplicar = (IFNULL(xaplicar,0) + @importe) WHERE sys_pk = @fk_dcxc_aplicadoa",apl)
+                        do dbr.execute(db,"UPDATE dcxc SET bonificaciones = (IFNULL(bonificaciones,0) - @importe) WHERE sys_pk = @aplicadoa",apl)
+                    }
+
+                    do dbr.delete(db,"aplcxc","sys_pk=@sys_pk",apl)
+                }
+            }
+
+            if not(isnull(boni))
+            {
+                ref bonificados = dbr.list(db,"SELECT sys_pk, importe, destino, fk_dcxc_aplicadoa, aplicadoa FROM aplcxc WHERE fk_dcxc_aplicadoa=@sys_pk",boni)
+                for i=0; i<list.count(bonificados)
+                {
+                    ref apl = list.obj(bonificados,i)
+
+                    do dbr.execute(db,"UPDATE dcxc SET bonificaciones = (IFNULL(bonificaciones,0)-@importe) WHERE sys_pk = @aplicadoa",apl)
+                    do dbr.delete(db,"aplcxc","sys_pk=@sys_pk",apl)
+                }
+
+                new nota_cargo
+                {
+                    @"documento": @cNotaCargo
+                    @"flimite": date_str(now(),"yyyy-MM-dd")
+                    @"fecha": date_str(now(),"yyyy-MM-dd")
+                    @"referencia": venta.referencia + "/CB"
+                    @"concepto": "Cancelación de bonificaciones a otros documentos"
+                    @"tcambio": venta.tcc
+                    @"icliente": venta.icliente
+                    @"importe": @@(boni,"#debe")
+                    @"iventa": venta.sys_pk
+                }
+                
+                new aplcxc
+                {
+                    @"sys_pk": 0
+                    @"sys_guid": uuid()
+                    @"sys_dtcreated*": dbr.sql("now()")
+                    @"sys_timestamp*": dbr.sql("now()")
+                    @"sys_recver": 0
+                    @"destino": @CXC_DESTINO_APLICACION_BONIFICACIONES
+                    @"fecha*": dbr.sql("now()")
+                    @"importe": @@(boni,"#debe")
+                    @"fk_dcxc_aplicadoa": @@(boni,"#sys_pk")
+                    @"aplicadoa": erp.cxc.movimientos.crearCxC(db,nota_cargo)
+                }
+
+                ref apl = record.copy(aplcxc,"importe,aplicadoa")
+                do dbr.insert(db,"aplcxc",aplcxc)
+                do dbr.execute(db,"UPDATE dcxc SET bonificaciones = (IFNULL(bonificaciones,0)+@importe) WHERE sys_pk = @aplicadoa",apl)
+            }
+
+            do erp.cxc.movimientos.bonificarCxC(db,bonificacion)
+        }
+
+        if start_transaction { do dbr.commit(db) }
+
+        exception
+        {
+            if start_transaction { do dbr.rollback(db) }
+            do rise_error(last_error_code(),last_error())
+        }
+    }
+
     /**
     * Procesar devolución de venta.
     *
@@ -669,10 +1156,18 @@ module ":erp.ventas.procesos"
     * Procesar documento de venta.
     *
     * db | Referencia a una conexión de base de datos abierta (recomendado: transacción de base de datos previamente iniciada).
-    * int iventa | Clave primaria del documento de venta a procesar.
+    * data | Referencia a un registro que contiene los datos necesarios para realizar la operación.
     * return void
+    *
+    * ```dkl
+    * new data
+    {
+        @"iventa": //(int) Clave primaria del documento de venta a procesar.
+        @"documento": //(int) Clave primaria del tipo de documento de la venta.
+    }
+    *```
     */
-    liquidacionNoAplica::&db,iventa
+    liquidacionNoAplica::&db,&data
     {
         //#region NoAplica()
         start_transaction = @false
@@ -682,8 +1177,8 @@ module ":erp.ventas.procesos"
             start_transaction = @true
         }
 
-        new params { @"iventa": iventa }
-        documento = dbr.num(db,"SELECT documento FROM venta WHERE sys_pk=@iventa;",params)
+        iventa, documento << data
+        
         if documento == @cNotaCredito { do erp.ventas.procesos.devolucion(db,data) }
 
         // Actualizar 'xfacturar' de los productos incluidos
@@ -693,7 +1188,7 @@ module ":erp.ventas.procesos"
             INNER JOIN producto p ON d.iproducto = p.sys_pk
         WHERE d.fk_venta_detalle = @iventa;
         "
-        ref dventa = dbr.list(db,sql_dventa,params)
+        ref dventa = dbr.list(db,sql_dventa,data)
         for i=0; i<list.count(dventa)
         {
             ref item = list.obj(dventa,i)
@@ -723,10 +1218,9 @@ module ":erp.ventas.procesos"
     * new data
     {
         @"iventa": //(int) Clave primaria del documento de venta a procesar.
+        @"referencia": //(string) Referencia para el registro de depósito.
         @"faplicacion": //(string) Fecha [yyyy-MM-dd] de aplicación.
-        @"referencia": //(string) Referencia del documentop de venta.
         @"documento": //(int) Clave primaria del documento (tipo depósito).
-        @"icategoria": //(int) Clave primaria de la categoría (tipo ingreso).
         @"icuenta": //(int) Clave primaria de la cuenta bancaria donde se realizara el depósito.
         @"concepto": //(string) Descripción de la operación.
     }
@@ -742,22 +1236,43 @@ module ":erp.ventas.procesos"
             start_transaction = @true
         }
 
-        ref amounts = dbr.rec(db,@qry_imp_procesar,data)
-        ref _deposito = record.copy(data,"faplicacion,referencia,documento,icategoria,icuenta,concepto")
-        using _deposito
+        new params
+        {
+            @"cat_movinv": dbr.vars.get(db,"v12.ventas.salida")
+            @"cat_ingreso": dbr.vars.get(db,"v12.ventas.cobro")
+        }
+
+        cat_movinv = dbr.num(db,"select sys_pk from categoria where codigo=@cat_movinv",params)
+        cat_ingreso = dbr.num(db,"select sys_pk from categoria where codigo=@cat_ingreso",params)
+        iventa = @@(data,"#iventa")
+        decs = parse.num(dbr.vars.get(db,"FXCA001"))
+        total = dbr.num(db,@qry_imp_procesar,data)
+        factor = dbr.num(db,"SELECT (d.tipocambio/dc.tcambio) FROM venta d, chequera c INNER JOIN divisa dc ON c.idivisa=dc.sys_pk WHERE d.sys_pk=@iventa AND c.sys_pk=@icuenta;",data)
+        importe = round(total * factor, decs)
+
+        // Generar movimiento de salida de inventario y aplicar.
+        mov_sys_pk = erp.ventas.procesos.salidaInventario(db,iventa,cat_movinv)
+        if mov_sys_pk > 0 { do erp.inventario.aplicar_mov(db,mov_sys_pk,@true) }
+
+        // Realizar depósito a la cuenta.
+        ref deposito = record.copy(data,"referencia,faplicacion,documento,icuenta,concepto")
+        using deposito
         {
             @"conciliado": @true
             @"fecha": date_str(now(),"yyyy-MM-dd")
-            @"importe": @@(amounts,"#total")
+            @"icategoria": cat_ingreso
+            @"importe": importe
+        }
+        dep_sys_pk = erp.efectivo.movimientos.deposito(db,deposito)
+        if dep_sys_pk > 0 {
+            params<"iventa"> : iventa
+            params<"movdep"> : dep_sys_pk
+
+            do dbr.execute(db,"UPDATE venta SET imovchequera=@movdep WHERE sys_pk = @iventa",params)
         }
 
-        // Generar movimiento de salida de inventario y aplicar.
-        mov_sys_pk = erp.ventas.procesos.salidaInventario(db,@@(data,"#iventa"),@@(data,"#icategoria"))
-        if mov_sys_pk > 0 { do erp.inventario.aplicar_mov(db,mov_sys_pk,@true) }
-        // Realizar depósito a la cuenta.
-        do erp.efectivo.movimientos.deposito(db,_deposito)
         // Establecer los estados correspondientes.
-        do erp.ventas.procesos.setStatus(db,@@(data,"#iventa"),@fp_contado)
+        do erp.ventas.procesos.setStatus(db,iventa,@fp_contado)
 
         if start_transaction { do dbr.commit(db) }
 
@@ -781,10 +1296,8 @@ module ":erp.ventas.procesos"
         @"iventa": //(int) Clave primaria del documento de venta a procesar.
         @"icliente": //(int) Clave primaria del cliente.
         @"flimite": //(string) Fecha [yyyy-MM-dd] limite.
-        @"referencia": //(string) Referencia del documentop de venta.
-        @"documento": //(int) Clave primaria del tipo de documento.
-        @"tcambio": //(decimal) Tipo de cambio.
-        @"icategoria": //(int) Clave primaria de la categoría (tipo ingreso).
+        @"referencia": //(string) Referencia del documento de venta.
+        @"documento": //(int) Clave primaria del tipo de documento de la venta.
         @"concepto": //(string) Descripción de la operación
     }
     *```
@@ -799,22 +1312,50 @@ module ":erp.ventas.procesos"
             start_transaction = @true
         }
 
-        ref amounts = dbr.rec(db,@qry_imp_procesar,data)
-        ref _cxc = record.copy(data,"flimite,referencia,documento,tcambio,concepto,icliente,iventa")
-        using _cxc
-        {
-            @"aplicable": @true
-            @"fecha": date_str(now(),"yyyy-MM-dd")
-            @"importe": @@(amounts,"#total")
-        }
+        new params { @"cat_movinv": dbr.vars.get(db,"v12.ventas.salida") }
+
+        icategoria = dbr.num(db,"select sys_pk from categoria where codigo=@cat_movinv",params)
+        iventa = @@(data,"#iventa")
 
         // Generar movimiento de salida de inventario y aplicar.
-        mov_sys_pk = erp.ventas.procesos.salidaInventario(db,@@(data,"#iventa"),@@(data,"#icategoria"))
+        mov_sys_pk = erp.ventas.procesos.salidaInventario(db,iventa,icategoria)
         if mov_sys_pk > 0 { do erp.inventario.aplicar_mov(db,mov_sys_pk,@true) }
+
         // Agregar documento por cobrar (dcxc) y afectar el saldo del cliente.
-        do erp.cxc.movimientos.crearCxC(db,_cxc)
+        if @@(data,"#documento") == @cFactura
+        {
+            ref totales = erp.ventas.procesos.totalFactura(db,iventa)
+            do erp.ventas.procesos.bonificarRemisiones(db,totales)
+            do erp.ventas.procesos.reaplicarPagos(db,totales,data)
+        }
+        else
+        {
+            ref doc = dbr.rec(db,"
+                SELECT v.tipocambio tcv, dc.tcambio tcc, (v.tipocambio/dc.tcambio) factor
+                FROM venta v
+                    INNER JOIN cliente c ON v.icliente = c.sys_pk
+                    INNER JOIN divisa dc ON c.idivisa = dc.sys_pk
+                WHERE v.sys_pk = @iventa
+            ",data)
+
+            decs = parse.num(dbr.vars.get(db,"FXCA001"))
+            total = dbr.num(db,@qry_imp_procesar,data)
+            importe = round(total * @@(doc,"#factor"), decs)
+
+            ref cxc = record.copy(data,"flimite,referencia,documento,concepto,icliente,iventa")
+            using cxc
+            {
+                @"aplicable": @true
+                @"fecha": date_str(now(),"yyyy-MM-dd")
+                @"importe": importe
+                @"tcambio": @@(doc,"#tcc")
+            }
+
+            do erp.cxc.movimientos.crearCxC(db,cxc)
+        }
+
         // Establecer los estados correspondientes.
-        do erp.ventas.procesos.setStatus(db,@@(data,"#iventa"),@fp_credito)
+        do erp.ventas.procesos.setStatus(db,iventa,@fp_credito)
 
         if start_transaction { do dbr.commit(db) }
 
@@ -850,6 +1391,67 @@ module ":erp.ventas.procesos"
         if mov_sys_pk > 0 { do erp.inventario.aplicar_mov(db,mov_sys_pk,@true) }
         // Establecer los estados correspondientes.
         do erp.ventas.procesos.setStatus(db,iventa,@fp_consignado)
+
+        if start_transaction { do dbr.commit(db) }
+
+        exception
+        {
+            if start_transaction { do dbr.rollback(db) }
+            do rise_error(last_error_code(),last_error())
+        }
+    }
+
+    /**
+    * Cancelar documento de venta.
+    *
+    * db | Referencia a una conexión de base de datos abierta (recomendado: transacción de base de datos previamente iniciada).
+    * int iventa | Clave primaria del documento de venta.
+    * return void
+    */
+    cancelacion::&db,iventa
+    {
+        //#region cancelacion()
+        start_transaction = @false
+
+        if not(dbr.in_transaction(db)) {
+            do dbr.begin(db)
+            start_transaction = @true
+        }
+
+        new params { @"iventa": iventa }
+
+        // Intentar desaplicar salidas al cancelar ventas
+        if parse.bool(dbr.vars.get(db,"v12.ventas.01"))
+        {
+            mov_sys_pk = dbr.num(db,"SELECT sys_pk FROM cardex WHERE docventa = @iventa",params)
+            do erp.inventario.desaplicar_mov(db,mov_sys_pk)
+
+            // Eliminar movimiento desaplicado al cancelar
+            if parse.bool(dbr.vars.get(db,"v12.ventas.02"))
+            {
+                params<"icardex"> : mov_sys_pk
+
+                do dbr.delete(db,"dcardex","fk_cardex_movimientos=@icardex",params)
+                do dbr.delete(db,"cardex","sys_pk=@icardex",params)
+            }
+
+            exception
+            {
+                params<"cat_movinv"> : dbr.vars.get(db,"v12.ventas.devinv")
+                icategoria = dbr.num(db,"select sys_pk from categoria where codigo=@cat_movinv",params)
+                // Realizar la entrada de todos los productos que salieron por este documento al mismo costo de la salida.
+                mov_sys_pk = erp.ventas.procesos.entradaInventarioMismoCostoSalida(db,iventa,icategoria)
+                if mov_sys_pk > 0 { do erp.inventario.aplicar_mov(db,mov_sys_pk,@false) }
+            }
+        }
+        else
+        {
+            params<"cat_movinv"> : dbr.vars.get(db,"v12.ventas.devinv")
+            icategoria = dbr.num(db,"select sys_pk from categoria where codigo=@cat_movinv",params)
+            // Realizar la entrada de todos los productos que salieron por este documento al mismo costo de la salida.
+            mov_sys_pk = erp.ventas.procesos.entradaInventarioMismoCostoSalida(db,iventa,icategoria)
+            if mov_sys_pk > 0 { do erp.inventario.aplicar_mov(db,mov_sys_pk,@false) }
+        }
 
         if start_transaction { do dbr.commit(db) }
 

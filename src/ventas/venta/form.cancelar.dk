@@ -12,21 +12,6 @@ module "form.cancelar.dk"
 
     ref entity = ifnull(@("&./entity"),record.create())
 
-    new sel_cat_egreso
-    {
-        @"datatable*": ifnull(@("&./list_cat_egreso"),list.create())
-        @"id": "sel_cat_egreso"
-        new member "attributes"
-        {
-            @"class": "form-select form-select-sm rounded-0"
-            @"name": "icategoria"
-            @"required": ""
-        }
-        @"value_field": "sys_pk"
-        @"text_field": "tcategoria"
-        @"selected": lib.form("icategoria","nm",@null)
-    }
-
     new nav_config
     {
         @"title": "Cancelar documento"
@@ -47,7 +32,9 @@ module "form.cancelar.dk"
 
         form(class="row" action="./" method="POST" id="form_cancelacion")
         {
-            input(type="hidden" name="iventa" value="#<@@(entity,'#sys_pk')>")
+            input(type="hidden" name="sys_pk" value="#<@@(entity,'#sys_pk')>")
+            input(type="hidden" name="sys_recver" value="#<@@(entity,'#sys_recver')>")
+            input(type="hidden" name="documento" value="#<@@(entity,'#documento')>")
 
             div(class="col-lg-8 col-md-10 col-sm-12")
             {
@@ -67,14 +54,6 @@ module "form.cancelar.dk"
                     {
                         label(class="form-label" "for"="txt_documento"){$"Documento:"}
                         input(class="form-control form-control-sm rounded-0" type="text" name="" value="#<@@(entity,'$cdocumento')>" id="txt_documento" disabled="")
-                    }
-
-                    div(class="col-lg-4 col-md-4 col-sm-6")
-                    {
-                        label(class="form-label" "for"="sel_cat_egreso"){$"Categoria:"}
-                        ##
-                        do uie.dbSelect(sel_cat_egreso)
-                        ##
                     }
 
                     div(class="d-flex gap-2 align-items-center justify-content-end my-2")
