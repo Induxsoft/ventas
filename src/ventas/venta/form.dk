@@ -33,6 +33,7 @@ module "form.dk"
     @enable_lotes = @("#./enable_lotes")
     @enable_series = @("#./enable_series")
     @enable_editing = (cur_stt_adm == @stt_adm_na || cur_stt_adm == @stt_adm_abierto)
+    @allow_price_editing = parse.bool(@("#parameters/allow_price_editing"))
     
     ik_sm_style = "
     #input_search_container, #input_description_container,
@@ -42,6 +43,7 @@ module "form.dk"
         font-size: .875rem !important;
     }
     "
+    precio_type = ifstr(@allow_price_editing,"Number","NoEditable")
 
     do lib.AutoFillRows(detail,15)
 
@@ -428,6 +430,7 @@ module "form.dk"
                     tr th { font-size:.9rem; font-weight:500 !important; outline:none !important; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; -o-text-overflow:ellipsis; }
                     tr td { font-size:.8rem; }
                     tr td[data-cell='Origen'],
+                    #<ifstr(not(@allow_price_editing),\"tr td[data-cell='Precio'],\",'')>
                     tr td[data-cell='Cotizado'],
                     tr td[data-cell='Subtotal'],
                     tr td[data-cell='Impuestos'],
@@ -453,7 +456,7 @@ module "form.dk"
                             "edit-th"(type="Text" field="codigo" button="true"){$"Código"}
                             "edit-th"(type="Text" field="descripcion" button="true"){$"Descripción"}
                             "edit-th"(type="Select" field="unidad" options="{}"){$"Unidad"}
-                            "edit-th"(type="Number" field="precio" textalign="end" format="true" thousandssep="true" decs="#<@DECIMAL_PRECISION>"){$"Precio"}
+                            "edit-th"(type="#<precio_type>" field="precio" textalign="end" format="true" thousandssep="true" decs="#<@DECIMAL_PRECISION>"){$"Precio"}
                             "edit-th"(type="NoEditable" field="cotizado" textalign="center"){$"Cotizado"}
                             "edit-th"(type="Number" field="cantidad" textalign="center" format="true" decs="#<@DECIMAL_PRECISION>"){$"Cantidad"}
                             "edit-th"(type="NoEditable" field="subtotal" textalign="end" format="true" thousandssep="true" decs="#<@DECIMAL_PRECISION>"){$"Subtotal"}

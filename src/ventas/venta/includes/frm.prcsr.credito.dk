@@ -39,12 +39,8 @@ form(class="row" action="./" method="POST" id="form_liquidacion_credito")
 
             div(class="d-flex gap-2 align-items-center justify-content-end my-2")
             {
-                ##
-                factor = round(@@(entity,"#factor"), @DECIMAL_PRECISION)
-                importe = round(@@(amounts,"#total") * factor, @DECIMAL_PRECISION)
-                ##
                 label(class="form-label" "for"="txt_importe"){$"Importe:"}
-                input(class="form-control form-control-sm rounded-0 w-25" type="number" name="" id="txt_importe" value="#<importe>" disabled="")
+                input(class="form-control form-control-sm rounded-0 w-25" type="number" name="" id="txt_importe" value="#<imp_credito>" disabled="")
             }
         }
 

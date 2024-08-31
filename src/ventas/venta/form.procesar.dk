@@ -19,6 +19,9 @@ module "form.procesar.dk"
     print_opt_contado = (@@(entity,"#saldo") == 0)
     exist_fd = field.exist(@("&."),"form")
     num_step = "0."+padright("",(@DECIMAL_PRECISION-1),"0")+"1"
+    imp_credito = round(@@(amounts,"#total") * @@(entity,"#factor"), @DECIMAL_PRECISION)
+    // Sí, cliente no tiene crédito ilimitado (-1) y el saldo más el importe actual supera el límite de crédito establecido.
+    lim_cred_exced = (not(@@(entity,"#c_limitecredito")==-1) && (imp_credito + @@(entity,"#c_saldo")) > @@(entity,"#c_limitecredito"))
 
     show_form_contado = (print_opt_contado && (not(exist_fd) || @("#./form/formapago") == @fp_contado))
     show_form_credito = (not(print_opt_contado) || (exist_fd && @("#./form/formapago") == @fp_credito))
@@ -214,6 +217,8 @@ module "form.procesar.dk"
                     {
                         div(class="accordion-body")
                         {
+                            div(class="alert alert-warning overflow-auto mb-2 fw-500 #<ifstr(lim_cred_exced,'','d-none')>" id="alrt_credito"){$"Al procesar el documento (#<@@(entity,'$cdocumento')>) se estará excediendo el límite de crédito del cliente. ¿Desea continuar con la operación?"}
+
                             ##
                             #include "./includes/frm.prcsr.credito.dk"
                             ##

@@ -352,6 +352,7 @@ module ":Venta"
                 do Venta.setLoteSerieVar(db)
 
                 params<"doctype"> : idocumento
+                params<"allow_price_editing"> : dbr.security.isauth(db,"VD16")
 
                 if not(is_new)
                 {
