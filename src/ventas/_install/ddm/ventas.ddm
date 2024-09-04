@@ -504,6 +504,14 @@ model "erp.ventas"
         @"domicilio1" ref:"domicilio"
         @"uf_sys_baja" bool
     }
+    // Precios de venta para un cliente y producto en específico.
+    entity "precioventa" : "TableModel"
+    {
+        @"limite" decimal(18,8) //Cantidad mínima de compra para dar este precio
+        @"precio" decimal(18,8) //Importe antes de impuestos expresado en la divisa del producto que corresponde al precio
+        @"producto" ref:"producto" required // Producto
+        @"fk_cliente_listaprecios" ref:"cliente" required //Cliente
+    }
     // Información de productos
     entity "producto" : "TableModel"
     {

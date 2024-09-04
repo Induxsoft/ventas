@@ -158,6 +158,16 @@ function bsModal(id)
 function showModal(id) { bsModal(id).show() }
 function closeModal(id) { bsModal(id).hide() }
 
+function bsToast(id)
+{
+    const toast = document.getElementById(id);
+    let instance = bootstrap.Toast.getInstance(toast);
+    if (!instance) instance = new bootstrap.Toast(toast);
+    return instance;
+}
+function showToast(id) { bsToast(id).show() }
+function closeToast(id) { bsToast(id).hide() }
+
 function createFullElement(tagName, attributes={}, innerHTML="")
 {
     const element = document.createElement(tagName);

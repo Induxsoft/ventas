@@ -39,7 +39,7 @@ module "form.procesar.dk"
         }
         @"value_field": "id"
         @"text_field": "const"
-        @"selected": lib.form("documento","nm",@null)
+        @"selected": form("documento","nm",@null)
     }
 
     new sel_cuenta
@@ -59,7 +59,7 @@ module "form.procesar.dk"
             @"data-cdivisa": "#<@@(row,'$cdivisa')>"
             @"data-tcambio": "#<@@(row,'#tcambio')>"
         }
-        @"selected": lib.form("icuenta","nm",@null)
+        @"selected": form("icuenta","nm",@null)
     }
 
     new sel_cat_ingreso
@@ -74,7 +74,7 @@ module "form.procesar.dk"
         }
         @"value_field": "sys_pk"
         @"text_field": "tcategoria"
-        @"selected": lib.form("icategoria","nm",@null)
+        @"selected": form("icategoria","nm",@null)
     }
 
     new sel_cat_egreso
@@ -89,7 +89,7 @@ module "form.procesar.dk"
         }
         @"value_field": "sys_pk"
         @"text_field": "tcategoria"
-        @"selected": lib.form("icategoria","nm",@null)
+        @"selected": form("icategoria","nm",@null)
     }
 
     new sel_cat_movinv
@@ -104,7 +104,7 @@ module "form.procesar.dk"
         }
         @"value_field": "sys_pk"
         @"text_field": "tcategoria"
-        @"selected": lib.form("icategoria","nm",@null)
+        @"selected": form("icategoria","nm",@null)
     }
 
     new sel_divisa
@@ -124,7 +124,7 @@ module "form.procesar.dk"
             @"data-codigo": "#<@@(row,'codigo')>"
             @"data-tcambio": "#<@@(row,'tcambio')>"
         }
-        @"selected": lib.form("idivisa","nm",entity)
+        @"selected": form("idivisa","nm",entity)
     }
 
     new nav_config
@@ -184,7 +184,7 @@ module "form.procesar.dk"
                 div(class="col-lg-4 col-md-4")
                 {
                     label(class="form-label fw-bold"){"Importe:"}
-                    label(class="d-block"){$"#<lib.number_format(@@(amounts,'#total'))>"}
+                    label(class="d-block"){$"#<number_format(@@(amounts,'#total'))>"}
                 }
             }
 

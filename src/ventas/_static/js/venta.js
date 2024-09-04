@@ -21,6 +21,8 @@ var venta =
         const btn_cerrar = document.getElementById("btn_cerrar");
         const btn_procesar = document.getElementById("btn_procesar");
         const btn_cancelar = document.getElementById("btn_cancelar");
+        const btn_new_doc = document.getElementById("btn_new_doc");
+        const toast = document.getElementById("toast");
         this.form = document.getElementById(this.formId);
         this.ff = this.form.elements;
         this.table = document.getElementById(this.tableId);
@@ -50,6 +52,12 @@ var venta =
         if (btn_cerrar) btn_cerrar.addEventListener("click", (e) => this.submit(btn_cerrar));
         if (btn_procesar) btn_procesar.addEventListener("click", (e) => this.submit(btn_procesar));
         if (btn_cancelar) btn_cancelar.addEventListener("click", (e) => this.changeStatus(btn_cancelar));
+        if (btn_new_doc) btn_new_doc.addEventListener("click", (e) => this.exportarA(btn_new_doc.getAttribute("data-new-doc")));
+        
+        if (toast) toast.addEventListener('hidden.bs.toast', function (e) {
+            document.getElementById("toast-title").innerText = "";
+            document.getElementById("toast-body").innerText = "";
+        })
 
         this.setKeyboardShortcuts();
         this.setTableEvents();
@@ -60,6 +68,7 @@ var venta =
         {
             trigger(sel_divisa,"change");
             trigger(sel_documento,"change");
+            // this.includeDVenta(this._GET["src"]);
             // ik_cliente.setValue(ik_cliente.getValue());
         }
         else
@@ -155,10 +164,15 @@ var venta =
 
     toggleButtonVisibility()
     {
+        const btn_new_doc = document.getElementById("btn_new_doc");
+        const txt_new_doc = document.getElementById("txt_new_doc");
+
         hideControls(["btn_guardar","btn_reabrir","btn_cerrar","btn_procesar","btn_cancelar","btn_add_doc"]);
         switch (this.idocumento) {
             case 1: //Cotización
             {
+                if (btn_new_doc) btn_new_doc.setAttribute("data-new-doc",2);
+                if (txt_new_doc) txt_new_doc.innerText = "Pedir";
                 switch (this.cur_stt_adm) {
                     case 0: //No aplica
                         hideControls(["btn_guardar","btn_cerrar"],false);
@@ -177,6 +191,8 @@ var venta =
             }
             case 2: //Pedido
             {
+                if (btn_new_doc) btn_new_doc.setAttribute("data-new-doc",3);
+                if (txt_new_doc) txt_new_doc.innerText = "Recibir";
                 this.table.changeColumnTitle("cotizado","Cotizado");
                 switch (this.cur_stt_adm) {
                     case 0: //No aplica
@@ -197,6 +213,8 @@ var venta =
             case 3: //Remisión
             case 6: //Ticket
             {
+                if (btn_new_doc) btn_new_doc.setAttribute("data-new-doc",4);
+                if (txt_new_doc) txt_new_doc.innerText = "Facturar";
                 this.table.changeColumnTitle("cotizado","Recibido");
                 switch (this.cur_stt_adm) {
                     case 0: //No aplica
@@ -216,6 +234,8 @@ var venta =
             }
             case 4: //Factura
             {
+                if (btn_new_doc) btn_new_doc.setAttribute("data-new-doc",5);
+                if (txt_new_doc) txt_new_doc.innerText = "Devolver";
                 this.table.changeColumnTitle("cotizado","Facturado");
                 switch (this.cur_stt_adm) {
                     case 0: //No aplica
@@ -235,6 +255,8 @@ var venta =
             }
             case 5: //Nora de crédito
             {
+                if (btn_new_doc) btn_new_doc.setAttribute("data-new-doc",0);
+                if (txt_new_doc) txt_new_doc.innerText = "";
                 switch (this.cur_stt_adm) {
                     case 0: //No aplica
                         hideControls(["btn_guardar","btn_cerrar","btn_procesar","btn_add_doc"],false);
@@ -314,7 +336,7 @@ var venta =
 
     includeDVenta(venta)
     {
-        let iventa = Number(venta?.sys_pk ?? "-1");
+        let iventa = (typeof venta === "object") ? Number(venta?.sys_pk ?? "-1") : Number(venta || "-1");
         if (iventa <= 0) return;
 
         let url = this.url_get_dventa.replace("@iventa",iventa);
@@ -330,7 +352,7 @@ var venta =
                 this.addProduct(p);
             });
 
-            this.docs_included[iventa] = venta;
+            if (typeof venta === "object") this.docs_included[iventa] = venta;
         })
         .catch(error => console.error(error));
     },
@@ -351,6 +373,12 @@ var venta =
         
         tbl_docs_included.DeleteRow(curr_row);
         delete this.docs_included[venta.sys_pk];
+    },
+
+    exportarA(documento)
+    {
+        let url = "/!/ventas/venta/_new/?src="+this._GET["_entity_id"]+"&doc="+documento
+        window.location.href = url;
     },
 
     filterData() {
@@ -806,7 +834,7 @@ var venta =
         let available_row = (_productos.length > 0) ? _productos.length : 0;
         
         if (dtarray.length === _productos.length) this.table.AddRow();
-        if (producto.origen !== "" && producto.notas === "") producto["notas"] = "Documento origen: "+producto.origen;
+        if (producto.origen !== "" && producto.notas === "") producto["notas"] = "Origen: "+producto.origen;
         
         dtarray[available_row] = producto
         // this.table.UpdateRow(available_row);
@@ -934,7 +962,7 @@ var venta =
         let field = e.coldef.field;
         let producto = this.table?.DataArray[curr_row] ?? {};
 
-        if (Object.keys(producto ?? {}).length < this.table.Columns.length) return;
+        if (Object.keys(producto).length < this.table.Columns.length) return;
 
         if (field === "unidad" && e.text.trim() === "") {
             show_alert("#tbl_alerts","Debe elegir la unidad.",3);
@@ -1083,7 +1111,7 @@ var venta =
         }
     },
 
-    calculateAmounts(e)
+    async calculateAmounts(e)
     {
         let curr_row = e.sender.RowIndexOfTd(e.td);
         let field = e.coldef.field;
@@ -1113,6 +1141,22 @@ var venta =
             if (producto.reqserie && cantidad > 1) {
                 alert("La cantidad para este producto con serie requerida debe ser 1, para agregar más series del mismo producto insertelo en una nueva fila");
                 cantidad = 1;
+            }
+
+            if (cantidad > 1 && !producto.doc_partida)
+            {
+                let precio = await this.precioProducto(producto.iproducto, cantidad);
+                if (precio > 0 && precio < producto.precio) {
+                    document.getElementById("toast-title").innerText = producto.descripcion;
+                    document.getElementById("toast-body").innerText = "Nuevo precio determinado.";
+                    showToast("toast");
+                    
+                    let tcp = Number(producto.tipocambio);
+                    let tcd = Number(this.ff["tipocambio"].value ?? "1");
+                    
+                    producto["precio"] = precio;
+                    producto["_precio"] = this.convertirADivisa(precio,tcp,tcd,"prod");
+                }
             }
             
             e.text = cantidad;

@@ -16,7 +16,7 @@ form(class="row" action="./" method="POST" id="form_liquidacion_contado")
             div(class="col-lg-3 col-md-3 col-sm-4")
             {
                 label(class="form-label" "for"="txt_faplicacion"){$"F. Aplicación:"}
-                input(class="form-control form-control-sm rounded-0" type="date" name="faplicacion" value="#<lib.form('faplicacion','dt',@null)>" id="txt_faplicacion" required="")
+                input(class="form-control form-control-sm rounded-0" type="date" name="faplicacion" value="#<form('faplicacion','dt',@null)>" id="txt_faplicacion" required="")
             }
 
             div(class="col-lg-3 col-md-3 col-sm-8")

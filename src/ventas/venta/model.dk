@@ -48,6 +48,7 @@ module ":Venta"
 
     buscarDocumento::&db,&params
     {
+        //#region buscarDocumento()
         joins = "INNER JOIN dventa AS dv ON vnt.sys_pk = dv.fk_venta_detalle"
         
         conditions = ftext("
@@ -132,6 +133,7 @@ module ":Venta"
 
     obtenerDocumentosIncluidos::&db,&params
     {
+        //#region DocumentosIncluidos()
         ref data = record.create()
 
         if @@(params,"#iventa") <= 0 && @@(params,"#_entity_id") <= 0 { return data }
@@ -150,17 +152,20 @@ module ":Venta"
 
     obtenerDVenta::&db,&params
     {
+        //#region obtenerDVenta()
         new p { @"_entity_id": @@(params,"#iventa") }
         do Venta.setZonaImpuesto(db,p)
 
         selects = ",
         vnt.referencia AS origen,
+        (dt.cantidad - (dt.cantidad - IFNULL(dt.xfacturar,dt.cantidad))) AS cantidad,
         CONCAT(ROUND(dt.cantidad - IFNULL(dt.xfacturar,dt.cantidad),0), '/' ,ROUND(dt.cantidad,0)) AS cotizado,
         vnt.sys_pk AS documento,
-        dt.sys_pk AS doc_partida
+        dt.sys_pk AS doc_partida,
+        IF(TRIM(IFNULL(dt.notas,''))='', CONCAT('Origen: ',vnt.referencia), dt.notas) notas
         "
 
-        joins = "INNER JOIN venta AS vnt ON dt.fk_venta_detalle = vnt.sys_pk"
+        // joins = "INNER JOIN venta AS vnt ON dt.fk_venta_detalle = vnt.sys_pk"
 
         ref dventa = Venta.recoverLoteSerie(db,dbr.list(db,ftext(@qry_dventa),p))
         return dventa
@@ -168,20 +173,60 @@ module ":Venta"
 
     obtenerPrecioProducto::&db,&params
     {
+        //#region PrecioProducto()
         if not(field.exist(params,"decimals")){ params<"decimals"> : parse.num(dbr.vars.get(db,"FXCA001")) }
-        iproducto, icliente, icconsumo, cantidad, decimals << params
+        decimals = @@(params,"#decimals")
+        cantidad = @@(params,"#cantidad")
+        precio = 0
 
-        // Precio seleccionado para el cliente.
-        precio = dbr.num(db,"select ifnull(precio,0) from cliente where sys_pk = @icliente",params)
-        // Precio seleccionado paea el centro de consumo.
-        if precio == 6 { precio = dbr.num(db,"select ifnull(precio,0) from cconsumo where sys_pk = @icconsumo",params) }
+        // Determinar precio estándar, cliente o centro de consumo.
+        price_num = dbr.num(db,"select ifnull(precio,0) from cliente where sys_pk = @icliente",params)
+        if price_num == 6 { price_num = dbr.num(db,"select ifnull(precio,0) from cconsumo where sys_pk = @icconsumo",params) }
         // Campo 'precio#' de la tabla 'producto'.
-        field = "precio"+str(precio)
+        price_field = "precio"+str(price_num)
+
+        ref producto = dbr.rec(db,ftext("
+            select
+                ifnull(flaglimites,0) flaglimites,
+                ifnull(lim2,0) lim2,
+                ifnull(lim3,0) lim3,
+                ifnull(lim4,0) lim4,
+                ifnull(lim5,0) lim5,
+                ifnull(precio1,0) precio1,
+                ifnull(precio2,0) precio2,
+                ifnull(precio3,0) precio3,
+                ifnull(precio4,0) precio4,
+                ifnull(precio5,0) precio5,
+                ifnull(#<price_field>,0) AS PrecioA
+            from producto
+            where sys_pk = @iproducto
+        "),params)
+
+        PrecioA = round(producto.PrecioA, decimals)
+        PrecioB = 0
+        PrecioC = 0
+
+        // Determinar precio por límites.
+        if producto.flaglimites
+        {
+            if cantidad >= producto.lim2 { PrecioB = round(producto.precio2, decimals) }
+            if cantidad >= producto.lim3 { PrecioB = round(producto.precio3, decimals) }
+            if cantidad >= producto.lim4 { PrecioB = round(producto.precio4, decimals) }
+            if cantidad >= producto.lim5 { PrecioB = round(producto.precio5, decimals) }
+        }
+        // Determinar precio para un cliente y producto determinado.
+        ref precioventa = dbr.rec(db,"select ifnull(precio,0) precio, ifnull(limite,0) limite from precioventa where fk_cliente_listaprecios = @icliente and producto = @iproducto",params)
+        if not(isnull(precioventa)) && cantidad >= @@(precioventa,"#limite") { PrecioC = round(precioventa.precio, decimals) }
+
+        // Determinar valor del precio a devolver.
+        if PrecioC > 0 { precio = PrecioC }
+        else if PrecioB < PrecioA && PrecioB > 0 { precio = PrecioB }
+        else { precio = PrecioA }
 
         new response
         {
             @"success": @true
-            @"precio": dbr.num(db,ftext("select round(ifnull(#<field>,0),@decimals) from producto where sys_pk = @iproducto"),params)
+            @"precio": precio
         }
         return response
 
@@ -736,9 +781,9 @@ module ":Venta"
                 if cur_stt_adm == @stt_adm_procesado { do rise_error(500,"No es posible continuar, el documento ya ha sido procesado.") }
                 if not(valid_document) { do rise_error(500,"No es posible procesar el documento proporcionado.") }
                 if not(valid_status) { do rise_error(500,"Estado inválido, el documento no puede ser procesado.") }
-                if not(lib.AppExist(db,"inventario")) { do rise_error(500,"No es posible continuar, es necesario instalar `inventario`. Instale e intente nuevamente.") }
-                if not(lib.AppExist(db,"efectivo")) { do rise_error(500,"No es posible continuar, es necesario instalar `efectivo`. Instale e intente nuevamente.") }
-                if not(lib.AppExist(db,"cxc")) { do rise_error(500,"No es posible continuar, es necesario instalar `cxc`. Instale e intente nuevamente.") }
+                if not(AppExist(db,"inventario")) { do rise_error(500,"No es posible continuar, es necesario instalar `inventario`. Instale e intente nuevamente.") }
+                if not(AppExist(db,"efectivo")) { do rise_error(500,"No es posible continuar, es necesario instalar `efectivo`. Instale e intente nuevamente.") }
+                if not(AppExist(db,"cxc")) { do rise_error(500,"No es posible continuar, es necesario instalar `cxc`. Instale e intente nuevamente.") }
                 break
             }
             case "cancelar"
@@ -754,6 +799,50 @@ module ":Venta"
                 if not(valid_status) { do rise_error(500,"Estado inválido, el documento no puede ser cancelado.") }
                 break
             }
+        }
+    }
+
+    exportarA::&db,&params,&data
+    {
+        //#region exportarA()
+        if @@(params,"#src") <= 0 { return }
+
+        new p
+        {
+            @"_entity_id": @@(params,"#src")
+            @"iventa": @@(params,"#src")
+        }
+        
+        ref entity = entity.read(db,p)
+        using entity
+        {
+            @"sys_pk": 0
+            @"sys_recver": 0
+            @"documento": @@(params,"#doc")
+            @"referencia": ""
+            @"ifolio*": @null
+            @"serie": ""
+            @"folio": 0
+            @"fecha": ""
+            @"fentrega": ""
+            @"vencimiento": ""
+            @"fembarque": ""
+            @"formapago": @fp_na
+            @"statusadministrativo": @stt_adm_na
+            @"statusentrega": @stt_ent_na
+            @"statusfacturacion": @stt_fac_na
+            @"statusfinanciero": @stt_fin_na
+        }
+
+        ref docs_included = record.create()
+        conditions = "AND vnt.sys_pk = @iventa"
+        docs_included<@@(params,"$src")+"*"> : dbr.rec(db,ftext(@qry_list_venta),p)
+
+        using data
+        {
+            @"entity*": entity
+            @"detail*": Venta.obtenerDVenta(db,p)
+            @"docs_included*": docs_included
         }
     }
 
@@ -811,6 +900,7 @@ module ":Venta"
         do dbr.apps.action.grant("VD10")
 
         new data {}
+        do Venta.exportarA(db,params,data)
         do Venta.prepareView(db,params,data)
         return data
 

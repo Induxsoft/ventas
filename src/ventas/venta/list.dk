@@ -19,7 +19,7 @@ module "list.dk"
 	
     table_id = "tbl_"+@_entities_type
 
-    ref list_years = lib.list_years(10,0)
+    ref list_years = list_years(10,0)
     fdr_year_opt = ""
     for i = 0; i < list.count(list_years) { fdr_year_opt = fdr_year_opt + list.str(list_years,i) + "," }
     fdr_year_opt = rremove(fdr_year_opt,1)
