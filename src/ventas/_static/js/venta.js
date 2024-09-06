@@ -257,6 +257,7 @@ var venta =
             {
                 if (btn_new_doc) btn_new_doc.setAttribute("data-new-doc",0);
                 if (txt_new_doc) txt_new_doc.innerText = "";
+                this.table.changeColumnTitle("cotizado","Devuelto");
                 switch (this.cur_stt_adm) {
                     case 0: //No aplica
                         hideControls(["btn_guardar","btn_cerrar","btn_procesar","btn_add_doc"],false);
