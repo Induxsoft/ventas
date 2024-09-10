@@ -232,8 +232,10 @@ module "Lista de consultas MySQL"
     FROM producto AS p
         INNER JOIN divisa AS dvs ON p.idivisa = dvs.sys_pk
         INNER JOIN cfgimpuesto AS imp ON p.impuestos = imp.sys_pk
+        INNER JOIN linea AS ln ON p.ilinea = ln.sys_pk
         #<joins>
     WHERE NOT IFNULL(p.sys_deleted,0)
+        AND ln.clase BETWEEN 2 AND 6
         #<conditions>
     "
 

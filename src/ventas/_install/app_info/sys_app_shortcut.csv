@@ -1,2 +1,3 @@
 "id","title","icon96x96","src","_blank","appid","cat"
 "VD10","Ventas","/$/ventas/img/icons/ventas-96x96.png","/!/ventas/venta/","0","ventas.venta","0010"
+"VD30","Análisis de ventas","/$/ventas/img/icons/analisis-96x96.png","/!/ventas/analysis/","0","ventas.analisis","0010"

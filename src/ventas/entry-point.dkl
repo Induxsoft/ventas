@@ -23,6 +23,12 @@ module "Controller configs"
 	@base_path = "ventas"
 	@path_root = ""
 
+	if @@(@http_context,"$session/user/ids") == "" {
+		if file.exists("webshell/lost.dk") { include "webshell/lost.dk" }
+		else { @http_context<"response/headers/location"> : "/" }
+		return
+	}
+
 	if not(field.exist(@@(@http_context,"&session"),"resource")) { @http_context<"session/resource*"> : record.create() }
 	if not(field.exist(@@(@http_context,"&session/resource"),"properties")) { @http_context<"session/resource/properties*"> : record.create() }
 	if not(field.exist(@@(@http_context,"&session/resource/properties"),"web_meta_tags")) { @http_context<"session/resource/properties/web_meta_tags*"> : record.create() }
@@ -61,7 +67,6 @@ module "Controller configs"
 
 	//No modifique a menos que sepa lo que está haciendo
 	@dbmvc_path="crudl/"
-	
 	
 	@auto_crud=@true
 

@@ -1,0 +1,33 @@
+#include "dkli.dkh"
+#!
+module "AnalysisController"
+{
+    switch @@(@http_context,"$request/get/_svc")
+    {
+        case "last-year-sales"
+        {
+            point @list to Analysis.LastYearSales
+            break
+        }
+        case "sales-by-line"
+        {
+            point @list to Analysis.SalesByLine
+            break
+        }
+        case "ten-top-sellers"
+        {
+            point @list to Analysis.TenTopSellers
+            break
+        }
+        case "ten-top-customers"
+        {
+            point @list to Analysis.TenTopCustomers
+            break
+        }
+        default
+        {
+            point @list to Analysis.list
+            break
+        }
+    }
+}

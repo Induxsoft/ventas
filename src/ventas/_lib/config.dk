@@ -74,11 +74,14 @@ module "Variables globales"
     @enable_lotes = @true // habilitar captura de lotes de los productos.
     @enable_series = @true // habilitar captura de series de los productos.
 
+    @CDN_CHART_JS = "https://cdn.jsdelivr.net/npm/chart.js@latest/dist/Chart.min.js"
+
     //* ======================================== [ _STATIC RESOURCES ]
     @CSS_MAIN = "/$/ventas/css/main.css"   
     @JS_MAIN = "/$/ventas/js/main.js"
     @JS_VENTA = "/$/ventas/js/venta.js"
     @JS_PROCESAR = "/$/ventas/js/procesar.js"
+    @JS_ANALYSIS = "/$/ventas/js/analysis.js"
 
     //* ======================================== [ _PACKAGE ]
     @URL_BUSCAR_CLIENTE = "/!/ventas/venta/?_view=buscar-cliente&search=@search"

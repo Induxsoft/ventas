@@ -1,0 +1,49 @@
+#include "dkli.dkh"
+#!
+module "ReportController"
+{
+    switch @@(@http_context,"$request/get/_entity_id")
+    {
+        case "ventas-netas-totales" //este es el link de la url
+        {
+            @form_view = "ventas.netas.totales.dk" // iniciar llamar la vista
+            point @read to Report.VentasNetasTotales //inciamos el modelo con el query
+            break
+        }
+ /*       case "ventas-por-facturar"
+        {
+            @form_view = "ventas.por.facturar.dk" 
+            point @read to Report.VentasPorFacturar 
+            break
+        }
+*/        case "ventas-por-linea"
+        {
+            @form_view = "ventas.por.linea.dk"
+            point @read to Report.VentasPorLinea 
+            break
+        }
+/*        case "ventas-por-cliente"
+        {
+            @form_view = "ventas.por.cliente.dk" 
+            point @read to Report.VentasPorcliente 
+            break
+        }
+        case "devoluciones-por-cliente"
+        {
+            @form_view = "devoluciones.por.cliente.dk" 
+            point @read to Report.DevolucionesPorcliente 
+            break
+        }
+        case "ventas-brutas-por-cliente"
+        {
+            @form_view = "ventas.brutas.por.cliente.dk" 
+            point @read to Report.VentasBrutasPorcliente
+            break
+        }*/
+
+        default
+        {
+            point @read to Report.NotImplemented
+        }
+    }
+}

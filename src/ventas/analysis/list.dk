@@ -1,0 +1,116 @@
+#include "dkli.dkh"
+#!
+module "list.dk"
+{
+    #include "functions.dkh"
+    #include "serialize.dkh"
+    #include "uielements.v12.dkl"
+    #include "../_lib/config.dk"
+    #include "../_lib/lib.dk"
+
+    do @context.begin(@crud_context)
+
+	@_entities_type = @("$parameters/_entities_type")
+	table_id = "tbl_"+@_entities_type
+    secbg_color = @("$parameters/secbg_color")
+
+    new nav_config
+    {
+        @"title": "Análisis de ventas"
+        @"buttons*": @null
+        @"urlexit": "/"
+        // @"main": "VD11,VD12"
+        // @"actions*": ifnull(@("&./itemactions"),list.create())
+        @"reports*": ifnull(@("&./itemreports"),list.create())
+        // @"jscurrentcontext": "getCurrentContext"
+        member @"hidden" { @"print":@true }
+    }
+
+    #$ div(class="container-fluid" id="view")
+    {
+        style
+        {$'
+            #view { background-color:#<secbg_color>; }
+            .card { min-height:100%; }
+        '}
+
+        section(class="bg-white" id="top_area")
+        {
+            #!
+            do uie.printV12FormBar(nav_config)
+            #$
+        }
+        section(class="container-lg bg-transparent" id="work_area")
+        {
+            div(class="row gy-2 gx-4 h-100")
+            {
+                div(class="col-lg-6")
+                {
+                    div(class="card shadow-sm")
+                    {
+                        h5(class="card-header bg-white"){$"Ventas del último año"}
+                        div(class="card-body")
+                        {
+                            canvas(id="chart_last_year_sales"){$""}
+                            div(class="spinner-grow text-secondary" style="position:absolute;top:50%;left:50%;width:5rem;height:5rem;" role="status" id="spinner-1"){span(class="visually-hidden"){"Loading..."}}
+                        }
+                    }
+                }
+
+                div(class="col-lg-6")
+                {
+                    div(class="card shadow-sm")
+                    {
+                        h5(class="card-header bg-white"){$"Ventas por línea"}
+                        div(class="card-body")
+                        {
+                            canvas(id="chart_sales_by_line"){$""}
+                            div(class="spinner-grow text-secondary" style="position:absolute;top:50%;left:50%;width:5rem;height:5rem;" role="status" id="spinner-2"){span(class="visually-hidden"){"Loading..."}}
+                        }
+                    }
+                }
+
+                div(class="col-lg-6")
+                {
+                    div(class="card shadow-sm")
+                    {
+                        h5(class="card-header bg-white"){$"10 más vendidos"}
+                        div(class="card-body")
+                        {
+                            canvas(id="chart_ten_top_sellers"){$""}
+                            div(class="spinner-grow text-secondary" style="position:absolute;top:50%;left:50%;width:5rem;height:5rem;" role="status" id="spinner-3"){span(class="visually-hidden"){"Loading..."}}
+                        }
+                    }
+                }
+
+                div(class="col-lg-6")
+                {
+                    div(class="card shadow-sm")
+                    {
+                        h5(class="card-header bg-white"){$"10 mejores clientes"}
+                        div(class="card-body")
+                        {
+                            canvas(id="chart_ten_top_customers"){$""}
+                            div(class="spinner-grow text-secondary" style="position:absolute;top:50%;left:50%;width:5rem;height:5rem;" role="status" id="spinner-4"){span(class="visually-hidden"){"Loading..."}}
+                        }
+                    }
+                }
+            }
+
+            /////////////////////////////////////////////////////////////////////
+            div(id="_custom_area"){ script{$"#<@@(@crud_context,'script')>"} }
+        }
+        section(class="bg-white" id="bottom_area"){$""}
+
+        script(src="#<@CDN_CHART_JS>"){$""}
+        script(src="#<@JS_ANALYSIS>"){$""}
+        script(type="text/javascript")
+        {$'
+            document.addEventListener("DOMContentLoaded", () => {
+                analysis.init();
+            });
+        '}
+    } #!
+
+    do @context.end()
+}

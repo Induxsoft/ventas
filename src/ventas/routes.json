@@ -1,1 +1,1 @@
-[{"pattern":"/_program/","routes":[{"route":"/venta/","entity_type":"venta"}]}]
+[{"pattern":"/_program/","routes":[{"route":"/venta/","entity_type":"venta"},{"route":"/reports/","entity_type":"reports"},{"route":"/analysis/","entity_type":"analysis"}]}]
