@@ -6,4 +6,4 @@
 "VD14","Cancelar documento de venta","Cancelar","","/!/ventas/venta/@_src_context_item_id/cancelar/","0","ventas.venta","DET01C","1","action"
 
 "VD21","Ventas netas totales","V.N.T","","/!/ventas/reports/ventas-netas-totales/","0","ventas.reports","DET01C","0","report"
-"VD22","Ventas por Linea","V.P.L","","/!/ventas/reports/ventas-por-linea/","0","ventas.reports","DET01C","0","report"
+"VD22","Ventas por línea","V.P.L","","/!/ventas/reports/ventas-por-linea/","0","ventas.reports","DET01C","0","report"

@@ -152,16 +152,10 @@ module "form.dk"
         member @"hidden" { @"print": if(@enable_editing, @true, @false) }
     }
 
-    #$ div(class="container" id="view")
+    #$ div(class="container-lg" id="view")
     {
         link(href="#<@CSS_MAIN>" rel="stylesheet")
-        style
-        {$'
-            table tr th { font-size:.9rem; font-weight:500; outline:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; -o-text-overflow:ellipsis; }
-            table tr td { font-size:.8rem; }
-
-            @media print { #div_tbl_productos { max-height:unset !important; overflow:hidden; } }
-        '}
+        link(href="#<@CSS_VENTA>" rel="stylesheet")
 
         section(id="top_area")
         {
@@ -171,10 +165,10 @@ module "form.dk"
 
             div(class="d-flex gap-2 #<ifstr(@is_new,'d-none','')>")
             {
-                small{b{$"Edo. administrativo: "} $"#<@@(entity,'$stt_adm')>"}
-                small{b{$"Edo. entrega: "} $"#<@@(entity,'$stt_ent')>"}
-                small{b{$"Edo. facturación: "} $"#<@@(entity,'$stt_fac')>"}
-                small{b{$"Edo. financiero: "} $"#<@@(entity,'$stt_fin')>"}
+                small{b{$"Edo. Administrativo: "} $"#<@@(entity,'$stt_adm')>"}
+                small{b{$"Edo. Entrega: "} $"#<@@(entity,'$stt_ent')>"}
+                small{b{$"Edo. Facturación: "} $"#<@@(entity,'$stt_fac')>"}
+                small{b{$"Edo. Financiero: "} $"#<@@(entity,'$stt_fin')>"}
             }
 
             nav
@@ -410,22 +404,24 @@ module "form.dk"
                 }
             }
 
-            div(class="hide-on-print d-flex justify-content-end align-items-center border gap-1 px-2 mt-2" id="tbl_action_bar")
+            div(class="d-flex align-items-center flex-wrap border gap-1 px-2 mt-2 hide-on-print" id="tbl_act_bar")
             {
-                small(class="flex-grow-1 text-muted"){$"Seleccione los productos en la cuadrícula"}
+                div(class="" id="act_bar_text"){small(class="text-muted"){$"Seleccione los productos en la cuadrícula"}}
+                div(class="flex-grow-1 text-end" id="act_bar_cont")
+                {
+                    button(class="btn btn-sm rounded-0" type="button" id="btn_add_doc" title="Incluir documento"){$"#<@ICON_DOCUMENT>"span(class="act_txt"){" Incluir"}}
+                    button(class="btn btn-sm rounded-0" type="button" id="btn_includes" title="Documentos Incluidos"){$"#<@ICON_STACK>"span(class="act_txt"){" Documentos incluidos"}}
 
-                button(class="btn btn-sm rounded-0" type="button" id="btn_add_doc" title="Incluir documento"){$"#<@ICON_DOCUMENT> Incluir"}
-                button(class="btn btn-sm rounded-0" type="button" id="btn_includes" title="Documentos Incluidos"){$"#<@ICON_STACK> Documentos incluidos"}
+                    small(class="text-muted"){$"|"}
 
-                small(class="text-muted"){$"|"}
+                    button(class="btn btn-sm rounded-0" type="button" id="btn_add_lote" title="Agregar lote al producto"){$"#<@ICON_123>"span(class="act_txt"){" Agregar lote"}}
+                    button(class="btn btn-sm rounded-0" type="button" id="btn_add_serie" title="Agregar serie al producto"){$"#<@ICON_ABC>"span(class="act_txt"){" Agregar serie"}}
 
-                button(class="btn btn-sm rounded-0" type="button" id="btn_add_lote" title="Agregar lote al producto"){$"#<@ICON_123> Agregar lote"}
-                button(class="btn btn-sm rounded-0" type="button" id="btn_add_serie" title="Agregar serie al producto"){$"#<@ICON_ABC> Agregar serie"}
+                    small(class="text-muted"){$"|"}
 
-                small(class="text-muted"){$"|"}
-
-                button(class="btn btn-sm rounded-0" type="button" id="btn_add_row" title="Agregar producto"){$"#<@ICON_BOX_4> Agregar"}
-                button(class="btn btn-sm rounded-0" type="button" id="btn_del_row" title="Eliminar fila"){$"#<@ICON_REMOVE_ROW> Remover"}
+                    button(class="btn btn-sm rounded-0" type="button" id="btn_add_row" title="Agregar producto"){$"#<@ICON_BOX_4>"span(class="act_txt"){" Agregar"}}
+                    button(class="btn btn-sm rounded-0" type="button" id="btn_del_row" title="Eliminar fila"){$"#<@ICON_REMOVE_ROW>"span(class="act_txt"){" Remover"}}
+                }
             }
             div(class="alert alert-danger rounded-0 my-1 py-0 d-none" role="alert" id="tbl_alerts"){$""}
             div(class="border border-top-0" id="div_tbl_productos" style="width:auto; min-width:100%; max-height:55vh; display:flex;")

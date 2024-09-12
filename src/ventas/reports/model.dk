@@ -43,7 +43,7 @@ module "Reportes de ventas:Report"
     VentasNetasTotales::&db,&params
     {
     // do rise_error(99,to.json(params))
-    // do dbr.apps.action.grant("VD21")
+     do dbr.apps.action.grant("VD21")
 
     //diccionario params con el parametro vacio
     if @@(params,"$pkmarca") == ""{//codigos para marca que envie un null
@@ -51,123 +51,22 @@ module "Reportes de ventas:Report"
     } 
 
     sql_ventas_netos_totales = "SELECT p.sys_pk, p.codigo, p.descripcion,p.unidad,
- sum(if (v.documento=5,-1, 1) * if(v.documento=4 or dv.documento=5,dv.cantidad, dv.xfacturar))  ventas,
- sum(if (v.documento=5,dv.precio * -1, dv.precio) * if(v.documento=4 or dv.documento=5,dv.cantidad, dv.xfacturar) - ((ifnull(dv.descuento1,0) + ifnull(dv.descuento2,0) ) / dv.cantidad) * if(v.documento=4 or dv.documento=5,dv.cantidad, dv.xfacturar) )  subtotal,
- sum(if (v.documento=5,-1, 1) * ((ifnull(dv.impuesto1,0) + ifnull(dv.impuesto2,0)+ ifnull(dv.impuesto3,0)+ ifnull(dv.impuesto4,0) ) / dv.cantidad) * if(v.documento=4 or dv.documento=5,dv.cantidad, dv.xfacturar) )  impuestos,
-  sum(if (v.documento=5,dv.precio * -1, dv.precio) * if(v.documento=4 or dv.documento=5,dv.cantidad, dv.xfacturar) - ((ifnull(dv.descuento1,0) + ifnull(dv.descuento2,0) ) / dv.cantidad) * if(v.documento=4 or dv.documento=5,dv.cantidad, dv.xfacturar) )  +
- sum(if (v.documento=5,-1, 1) * ((ifnull(dv.impuesto1,0) + ifnull(dv.impuesto2,0)+ ifnull(dv.impuesto3,0)+ ifnull(dv.impuesto4,0) ) / dv.cantidad) * if(v.documento=4 or dv.documento=5,dv.cantidad, dv.xfacturar) )  total
- FROM dventa dv
-inner join venta v on dv.fk_venta_detalle=v.sys_pk
-inner join producto p on dv.iproducto=p.sys_pk
-  inner join linea l on l.sys_pk=p.ilinea
-where v.statusadministrativo<>99  and 
-    (v.documento=3 or v.documento=4 or v.documento=6 or v.documento=5)
- and (v.fecha>=@finicial and v.fecha<=@ffinal) 
-  AND (if(@pkcconsumo is null,true,v.icconsumo=@pkcconsumo) and if(@pklinea is null,true,p.ilinea=@pklinea) and if(@pkmarca is null,true,p.imarca=@pkmarca)) 
- GROUP BY p.sys_pk;"
-
-    // pk consulta de linea
-    sql_pklinea = "SELECT * from linea;"
-    //pk consulta marca
-    sql_pkmarca = "SELECT * from marca;"
-    //pk consulta consumo
-    sql_pkcconsumo = "SELECT * from cconsumo;"
-
-        conditions = ""
-        if not(field.exist(params,"fil_fcorte")) { params<"fil_fcorte"> : hoy("yyyy-MM-dd") }
-        if replace(@@(params,"$fil_tipo"),"*","") != "" { conditions = conditions + " AND z.tipo = @fil_tipo" }
-        //este data sirve para usar consultas db
-        new data
-        {
-            // para acceder y * para regresar los valores
-            @"linea*": dbr.list(db,sql_pklinea,params)//resibe dos parametros
-            @"marca*": dbr.list(db,sql_pkmarca,params)//resibe dos parametros
-            @"consumo*": dbr.list(db,sql_pkcconsumo,params)//resibe dos parametros
-            @"list*": dbr.list(db,ftext(sql_ventas_netos_totales),params)
-        }
-
-        do prepareView(db,params,data)
-        //retorna los datos de la consulta
-        return data //retorna la data
-        exception{ do catch() }
-    }
-
-
-    VentasPorFacturar::&db,&params
-    {
-        // do rise_error(99,to.json(params))
-        //do dbr.apps.action.grant("VD22") // permisos para acceder
-
-        sql_ventas_por_facturar = "
-        SELECT
-            venta.fecha,
-            venta.referencia,
-            cliente.nombre AS cliente,
-            (venta.subtotal - venta.descuento1 - venta.descuento2) AS subtotal,
-            (venta.impuesto1 + venta.impuesto2 + venta.impuesto3 + venta.impuesto4) AS impuestos,
-            (venta.subtotal - venta.descuento1 - venta.descuento2)+(venta.impuesto1 + venta.impuesto2 + venta.impuesto3 + venta.impuesto4) AS total,
-            cformaspago.const AS formapago,
-            cstatusadministrativos.const AS `status`
-        FROM cstatusadministrativos
-            INNER JOIN (cliente
-                INNER JOIN (cformaspago
-                    INNER JOIN (venta
-                        INNER JOIN cconsumo ON venta.icconsumo = cconsumo.sys_pk
-                    ) ON cformaspago.id = venta.formapago
-                ) ON cliente.sys_pk = venta.icliente
-            ) ON cstatusadministrativos.id = venta.statusadministrativo
-        WHERE
-            (venta.documento = 3)
-            AND (venta.statusadministrativo <> 99)
-            AND (venta.statusfacturacion <> 3)
-            AND venta.fecha >= @finicial
-            AND venta.fecha <= @ffinal
-            AND (cconsumo.ialmacen = @pkalmacen);
-        "
-
-        //consultas oara el select
-        //pk consulta de almacen
-        sql_pkalmacen = "SELECT * from almacen;"
-
-
-        conditions = ""
-        if not(field.exist(params,"fil_fcorte")) { params<"fil_fcorte"> : hoy("yyyy-MM-dd") }
-        if replace(@@(params,"$fil_tipo"),"*","") != "" { conditions = conditions + " AND z.tipo = @fil_tipo" }
-
-        //este data sirve para usar consultas db
-        new data
-        {
-            // para acceder y * para regresar los valores
-            @"almacen*": dbr.list(db,sql_pkalmacen,params)//resive dos parametros
-          
-         //   @"todo*": dr.list(db,sql_totales,params)
-            @"lista*": dbr.list(db,ftext(sql_ventas_por_facturar),params)
-          
-        }
-        
-        do prepareView(db,params,data)
-        //retorna los datos de la consulta
-        return data //retorna la data
-        exception{ do catch() }
-    }
-
-    VentasPorLinea::&db,&params
-    {
-
-    // do rise_error(99,to.json(params))
-    //do dbr.apps.action.grant("VD23")
-
-    sql_ventas_por_linea = "SELECT
-    l.Codigo AS Codigo,l.Descripcion,
-    (sum(case when (v.aplicadoa is null and v.documento=3 or v.documento=4 or v.documento=6) then dv.cantidad*dv.precio else 0 end)-sum(case when v.documento=5 then dv.cantidad*dv.precio else 0 end)) as Importe
+    sum(v.tipocambio * if (v.documento=5,-1, 1) * if(v.documento=4 or v.documento=5,dv.cantidad, dv.xfacturar))  ventas,
+    sum(v.tipocambio * if (v.documento=5,dv.precio * -1, dv.precio) * if(v.documento=4 or v.documento=5,dv.cantidad, dv.xfacturar) - ((ifnull(dv.descuento1,0) + ifnull(dv.descuento2,0) ) / dv.cantidad) * if(v.documento=4 or v.documento=5,dv.cantidad, dv.xfacturar) )  subtotal,
+    sum(v.tipocambio * if (v.documento=5,-1, 1) * ((ifnull(dv.impuesto1,0) + ifnull(dv.impuesto2,0)+ ifnull(dv.impuesto3,0)+ ifnull(dv.impuesto4,0) ) / dv.cantidad) * if(v.documento=4 or v.documento=5,dv.cantidad, dv.xfacturar) )  impuestos,
+    sum(v.tipocambio * if (v.documento=5,dv.precio * -1, dv.precio) * if(v.documento=4 or v.documento=5,dv.cantidad, dv.xfacturar) - ((ifnull(dv.descuento1,0) + ifnull(dv.descuento2,0) ) / dv.cantidad) * if(v.documento=4 or v.documento=5,dv.cantidad, dv.xfacturar) )  +
+    sum(v.tipocambio * if (v.documento=5,-1, 1) * ((ifnull(dv.impuesto1,0) + ifnull(dv.impuesto2,0)+ ifnull(dv.impuesto3,0)+ ifnull(dv.impuesto4,0) ) / dv.cantidad) * if(v.documento=4 or v.documento=5,dv.cantidad, dv.xfacturar) )  total
     FROM dventa dv
-    inner join venta v on v.sys_pk=dv.fk_venta_detalle
-    inner join producto p on p.sys_pk=dv.iproducto
+    inner join venta v on dv.fk_venta_detalle=v.sys_pk
+    inner join producto p on dv.iproducto=p.sys_pk
     inner join linea l on l.sys_pk=p.ilinea
-    where v.statusadministrativo<>99  and (v.fecha>=@finicial and v.fecha<=@ffinal) AND (v.ICConsumo=@pkcconsumo)
-    having (sum(case when (v.aplicadoa is null and v.documento=3 or v.documento=4 or v.documento=6) then dv.cantidad else 0 end)-sum(case when v.documento=5 then dv.cantidad else 0 end))>0
-    ORDER BY l.Descripcion;
-"
+    where v.statusadministrativo<>99  and 
+    (v.documento=3 or v.documento=4 or v.documento=6 or v.documento=5) and not (not v.aplicadoa is null and v.documento=5)
+    and (v.fecha>=@finicial and v.fecha<=@ffinal) 
+    AND (if(@pkcconsumo is null,true,v.icconsumo=@pkcconsumo) and if(@pklinea is null,true,p.ilinea=@pklinea) and if(@pkmarca is null,true,p.imarca=@pkmarca)) 
+    GROUP BY p.sys_pk;"
+
+
     //consultas oara el select
     //pk consulta de almacen
     sql_pkcconsumo = "SELECT * from cconsumo;"
