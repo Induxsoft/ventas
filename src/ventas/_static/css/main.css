@@ -21,7 +21,7 @@
 .disabled-all * textarea,
 .disabled-all * button:not([role="tab"]),
 .disabled-all * input-key,
-.disabled-all * edit-table
+.disabled-all * edit-table:not([readonly])
 {
     pointer-events: none;
     user-select: none;

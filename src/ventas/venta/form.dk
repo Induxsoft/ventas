@@ -46,7 +46,7 @@ module "form.dk"
     "
     precio_type = ifstr(@allow_price_editing,"Number","NoEditable")
 
-    do AutoFillRows(detail,15)
+    do AutoFillRows(detail,10)
 
     new sel_documento
     {
@@ -138,7 +138,7 @@ module "form.dk"
         button(class="#<act_btn_cls>" type="button" id="btn_procesar" "data-stt-adm"="#<@stt_adm_procesado>" title="Procesar documento"){$"#<@ICON_PROCESS>"}
         button(class="#<act_btn_cls>" type="button" id="btn_cancelar" "data-stt-adm"="#<@stt_adm_cancelado>" title="Cancelar documento"){$"#<@ICON_TRASH>"}
         #!
-        if not(@is_new) { #$
+        if not(@is_new) {#$
             button(class="#<act_btn_cls>" type="button" id="btn_new_doc" "data-new-doc"="#<@cPedido>"){$"#<@ICON_IMP_DOC> " span(id="txt_new_doc"){"Pedir"}}
         }
         #!
@@ -149,6 +149,7 @@ module "form.dk"
         @"title": ifstr(@is_new, "Nuevo documento", @@(entity,"$referencia"))
         @"buttons*": print_buttons
         @"urlexit": "../"
+        @"print_mode": 1 // 0-window.print(), 1-v12PrintHTML()
         member @"hidden" { @"print": if(@enable_editing, @true, @false) }
     }
 
@@ -165,10 +166,10 @@ module "form.dk"
 
             div(class="d-flex gap-2 #<ifstr(@is_new,'d-none','')>")
             {
-                small{b{$"Edo. Administrativo: "} $"#<@@(entity,'$stt_adm')>"}
-                small{b{$"Edo. Entrega: "} $"#<@@(entity,'$stt_ent')>"}
-                small{b{$"Edo. Facturación: "} $"#<@@(entity,'$stt_fac')>"}
-                small{b{$"Edo. Financiero: "} $"#<@@(entity,'$stt_fin')>"}
+                small{b{$"E. Administrativo: "} $"#<@@(entity,'$stt_adm')>"}
+                small{b{$"E. Entrega: "} $"#<@@(entity,'$stt_ent')>"}
+                small{b{$"E. Facturación: "} $"#<@@(entity,'$stt_fac')>"}
+                small{b{$"E. Financiero: "} $"#<@@(entity,'$stt_fin')>"}
             }
 
             nav
@@ -178,13 +179,14 @@ module "form.dk"
                     button(class="nav-link py-1 active" type="button" role="tab" id="nav-general-tab" "data-bs-toggle"="tab" "data-bs-target"="#nav-general" "aria-controls"="nav-general" "aria-selected"="true"){$"General"}
                     button(class="nav-link py-1" type="button" role="tab" id="nav-mrdata-tab" "data-bs-toggle"="tab" "data-bs-target"="#nav-mrdata" "aria-controls"="nav-mrdata" "aria-selected"="false"){$"Más datos"}
                     button(class="nav-link py-1" type="button" role="tab" id="nav-transportacion-tab" "data-bs-toggle"="tab" "data-bs-target"="#nav-transportacion" "aria-controls"="nav-transportacion" "aria-selected"="false"){$"Transportación"}
+                    button(class="nav-link py-1" type="button" role="tab" id="nav-productos-tab" hidden="" "data-bs-toggle"="tab" "data-bs-target"="#nav-productos" "aria-controls"="nav-productos" "aria-selected"="false"){$"Productos"}
                 }
             }
         }
         
-        section(class="#<ifstr(not(@enable_editing),'disabled-all','')>" id="work_area")
+        section(class="" id="work_area")
         {
-            div(class="show-on-print")
+            div(class="printable-element show-on-print")
             {
                 p(class="text-center my-0"){$"#<@@(titles,'$title')>"}
                 p(class="text-center my-0"){$"#<@@(titles,'$subtitle')>"}
@@ -210,7 +212,7 @@ module "form.dk"
                 }
             }
 
-            section(class="show-on-print" id="master")
+            section(class="printable-element show-on-print")
             {
                 table(class="table table-sm table-bordered")
                 {
@@ -243,25 +245,25 @@ module "form.dk"
                     {
                         tr
                         {
-                            th(class="bg-light-gray"){$"Cliente:"}
+                            th(class="text-start bg-light-gray"){$"Cliente:"}
                             td{$"#<@@(dtcliente,'$codigo')>"}
                             td{$"#<@@(dtcliente,'$nombre')>"}
                         }
                         tr
                         {
-                            th(class="bg-light-gray"){$"Vendedor:"}
+                            th(class="text-start bg-light-gray"){$"Vendedor:"}
                             td{$"#<@@(dtagente,'$codigo')>"}
                             td{$"#<@@(dtagente,'$nombre')>"}
                         }
                         tr
                         {
-                            th(class="bg-light-gray"){$"Repartidor:"}
+                            th(class="text-start bg-light-gray"){$"Repartidor:"}
                             td{$"#<@@(dtrepartidor,'$codigo')>"}
                             td{$"#<@@(dtrepartidor,'$nombre')>"}
                         }
                         tr
                         {
-                            th(class="bg-light-gray"){$"Porteador:"}
+                            th(class="text-start bg-light-gray"){$"Porteador:"}
                             td{$"#<@@(dtporteador,'$codigo')>"}
                             td{$"#<@@(dtporteador,'$descripcion')>"}
                         }
@@ -275,7 +277,7 @@ module "form.dk"
             }
 
             div(class="alert alert-danger overflow-auto mb-2 #<ifstr(@('$error/message')!='','','d-none')>" id="frm_alerts"){$"#<@('error/message')>"}
-            form(class="hide-on-print" method="POST" action="./" id="frm_venta")
+            form(class="mb-2 hide-on-print #<ifstr(not(@enable_editing),'disabled-all','')>" method="POST" action="./" id="frm_venta")
             {
                 input(type="hidden" name="sys_pk" value="#<@@(entity, '#sys_pk')>")
                 input(type="hidden" name="sys_recver" value="#<@@(entity, '#sys_recver')>")
@@ -311,34 +313,34 @@ module "form.dk"
                                     button(class="btn btn-light btn-sm rounded-0 border" type="button" id="btn_get_folio" title="Obtener folio disponible para la serie seleccionada"){$"#<@ICON_HDOTS>"}
                                 }
                             }
-                            div(class="col-lg-2 col-md-3 col-sm-4 col-4")
+                            div(class="col-lg-2 col-md-2 col-sm-4 col-4")
                             {
                                 label(class="form-label fw-bold" "for"="txt_fecha"){$"Fecha:"}
                                 input(class="form-control form-control-sm rounded-0" type="date" name="fecha" value="#<form('fecha','dt',entity)>" id="txt_fecha" required="")
                             }
-                            div(class="col-lg-2 col-md-3 col-sm-4 col-4")
+                            div(class="col-lg-2 col-md-2 col-sm-3 col-4")
                             {
                                 label(class="form-label" "for"="txt_fentrega"){$"F. Entrega:"}
                                 input(class="form-control form-control-sm rounded-0" type="date" name="fentrega" value="#<form('fentrega','dt',entity)>" id="txt_fentrega")
                             }
-                            div(class="col-lg-2 col-md-3 col-sm-4 col-4")
+                            div(class="col-lg-2 col-md-2 col-sm-3 col-4")
                             {
                                 label(class="form-label" "for"="txt_fvencimiento"){$"F. Vencimiento:"}
                                 input(class="form-control form-control-sm rounded-0" type="date" name="vencimiento" value="#<form('vencimiento','dt',entity)>" id="txt_fvencimiento")
                             }
-                            div(class="col-lg-3 col-md-3 col-sm-4 col-8")
+                            div(class="col-lg-3 col-md-5 col-sm-6 col-8")
                             {
                                 label(class="form-label fw-bold" "for"="sel_divisa"){$"Divisa:"}
                                 ##
                                 do uie.dbSelect(sel_divisa)
                                 ##
                             }
-                            div(class="col-lg-2 col-md-3 col-sm-4 col-4")
+                            div(class="col-lg-2 col-md-2 col-sm-3 col-4")
                             {
                                 label(class="form-label fw-bold" "for"="txt_tipocambio"){$"T. Cambio:"}
                                 input(class="form-control form-control-sm rounded-0" type="number" name="tipocambio" value="#<form('tipocambio','nm',entity)>" min="1" step="#<num_step>" id="txt_tipocambio")
                             }
-                            div(class="col-lg-3 col-md-3 col-sm-4")
+                            div(class="col-lg-auto col-md-5 col-sm-auto")
                             {
                                 label(class="form-label fw-bold" "for"="sel_cconsumo"){$"Centro de consumo:"}
                                 ##
@@ -401,10 +403,12 @@ module "form.dk"
                             }
                         }
                     }
+
+                    div(class="tab-pane fade" id="nav-productos" role="tabpanel" "aria-labelledby"="nav-productos-tab"){$""}
                 }
             }
 
-            div(class="d-flex align-items-center flex-wrap border gap-1 px-2 mt-2 hide-on-print" id="tbl_act_bar")
+            div(class="d-flex align-items-center flex-wrap border gap-1 px-2 hide-on-print #<ifstr(not(@enable_editing),'disabled-all','')>" id="tbl_act_bar")
             {
                 div(class="" id="act_bar_text"){small(class="text-muted"){$"Seleccione los productos en la cuadrícula"}}
                 div(class="flex-grow-1 text-end" id="act_bar_cont")
@@ -424,9 +428,11 @@ module "form.dk"
                 }
             }
             div(class="alert alert-danger rounded-0 my-1 py-0 d-none" role="alert" id="tbl_alerts"){$""}
-            div(class="border border-top-0" id="div_tbl_productos" style="width:auto; min-width:100%; max-height:55vh; display:flex;")
+            div(class="border border-top-0" id="div_tbl_productos" style="display:flex;width:auto;min-width:100%;")
             {
-                "edit-table"(id="tbl_productos" data="#<to.json(detail)>" "auto-confirm"="true" style="width:100%;"
+                "edit-table"(id="tbl_productos" data="#<to.json(detail)>" class="printable-element" style="width:100%;"
+                "#<ifstr(not(@enable_editing),'readonly','')>"="true"
+                "auto-confirm"="true"
                 "row-height"="1.2rem"
                 "control-styles"="
                     tr th { font-size:.9rem; font-weight:500 !important; outline:none !important; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; -o-text-overflow:ellipsis; }
@@ -561,7 +567,7 @@ module "form.dk"
 
         section(id="bottom_area")
         {
-            div(class="d-flex justify-content-between w-100 bg-light p-2 border")
+            div(class="d-flex justify-content-between w-100 bg-light p-2 border printable-element")
             {
                 b{$"Subtotal: " span(id="lbl_subtotal"){$""}}
                 b{$"Descuentos: " span(id="lbl_descuentos"){$""}}

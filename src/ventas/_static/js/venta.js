@@ -22,6 +22,7 @@ var venta =
         const btn_procesar = document.getElementById("btn_procesar");
         const btn_cancelar = document.getElementById("btn_cancelar");
         const btn_new_doc = document.getElementById("btn_new_doc");
+        // const btn_print = document.getElementById("btn_print");
         const toast = document.getElementById("toast");
         this.form = document.getElementById(this.formId);
         this.ff = this.form.elements;
@@ -43,6 +44,7 @@ var venta =
             trigger(txt_tipocambio,"change");
         });
 
+        window.addEventListener("resize", (e) => this.onResize());
         if (sel_documento) sel_documento.addEventListener("change", (e) => this.changeDocumento(sel_documento));
         if (sel_cconsumo) sel_cconsumo.addEventListener("change", (e) => this.changeIAlmacenOfProducts(sel_cconsumo));
         if (txt_tipocambio) txt_tipocambio.addEventListener("change", (e) => this.changeTipoCambioOfProducts(txt_tipocambio));
@@ -53,12 +55,14 @@ var venta =
         if (btn_procesar) btn_procesar.addEventListener("click", (e) => this.submit(btn_procesar));
         if (btn_cancelar) btn_cancelar.addEventListener("click", (e) => this.changeStatus(btn_cancelar));
         if (btn_new_doc) btn_new_doc.addEventListener("click", (e) => this.exportarA(btn_new_doc.getAttribute("data-new-doc")));
+        // if (btn_print) btn_print.addEventListener("click", (e) => v12PrintHTML());
         
         if (toast) toast.addEventListener('hidden.bs.toast', function (e) {
             document.getElementById("toast-title").innerText = "";
             document.getElementById("toast-body").innerText = "";
         })
 
+        setTimeout(()=>{this.onResize()},500);
         this.setKeyboardShortcuts();
         this.setTableEvents();
         this.tableSummary();
@@ -77,6 +81,43 @@ var venta =
             this.toggleButtonVisibility();
             readonlyControls(["sel_divisa"], (this.filterData().length > 0));
         }
+    },
+
+    show_tab_productos:false,
+    onResize()
+    {
+        const nav_general_tab = document.getElementById("nav-general-tab");
+        const nav_productos_tab = document.getElementById("nav-productos-tab");
+        const nav_productos = document.getElementById("nav-productos");
+        const work_area = document.getElementById("work_area");
+        const form = document.getElementById("frm_venta");
+        const div_act = document.getElementById("tbl_act_bar");
+        const tbl_err = document.getElementById("tbl_alerts");
+        const div_tbl = document.getElementById("div_tbl_productos");
+        
+        let body_width = document.body.offsetWidth;
+        let h = Math.sub(work_area.offsetHeight, Math.add(form.offsetHeight,div_act.offsetHeight));
+
+        if (body_width < 576) {
+            if (!this.show_tab_productos) {
+                this.show_tab_productos = true;
+                nav_productos_tab.hidden = false;
+                nav_productos.appendChild(div_act);
+                nav_productos.appendChild(tbl_err);
+                nav_productos.appendChild(div_tbl);
+            }
+            h = Math.sub(work_area.offsetHeight,div_act.offsetHeight);
+        }
+        else if (body_width > 575 && this.show_tab_productos) {
+            this.show_tab_productos = false;
+            nav_productos_tab.hidden = true;
+            nav_general_tab.click();
+            work_area.appendChild(div_act);
+            work_area.appendChild(tbl_err);
+            work_area.appendChild(div_tbl);
+        }
+
+        div_tbl.style.maxHeight = (h-12)+"px";
     },
 
     setKeyboardShortcuts()

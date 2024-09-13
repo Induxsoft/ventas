@@ -7,6 +7,9 @@ table tr td { font-size:.8rem; }
 @media (min-width: 300px) and (max-width: 719px) {
     .act_txt { display: none; }
 }
+@media (max-width: 575px) {
+    /* code... */
+}
 @media (max-width: 514px) {
     #act_bar_text { width: 100%; text-align: center; }
     #act_bar_cont { text-align: center !important; }
