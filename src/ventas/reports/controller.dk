@@ -10,30 +10,34 @@ module "ReportController"
             point @read to Report.VentasNetasTotales //inciamos el modelo con el query
             break
         }
- /*       case "ventas-por-facturar"
-        {
-            @form_view = "ventas.por.facturar.dk" 
-            point @read to Report.VentasPorFacturar 
-            break
-        }
-*/        case "ventas-por-linea"
+  
+        case "ventas-por-linea"
         {
             @form_view = "ventas.por.linea.dk"
             point @read to Report.VentasPorLinea 
             break
         }
-/*        case "ventas-por-cliente"
+        case "ventas-por-cliente"
         {
             @form_view = "ventas.por.cliente.dk" 
             point @read to Report.VentasPorcliente 
             break
         }
-        case "devoluciones-por-cliente"
+
+      case "acumulado-de-ventas-por-cliente"
         {
-            @form_view = "devoluciones.por.cliente.dk" 
-            point @read to Report.DevolucionesPorcliente 
+            @form_view = "acumulado.de.ventas.por.cliente.dk" 
+            point @read to Report.AcumuladoDeVentasPorCliente 
             break
         }
+
+         case "ventas-por-facturar"
+        {
+            @form_view = "ventas.por.facturar.dk" 
+            point @read to Report.VentasPorFacturar 
+            break
+        }  
+        /*
         case "ventas-brutas-por-cliente"
         {
             @form_view = "ventas.brutas.por.cliente.dk" 

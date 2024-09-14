@@ -20,7 +20,7 @@ module "ventas netas totales"
     ref consumo= @("&./consumo")
 
     //ref todo =@("&./todo") // codigo para listar tados de todos
-    ref data = @("&./list")// codigo para listar todos los datos de la 
+    ref data = @("&./lista")// codigo para listar todos los datos de la 
 
 
 
@@ -69,6 +69,9 @@ module "ventas netas totales"
                            //aqui hacemos el llenado del select mediante la consulta a la base de datos
                             select(class="form-control form-control-sm rounded-0" name="pklinea" value="#<@('$parameters/pklinea')>" title="Linea")
                             {
+                                option(value=""){
+                                    "Todos"
+                                }
                                 #!
                                 for i = 0; i < list.count(linea); i+1
                                     {
@@ -80,7 +83,7 @@ module "ventas netas totales"
                                             }
                                     #!     
                                     }
-                                    #$
+                                #$
                             }
                             
                             select(class="form-control form-control-sm rounded-0" name="pkmarca" value="#<@('$parameters/pkmarca')>" title="Marca")
