@@ -7,3 +7,6 @@
 
 "VD21","Ventas netas totales","V.N.T","","/!/ventas/reports/ventas-netas-totales/","0","ventas.reports","DET01C","0","report"
 "VD22","Ventas por línea","V.P.L","","/!/ventas/reports/ventas-por-linea/","0","ventas.reports","DET01C","0","report"
+"VD23","Ventas por Cliente","V.P.C","","/!/ventas/reports/ventas-por-cliente/","0","ventas.reports","DET01C","0","report"
+"VD24","Acumulado de Ventas por Cliente","A.D.V.P.C","","/!/ventas/reports/acumulado-de-ventas-por-cliente/","0","ventas.reports","DET01C","0","report"
+"VD25","Ventas por Facturar","V.P.F","","/!/ventas/reports/ventas-por-facturar/","0","ventas.reports","DET01C","0","report"

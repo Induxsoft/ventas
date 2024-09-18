@@ -37,6 +37,7 @@ module "ReportController"
             point @read to Report.VentasPorFacturar 
             break
         }  
+        
         /*
         case "ventas-brutas-por-cliente"
         {

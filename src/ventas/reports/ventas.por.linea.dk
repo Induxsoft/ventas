@@ -15,6 +15,7 @@ module "ventas por linea"
     //do rise_error(23,to.json(almacenes))//coidgo para generar error 
    
     ref consumo= @("&./consumo")
+    ref linea = @("&./linea")
     //ref linea= @("&./linea")
     //ref marca= @("&./marca")
     ref data = @("&./lista")// codigo para listar todos los datos de la 
@@ -53,35 +54,74 @@ module "ventas por linea"
         #$
             form(class="" action="./" method="GET" id="form-filter")
             {
-                div(class="d-flex align-items-center gap-1 mb-1")
+                div(class="align-items-center gap-1 mb-1")
                 {
-                    div(class="d-flex gap-1 flex-grow-1")
+                    div(class="gap-1 flex-grow-1")
                     {
-                        div(class="d-inline-flex gap-1")
-                        {
-                            input(class="form-control form-control-sm rounded-0" type="date" name="finicial" value="#<@('$parameters/finicial')>" title="Fecha inicial")
-                            input(class="form-control form-control-sm rounded-0" type="date" name="ffinal" value="#<@('$parameters/ffinal')>" title="Fecha final")
-                           
-                             //aqui hacemos el llenado del select mediante la consulta a la base de datos
-                             select(class="form-control form-control-sm rounded-0" name="pkcconsumo" value="#<@('$parameters/pkcconsumo')>" title="Linea")
-                            {
-                                #!
-                                for i = 0; i < list.count(consumo); i+1
-                                    {
-                                          ref obj = list.obj(consumo,i)
-                                            #$
-                                            option(class="bg-light-gray" "#<ifstr(@@(obj,'#sys_pk')==@('#parameters/pkcconsumo'),'selected','')>"="true" value="#<@@(obj,'sys_pk')>")
-                                            {
-                                            "#<@@(obj,'descripcion')>"
-                                            }
-                                  #!     
-                                  }
-                                  #$
-                            }
 
-                    }
-                    div(class="d-flex flex-grow-1 justify-content-end"){ button(class="btn btn-sm btn-primary rounded-0" type="submit" id="btn_filter"){$"Aplicar"} }
-                }
+                            div(class="row")
+                            {
+
+                            div(class="col-md-2")
+                                {
+                                    span(class=" text-dark"){"Fecha Inicial"}
+                                    input(class="form-control form-control-sm rounded-0" type="date" name="finicial" value="#<@('$parameters/finicial')>" title="Fecha inicial")
+                                }
+                            div(class="col-md-2")
+                            {
+                                span(class=" text-dark"){"Fecha Final"}
+                                input(class="form-control form-control-sm rounded-0" type="date" name="ffinal" value="#<@('$parameters/ffinal')>" title="Fecha final")
+                            }
+                             //aqui hacemos el llenado del select mediante la consulta a la base de datos
+                            div(class="col-md-2")
+                            {
+                            span(class=" text-dark"){"C. Consumo"}
+                            select(class="form-control form-control-sm rounded-0" name="pkcconsumo" value="#<@('$parameters/pkcconsumo')>" title="C.Consumo")
+                                {
+                                    #!
+                                    for i = 0; i < list.count(consumo); i+1
+                                        {
+                                            ref obj = list.obj(consumo,i)
+                                                #$
+                                                option(class="bg-light-gray" "#<ifstr(@@(obj,'#sys_pk')==@('#parameters/pkcconsumo'),'selected','')>"="true" value="#<@@(obj,'sys_pk')>")
+                                                {
+                                                "#<@@(obj,'descripcion')>"
+                                                }
+                                    #!     
+                                    }
+                                    #$
+                                }
+                           }
+                          // agregar linea
+                           div(class="col-md-2")
+                           {
+                            span(class=" text-dark"){"Línea"}
+                            select(class="form-control form-control-sm rounded-0" name="pklinea" value="#<@('$parameters/pklinea')>" title="Línea")
+                                {
+                                    #!
+                                    for i = 0; i < list.count(linea); i+1
+                                        {
+                                            ref obj = list.obj(linea,i)
+                                                #$
+                                                option(class="bg-light-gray" "#<ifstr(@@(obj,'#sys_pk')==@('#parameters/pklinea'),'selected','')>"="true" value="#<@@(obj,'sys_pk')>")
+                                                {
+                                                "#<@@(obj,'descripcion')>"
+                                                }
+                                    #!     
+                                    }
+                                    #$
+                                }
+                           }
+                    
+                           div(class="col-md-4 mt-4")
+                            {
+                                div(class="d-flex flex-grow-1 justify-content-end"){ button(class="btn btn-sm btn-primary rounded-0" type="submit" id="btn_filter"){$"Aplicar"} }
+                            }
+                    
+                       }
+
+                    
+ }
             
             
            }
@@ -122,13 +162,9 @@ module "ventas por linea"
                 {
                        thead
                        {
-                            th(scope="col")
-                             {"Código"}
-                            th(scope="col")
-                             {"Descripción"}
-                            th(scope="col")
-                            {"Importe"}
-                            
+                            th(scope="col"){"Código"}
+                            th(scope="col"){"Descripción"}
+                            th(scope="col"){"Importe"}
                         }
 
                  tbody
@@ -138,9 +174,12 @@ module "ventas por linea"
                         doc=""
                         bonis=0
                         pagos=0
-                       // subtotal=0
-                      //  impuestos=0
-                       importe=0
+
+
+                        importe=0
+
+                        sys_pklinea = 0
+
                         for i = 0; i < list.count(data)
                         {
 
@@ -151,24 +190,14 @@ module "ventas por linea"
                                 #$
                                 tr(class="bg-light-gray")
                                 {
-                                    td(class="" )
-                                    {
-                                        $"#<@@(obj,'$Codigo')>"
-                                    }
-                                    td(class="" )
-                                    {
-                                        $"#<@@(obj,'$Descripcion')>"
-                                    }
-
-                                    td(class="text-end")
-                                    {
-                                        $"#<number_format(@@(obj,'$Importe'))>"
-                                    }
+                                    td(class=""){$"#<@@(obj,'$Codigo')>"}
+                                    td(class="" ){$"#<@@(obj,'$Descripcion')>"}
+                                    td(class="text-end"){$"#<number_format(@@(obj,'$Importe'))>"}
                                 }
                         } 
                         
                     }
-
+                      
                     tr(class="group-summary")
                         {
                             $""

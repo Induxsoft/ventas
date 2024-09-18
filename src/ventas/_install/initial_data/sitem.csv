@@ -12,5 +12,8 @@ ventas.reports,Informes de ventas,ventas
 VD20,Reportes,ventas.reports
 VD21,Ventas netas totales,ventas.reports
 VD22,Ventas por Linea,ventas.reports
+VD23,Ventas por Cliente,ventas.reports
+VD24,Acumulado de Ventas por cliente,ventas.reports
+VD25,Ventas por Facturar,ventas.reports
 ventas.analisis,Análisis de ventas,ventas
 VD30,Análisis de ventas,ventas.analisis

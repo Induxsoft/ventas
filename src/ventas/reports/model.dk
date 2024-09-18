@@ -43,7 +43,7 @@ module "Reportes de ventas:Report"
     VentasNetasTotales::&db,&params
     {
    //  do rise_error(99,to.json(params))
-     //do dbr.apps.action.grant("VD21")
+    do dbr.apps.action.grant("VD21")
 
     //diccionario params con el parametro vacio
     //if @@(params,"$pkmarca") == ""{//codigos para marca que envie un null
@@ -106,7 +106,7 @@ where v.statusadministrativo<>99  and
     {
    
    // do rise_error(99,to.json(params))
-    // do dbr.apps.action.grant("VD22")
+    do dbr.apps.action.grant("VD22")
 
 
     sql_ventas_por_linea = "SELECT l.sys_pk, l.codigo, l.descripcion,p.unidad,
@@ -126,6 +126,7 @@ where v.statusadministrativo<>99  and
     //consultas oara el select
     //pk consulta de almacen
     sql_pkcconsumo = "SELECT * from cconsumo;"
+    sql_pklinea = "SELECT * from linea;"
 
 
         conditions = ""
@@ -137,6 +138,7 @@ where v.statusadministrativo<>99  and
         {
             // para acceder y * para regresar los valores
             @"consumo*": dbr.list(db,sql_pkcconsumo,params)//resive dos parametros
+            @"linea*": dbr.list(db,sql_pklinea,params)
             @"lista*": dbr.list(db,ftext(sql_ventas_por_linea),params)
           
         }
@@ -150,7 +152,7 @@ where v.statusadministrativo<>99  and
     VentasPorcliente::&db,&params
     {
     // do rise_error(99,to.json(params))
-    // do dbr.apps.action.grant("VD24")
+    do dbr.apps.action.grant("VD23")
 
     if @@(params,"$pklinea") == ""{//codigos para marca que envie un null
         do field.remove(params,"pklinea")
@@ -208,7 +210,7 @@ where v.statusadministrativo<>99  and
     {
 
     // do rise_error(99,to.json(params))
-    // do dbr.apps.action.grant("VD25")
+    do dbr.apps.action.grant("VD24")
 
     sql_acomulado_ventas_por_cliente = "SELECT p.sys_pk,c.codigo,c.nombre, 
   sum(v.tipocambio * if (v.documento=5,dv.precio * -1, dv.precio) * if(v.documento=4 or v.documento=5,dv.cantidad, dv.xfacturar) - ((ifnull(dv.descuento1,0) + ifnull(dv.descuento2,0) ) / dv.cantidad) * if(v.documento=4 or v.documento=5,dv.cantidad, dv.xfacturar))   ventas,
@@ -255,7 +257,7 @@ where v.statusadministrativo<>99  and
     {
 
     // do rise_error(99,to.json(params))
-    // do dbr.apps.action.grant("VD25")
+    do dbr.apps.action.grant("VD25")
 
     sql_ventas_por_facturar = "SELECT p.sys_pk,v.fecha,v.referencia,c.nombre, 
  v.tipocambio * if (v.documento=5,dv.precio * -1, dv.precio) * if(v.documento=4 or v.documento=5,dv.cantidad, dv.xfacturar) - ((ifnull(dv.descuento1,0) + ifnull(dv.descuento2,0) ) / dv.cantidad) * if(v.documento=4 or v.documento=5,dv.cantidad, dv.xfacturar)   subtotal,

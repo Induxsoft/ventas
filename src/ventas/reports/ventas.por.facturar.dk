@@ -51,18 +51,26 @@ module "ventas por facturar"
         #$
             form(class="" action="./" method="GET" id="form-filter")
             {
-                div(class="d-flex align-items-center gap-1 mb-1")
+                div(class="align-items-center gap-1 mb-1")
                 {
-                    div(class="d-flex gap-1 flex-grow-1")
+                    div(class="gap-1 flex-grow-1")
                     {
-                        div(class="d-inline-flex gap-1")
-                        {
-                        
+                      div(class="row"){
+                         div(class="col-md-2")
+                         {
+                         span(class=" text-dark"){"Fecha Inicial"}
                          input(class="form-control form-control-sm rounded-0" type="date" name="finicial" value="#<@('$parameters/finicial')>" title="Fecha inicial")
+                         }
+                        div(class="col-md-2")
+                        {
+                        span(class=" text-dark"){"Fecha Final"}
                          input(class="form-control form-control-sm rounded-0" type="date" name="ffinal" value="#<@('$parameters/ffinal')>" title="Fecha final")
-                           
+                        }
                            //aqui hacemos el llenado del select mediante la consulta a la base de datos
-                            select(class="form-control form-control-sm rounded-0" name="pkcconsumo" value="#<@('$parameters/pkcconsumo')>" title="Almacen")
+                        div(class="col-md-2")
+                        {
+                        span(class=" text-dark"){"C. Consumo"}
+                            select(class="form-control form-control-sm rounded-0" name="pkcconsumo" value="#<@('$parameters/pkcconsumo')>" title="C. Consumo")
                             {
                              #!
                                 for i = 0; i < list.count(consumo); i+1 //listamos todo los datos de los almacenes 
@@ -77,9 +85,13 @@ module "ventas por facturar"
                                   }
                                   #$
                               }
+                        }
+                        div(class="col-md-6")
+                        {
+                          div(class="d-flex flex-grow-1 justify-content-end"){ button(class="btn btn-sm btn-primary rounded-0" type="submit" id="btn_filter"){$"Aplicar"} }
+                        }
                     }
-                    div(class="d-flex flex-grow-1 justify-content-end"){ button(class="btn btn-sm btn-primary rounded-0" type="submit" id="btn_filter"){$"Aplicar"} }
-                }
+               }
             
             
            }
