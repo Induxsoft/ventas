@@ -21,6 +21,7 @@ module ":Venta"
 
     buscarCliente::&db,&params
     {
+        //#region buscarCliente()
         if trim(@@(params,"$id")) != "" || trim(@@(params,"$icliente")) != ""
         {
             conditions = "(cte.sys_pk = IFNULL(@id,@icliente) OR cte.sys_guid = IFNULL(@id,@icliente))"
@@ -40,6 +41,7 @@ module ":Venta"
 
     buscarProducto::&db,&params
     {
+        //#region buscarProducto()
         do Venta.setZonaImpuesto(db,params)
         
         conditions = "AND (p.codigo LIKE CONCAT('%',@search,'%') OR p.descripcion LIKE CONCAT('%',@search,'%'))"
@@ -52,7 +54,10 @@ module ":Venta"
         joins = "INNER JOIN dventa AS dv ON vnt.sys_pk = dv.fk_venta_detalle"
         
         conditions = ftext("
-        AND vnt.statusadministrativo = #<@stt_adm_procesado>
+        AND (
+            vnt.statusadministrativo = #<@stt_adm_procesado>
+            OR (vnt.documento = #<@cCotizacion> AND vnt.statusadministrativo = #<@stt_adm_cerrado>)
+        )
         -- AND vnt.aplicadoa IS NULL
         AND vnt.icliente = @icliente
         AND vnt.idivisa = @idivisa
@@ -76,6 +81,7 @@ module ":Venta"
 
     buscarAgente::&db,&params
     {
+        //#region buscarAgente()
         if trim(@@(params,"$id")) != "" || trim(@@(params,"$iagente")) != ""
         {
             conditions = "(agn.sys_pk = IFNULL(@id,@iagente) OR agn.sys_guid = IFNULL(@id,@iagente))"
@@ -95,6 +101,7 @@ module ":Venta"
 
     buscarRepartidor::&db,&params
     {
+        //#region buscarRepartidor()
         if trim(@@(params,"$id")) != "" || trim(@@(params,"$irepartidor")) != ""
         {
             conditions = "(rep.sys_pk = IFNULL(@id,@irepartidor) OR rep.sys_guid = IFNULL(@id,@irepartidor))"
@@ -114,6 +121,7 @@ module ":Venta"
 
     buscarPorteador::&db,&params
     {
+        //#region buscarPorteador()
         if trim(@@(params,"$id")) != "" || trim(@@(params,"$iporteador")) != ""
         {
             conditions = "(por.sys_pk = IFNULL(@id,@iporteador) OR por.sys_guid = IFNULL(@id,@iporteador))"
@@ -133,7 +141,7 @@ module ":Venta"
 
     obtenerDocumentosIncluidos::&db,&params
     {
-        //#region DocumentosIncluidos()
+        //#region DoctosIncluidos()
         ref data = record.create()
 
         if @@(params,"#iventa") <= 0 && @@(params,"#_entity_id") <= 0 { return data }
@@ -635,6 +643,11 @@ module ":Venta"
     changeStatus::&db,&params,&data
     {
         //#region changeStatus()
+        @use_transaction = @false
+        
+        do dbr.apps.action.pre("VD12")
+        do dbr.begin(db)
+
         do Venta.validateStatus(db,params,data)
         new status
         {
@@ -644,6 +657,20 @@ module ":Venta"
             @"statusadministrativo": @@(data,"#statusadministrativo")
         }
         ref entity = dbr.save(db,@table_name,status)
+
+        if @procesar_pedido {
+            do dbr.apps.action.grant("VD13")
+            new pData
+            {
+                @"iventa": @@(entity,"#sys_pk")
+                @"documento": @@(entity,"#documento")
+            }
+            do erp.ventas.procesos.liquidacionNoAplica(db,pData)
+        }
+
+        do dbr.apps.action.pos(entity)
+        do dbr.commit(db)
+        do dbr.apps.action.ext(entity)
 
         new response
         {
@@ -699,12 +726,19 @@ module ":Venta"
         //#region validateStatus()
         if trim(@@(params,"$_entity_id")) == "" { params<"_entity_id"> : @@(data,@keyfield) }
 
+        @procesar_pedido = @false
         @url_redir = @VNT_LISTAR
         
-        cur_stt_adm = dbr.num(db,ftext("SELECT statusadministrativo FROM venta WHERE #<@keyfield> = @_entity_id"),params)
+        ref cur_ent = dbr.rec(db,ftext("SELECT documento, statusadministrativo FROM venta WHERE #<@keyfield> = @_entity_id"),params)
+        is_pedido = (@@(cur_ent,"#documento")==@cPedido || (isnull(cur_ent) && @@(data,"#documento")==@cPedido))
+        cur_stt_adm = @@(cur_ent,"#statusadministrativo")
         new_stt_adm = @@(data,"#statusadministrativo")
 
-        if @@(params,"#_entity_id")>0 && new_stt_adm==@stt_adm_abierto { do dbr.apps.action.grant("VD15") }
+        if is_pedido && cur_stt_adm!=@stt_adm_cancelado && new_stt_adm==@stt_adm_procesado {
+            data<"statusadministrativo"> : @stt_adm_cerrado
+            @procesar_pedido = @true
+            return
+        }
 
         switch cur_stt_adm
         {
@@ -740,7 +774,10 @@ module ":Venta"
             {
                 if new_stt_adm == @stt_adm_na || new_stt_adm == @stt_adm_cerrado { do rise_error(500,"Estado inválido, no es posible actualizar.") }
 
-                if new_stt_adm == @stt_adm_abierto { @url_redir = @VNT_EDITAR }
+                if new_stt_adm == @stt_adm_abierto {
+                    do dbr.apps.action.grant("VD15")
+                    @url_redir = @VNT_EDITAR
+                }
                 else if new_stt_adm == @stt_adm_procesado {
                     data<"statusadministrativo"> : @stt_adm_cerrado
                     @url_redir = @VNT_PROCESAR
@@ -974,6 +1011,16 @@ module ":Venta"
         ref entity = entity.create(db,params,venta)
         do documentsIncluded(db,@@(venta,"$docs_included_id"),@@(entity,"#sys_pk"))
         do updateAmounts(db,@@(entity,"#sys_pk"))
+
+        if @procesar_pedido {
+            do dbr.apps.action.grant("VD13")
+            new pData
+            {
+                @"iventa": @@(entity,"#sys_pk")
+                @"documento": @@(entity,"#documento")
+            }
+            do erp.ventas.procesos.liquidacionNoAplica(db,pData)
+        }
         
         do dbr.apps.action.pos(entity)
         do dbr.commit(db)
@@ -1029,6 +1076,16 @@ module ":Venta"
         ref entity = entity.update(db,params,venta)
         do documentsIncluded(db,@@(venta,"$docs_included_id"),@@(entity,"#sys_pk"))
         do updateAmounts(db,@@(entity,"#sys_pk"))
+
+        if @procesar_pedido {
+            do dbr.apps.action.grant("VD13")
+            new pData
+            {
+                @"iventa": @@(entity,"#sys_pk")
+                @"documento": @@(entity,"#documento")
+            }
+            do erp.ventas.procesos.liquidacionNoAplica(db,pData)
+        }
         
         do dbr.apps.action.pos(entity)
         do dbr.commit(db)

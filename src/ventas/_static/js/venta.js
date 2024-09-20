@@ -233,17 +233,17 @@ var venta =
             case 2: //Pedido
             {
                 if (btn_new_doc) btn_new_doc.setAttribute("data-new-doc",3);
-                if (txt_new_doc) txt_new_doc.innerText = "Recibir";
+                if (txt_new_doc) txt_new_doc.innerText = "Remitir";
                 this.table.changeColumnTitle("cotizado","Cotizado");
                 switch (this.cur_stt_adm) {
                     case 0: //No aplica
-                        hideControls(["btn_guardar","btn_cerrar","btn_add_doc"],false);
+                        hideControls(["btn_guardar","btn_cerrar","btn_procesar","btn_add_doc"],false);
                         break;
                     case 1: //Abierto
-                        hideControls(["btn_guardar","btn_cerrar","btn_cancelar","btn_add_doc"],false);
+                        hideControls(["btn_guardar","btn_cerrar","btn_procesar","btn_cancelar","btn_add_doc"],false);
                         break;
                     case 2: //Cerrado
-                        hideControls(["btn_reabrir","btn_cancelar"],false);
+                        hideControls(["btn_reabrir","btn_procesar","btn_cancelar"],false);
                         break;
                     case 3: //Procesado
                         hideControls(["btn_cancelar"],false);
@@ -256,7 +256,7 @@ var venta =
             {
                 if (btn_new_doc) btn_new_doc.setAttribute("data-new-doc",4);
                 if (txt_new_doc) txt_new_doc.innerText = "Facturar";
-                this.table.changeColumnTitle("cotizado","Recibido");
+                this.table.changeColumnTitle("cotizado","Remitido");
                 switch (this.cur_stt_adm) {
                     case 0: //No aplica
                         hideControls(["btn_guardar","btn_cerrar","btn_procesar","btn_add_doc"],false);
@@ -600,6 +600,7 @@ var venta =
         let fd = new FormData();
         fd.append("sys_pk",Number(this.ff["sys_pk"].value));
         fd.append("sys_recver",Number(this.ff["sys_recver"].value));
+        fd.append("documento",Number(this.ff["documento"].value));
         fd.append("statusadministrativo",new_stt_adm);
         
         let endpoint = this.url_change_status.replace("@iventa",fd.get("sys_pk"));

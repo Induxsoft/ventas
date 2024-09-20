@@ -127,16 +127,11 @@ module ":erp.ventas.procesos"
         {
             if not(dbr.execute(db,"UPDATE dventa SET xfacturar = (xfacturar - @cantidad) WHERE (xfacturar - @cantidad) >= 0 AND sys_pk = @doc_partida;",item))
             {
-                action = "recibir"
-                operation = "pedida"
+                producto = @@(item,"$dproducto")
 
-                if documento == @cFactura
-                {
-                    action = "facturar"
-                    operation = "recibida"
-                }
-
-                do rise_error(500,ftext("No se puede #<action> más de la cantidad #<operation> del producto: ")+@@(item,"$dproducto"))
+                if documento == @cPedido { do rise_error(500,ftext("No se puede pedir más de la cantidad cotizada del producto: #<producto>")) }
+                if documento==@cRemision || documento==@cTicket { do rise_error(500,ftext("No se puede remitir más de la cantidad pedida del producto: #<producto>")) }
+                if documento == @cFactura { do rise_error(500,ftext("No se puede facturar más de la cantidad remitida del producto: #<producto>")) }
             }
         }
     }
@@ -499,7 +494,6 @@ module ":erp.ventas.procesos"
                 using status
                 {
                     @"formapago": @fp_na
-                    @"statusadministrativo": @stt_adm_cerrado
                     @"statusentrega": @stt_ent_xentregar
                 }
                 break
@@ -1181,7 +1175,7 @@ module ":erp.ventas.procesos"
         }
 
         iventa = @@(data,"#iventa")
-        documento = @@(data,"#iventa")
+        documento = @@(data,"#documento")
 
         if documento == @cNotaCredito { do erp.ventas.procesos.devolucion(db,data) }
 

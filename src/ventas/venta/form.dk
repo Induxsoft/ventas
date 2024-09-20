@@ -413,8 +413,8 @@ module "form.dk"
                 div(class="" id="act_bar_text"){small(class="text-muted"){$"Seleccione los productos en la cuadrícula"}}
                 div(class="flex-grow-1 text-end" id="act_bar_cont")
                 {
-                    button(class="btn btn-sm rounded-0" type="button" id="btn_add_doc" title="Incluir documento"){$"#<@ICON_DOCUMENT>"span(class="act_txt"){" Incluir"}}
                     button(class="btn btn-sm rounded-0" type="button" id="btn_includes" title="Documentos Incluidos"){$"#<@ICON_STACK>"span(class="act_txt"){" Documentos incluidos"}}
+                    button(class="btn btn-sm rounded-0" type="button" id="btn_add_doc" title="Incluir documento"){$"#<@ICON_DOCUMENT>"span(class="act_txt"){" Incluir"}}
 
                     small(class="text-muted"){$"|"}
 
