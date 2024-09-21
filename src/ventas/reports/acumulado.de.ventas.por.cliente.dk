@@ -50,6 +50,14 @@ module "ventas netas totales"
             #$
             p{"#<@('error/message')>"}
         }
+        #!
+        fechai = @('$parameters/finicial')
+        fechaf = @('$parameters/ffinal')
+        if fechai == "" || fechaf == ""
+        {
+            fechai = date_str(now(), "yyyy-MM-dd")
+            fechaf = date_str(now(), "yyyy-MM-dd")
+        }
         #$
             form(class="" action="./" method="GET" id="form-filter")
             {
@@ -61,20 +69,18 @@ module "ventas netas totales"
                             div(class="row"){
                             div(class="col-md-2"){
                             span(class=" text-dark"){"Fecha Inicial"}
-                                input(class="form-control form-control-sm rounded-0" type="date" name="finicial" value="#<@('$parameters/finicial')>" title="Fecha inicial")
+                                input(class="form-control form-control-sm rounded-0" type="date" name="finicial" value="#<fechai>" title="Fecha inicial")
                             }
                             div(class="col-md-2"){
                             span(class=" text-dark"){"Fecha Final"}
-                                input(class="form-control form-control-sm rounded-0" type="date" name="ffinal" value="#<@('$parameters/ffinal')>" title="Fecha final")
+                                input(class="form-control form-control-sm rounded-0" type="date" name="ffinal" value="#<fechaf>" title="Fecha final")
                             }
                            //aqui hacemos el llenado del select mediante la consulta a la base de datos
                             div(class="col-md-2"){
                             span(class=" text-dark"){"Cliente"}
                                 select(class="form-control form-control-sm rounded-0" name="pktcliente" value="#<@('$parameters/pktcliente')>" title="Cliente")
                                 {
-                                // option(value=""){
-                                //     "Todos"
-                                // }
+                                 option(value="*"){"Todos"}
                                     #!
                                     for i = 0; i < list.count(cliente); i+1
                                         {

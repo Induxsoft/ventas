@@ -51,6 +51,14 @@ module "ventas por linea"
         #$
             p{"#<@('error/message')>"}
         }
+        #!
+        fechai = @('$parameters/finicial')
+        fechaf = @('$parameters/ffinal')
+        if fechai == "" || fechaf == ""
+        {
+            fechai = date_str(now(), "yyyy-MM-dd")
+            fechaf = date_str(now(), "yyyy-MM-dd")
+        }
         #$
             form(class="" action="./" method="GET" id="form-filter")
             {
@@ -65,12 +73,12 @@ module "ventas por linea"
                             div(class="col-md-2")
                                 {
                                     span(class=" text-dark"){"Fecha Inicial"}
-                                    input(class="form-control form-control-sm rounded-0" type="date" name="finicial" value="#<@('$parameters/finicial')>" title="Fecha inicial")
+                                    input(class="form-control form-control-sm rounded-0" type="date" name="finicial" value="#<fechai>" title="Fecha inicial")
                                 }
                             div(class="col-md-2")
                             {
                                 span(class=" text-dark"){"Fecha Final"}
-                                input(class="form-control form-control-sm rounded-0" type="date" name="ffinal" value="#<@('$parameters/ffinal')>" title="Fecha final")
+                                input(class="form-control form-control-sm rounded-0" type="date" name="ffinal" value="#<fechaf>" title="Fecha final")
                             }
                              //aqui hacemos el llenado del select mediante la consulta a la base de datos
                             div(class="col-md-2")
@@ -78,6 +86,7 @@ module "ventas por linea"
                             span(class=" text-dark"){"C. Consumo"}
                             select(class="form-control form-control-sm rounded-0" name="pkcconsumo" value="#<@('$parameters/pkcconsumo')>" title="C.Consumo")
                                 {
+                                    option(value="*"){"Todos"}
                                     #!
                                     for i = 0; i < list.count(consumo); i+1
                                         {
@@ -98,6 +107,7 @@ module "ventas por linea"
                             span(class=" text-dark"){"Línea"}
                             select(class="form-control form-control-sm rounded-0" name="pklinea" value="#<@('$parameters/pklinea')>" title="Línea")
                                 {
+                               option(value="*"){"Todos"}
                                     #!
                                     for i = 0; i < list.count(linea); i+1
                                         {

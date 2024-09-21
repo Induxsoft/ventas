@@ -51,7 +51,7 @@ module ":Venta"
     buscarDocumento::&db,&params
     {
         //#region buscarDocumento()
-        joins = "INNER JOIN dventa AS dv ON vnt.sys_pk = dv.fk_venta_detalle"
+        joins = "INNER JOIN dventa AS dv ON dv.fk_venta_detalle = vnt.sys_pk"
         
         conditions = ftext("
         AND (
@@ -64,9 +64,10 @@ module ":Venta"
         AND (
             CASE @doctype
                 WHEN #<@cPedido> THEN vnt.documento = #<@cCotizacion>
-                WHEN (#<@cRemision> OR #<@cTicket>) THEN vnt.documento IN (#<@cCotizacion>,#<@cPedido>)
+                WHEN #<@cRemision> THEN vnt.documento IN (#<@cCotizacion>,#<@cPedido>)
                 WHEN #<@cFactura> THEN vnt.documento IN (#<@cCotizacion>,#<@cPedido>,#<@cRemision>,#<@cTicket>)
-                WHEN #<@cNotaCredito> THEN vnt.documento IN (#<@cTicket>,#<@cRemision>,#<@cFactura>)
+                WHEN #<@cNotaCredito> THEN vnt.documento IN (#<@cRemision>,#<@cFactura>,#<@cTicket>)
+                WHEN #<@cTicket> THEN vnt.documento IN (#<@cCotizacion>,#<@cPedido>)
             END
         )
         AND (vnt.referencia LIKE CONCAT('%',@search,'%'))
@@ -1163,6 +1164,11 @@ module ":Venta"
 
         switch @@(data,"#documento")
         {
+            case @cCotizacion
+            {
+                // code...
+                break
+            }
             case @cPedido
             {
                 // Liberar a las cotizaciones relacionadas (`aplicadoa` y `xfacturar`).
@@ -1195,6 +1201,18 @@ module ":Venta"
                 break
             }
             case @cNotaCredito { do rise_error(500,"No es posible cancelar una nota de crédito.") }
+            case @cTicket
+            {
+                // Liberar a las cotizaciones o pedidos relacionados (`aplicadoa` y `xfacturar`).
+                doctype = ftext("#<@cCotizacion>,#<@cPedido>")
+                do dbr.execute(db,ftext(@qry_liberar_documentos),params)
+
+                // Realizar la entrada de todos los productos que salieron por este documento al mismo costo de la salida.
+                do erp.ventas.procesos.cancelacion(db,@@(data,"#sys_pk"))
+                // Generar un movimiento a CxC inverso al que hubiere generado.
+                do erp.ventas.procesos.reverseCxC(db,@@(data,"#sys_pk"))
+                break
+            }
             default { do rise_error(500,"Cancelación del documento proporcionado no implementado.") }
         }
 

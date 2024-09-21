@@ -193,6 +193,14 @@ var venta =
         this.table.Events[evt.BeforeUpdateCell] = (e) => { this.validateRowCells(e) };
         this.table.Events[evt.ConfirmEdition] = (e) => { this.calculateAmounts(e) };
 
+        if (this.is_new && Number(this._GET["src"])>0 && Number(this._GET["doc"])>0) {
+            for (let i = 0; i < this.table.DataArray.length; i++) {
+                const producto = this.table.DataArray[i];
+                if (Object.keys(producto??{}).length < this.table.Columns.length || !producto.doc_partida) continue;
+                this.edtProduct(producto,i);
+            }
+        }
+
         this.table._printRows();
     },
 
