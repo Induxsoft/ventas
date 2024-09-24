@@ -198,7 +198,7 @@ module "ventas por linea"
                               importe = importe + @@(obj,'#Importe')
 
                                 #$
-                                tr(class="bg-light-gray")
+                                tr
                                 {
                                     td(class=""){$"#<@@(obj,'$Codigo')>"}
                                     td(class="" ){$"#<@@(obj,'$Descripcion')>"}

@@ -38,7 +38,7 @@ module "Controller configs"
 	ref parameters = @@(@http_context,"&request/get")
 	
 	web_title = "Ventas"
-	if field.dstr(parameters,"_entity_id","")!="" { web_title = ifstr((parameters._entity_id=="_new"), "Nueva venta", "Editar venta") }
+	if @@(parameters,"$_program")!="reports" && @@(parameters,"$_entity_id")!="" { web_title = ifstr((parameters._entity_id=="_new"), "Nueva venta", "Editar venta") }
 	if field.exist(parameters,"_view") {
 		switch parameters._view
 		{

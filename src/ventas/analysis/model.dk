@@ -11,16 +11,19 @@ module "Análisis de ventas :Analysis"
         SELECT
             IFNULL(YEAR(v.fecha),@anio) anio,
             IFNULL(MONTH(v.fecha),@mes) mes,
-            IFNULL(SUM(IF(v.documento = 5, dv.precio * -1, dv.precio) * IF((v.documento = 4 AND dv.documento IS NULL) OR dv.documento = 5, dv.cantidad, dv.xfacturar) - ((IFNULL(dv.descuento1, 0) + IFNULL(dv.descuento2, 0)) / dv.cantidad) * IF((v.documento = 4 AND dv.documento IS NULL) OR dv.documento = 5, dv.cantidad, dv.xfacturar) * v.tipocambio),0) AS subtotal,
-            IFNULL(SUM(IF(v.documento = 5, -1, 1) * ((IFNULL(dv.impuesto1, 0) + IFNULL(dv.impuesto2, 0) + IFNULL(dv.impuesto3, 0) + IFNULL(dv.impuesto4, 0)) / dv.cantidad) * IF((v.documento = 4 AND dv.documento IS NULL) OR dv.documento = 5, dv.cantidad, dv.xfacturar) * v.tipocambio),0) AS impuestos
-        FROM dventa dv
-            INNER JOIN venta v ON dv.fk_venta_detalle = v.sys_pk
+            IFNULL(SUM(v.tipocambio * IF(v.documento=5, -1, 1) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar)),0) AS ventas,
+            IFNULL(SUM(v.tipocambio * IF(v.documento=5, dv.precio * -1, dv.precio) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar) - ((IFNULL(dv.descuento1,0) + IFNULL(dv.descuento2,0)) / dv.cantidad) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar)),0) AS subtotal,
+            IFNULL(SUM(v.tipocambio * IF(v.documento=5, -1, 1) * ((IFNULL(dv.impuesto1,0) + IFNULL(dv.impuesto2,0) + IFNULL(dv.impuesto3,0) + IFNULL(dv.impuesto4,0)) / dv.cantidad) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar)),0) AS impuestos,
+            (IFNULL(SUM(v.tipocambio * IF(v.documento=5, dv.precio * -1, dv.precio) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar) - ((IFNULL(dv.descuento1,0) + IFNULL(dv.descuento2,0)) / dv.cantidad) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar)),0) +
+            IFNULL(SUM(v.tipocambio * IF(v.documento=5, -1, 1) * ((IFNULL(dv.impuesto1,0) + IFNULL(dv.impuesto2,0) + IFNULL(dv.impuesto3,0) + IFNULL(dv.impuesto4,0)) / dv.cantidad) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar)),0)) AS total
+        FROM venta v
+            INNER JOIN dventa dv ON dv.fk_venta_detalle = v.sys_pk
             INNER JOIN producto p ON dv.iproducto = p.sys_pk
             INNER JOIN linea l ON p.ilinea = l.sys_pk
-        WHERE
-            v.statusadministrativo <> 99
-            AND l.clase BETWEEN 2 AND 6
-            AND (v.documento = 3 OR v.documento = 4 OR v.documento = 6 OR v.documento = 5)
+        WHERE (v.documento = 3 OR v.documento = 4 OR v.documento = 5 OR v.documento = 6)
+            AND v.statusadministrativo = 3
+            AND v.statusfinanciero <> 3
+            AND NOT (NOT v.aplicadoa IS NULL AND v.documento = 5)
             /*AND (v.fecha >= STR_TO_DATE(CONCAT(YEAR(DATE_ADD(NOW(), INTERVAL -1 YEAR)),'-',LPAD(MONTH(DATE_ADD(NOW(), INTERVAL -1 YEAR)), 2, '00'),'-01'),'%Y-%m-%d') AND v.fecha <= NOW())
             AND (
                 IF(@icconsumo IS NULL, TRUE, v.icconsumo = @icconsumo)
@@ -53,17 +56,19 @@ module "Análisis de ventas :Analysis"
             SELECT
                 l.codigo,
                 l.descripcion,
-                SUM(IF(v.documento = 5, -1, 1) * IF((v.documento = 4 AND dv.documento IS NULL) OR dv.documento = 5, dv.cantidad, dv.xfacturar)) AS ventas,
-                SUM(IF(v.documento = 5, dv.precio * -1, dv.precio) * IF((v.documento = 4 AND dv.documento IS NULL) OR dv.documento = 5, dv.cantidad, dv.xfacturar) - ((IFNULL(dv.descuento1, 0) + IFNULL(dv.descuento2, 0)) / dv.cantidad) * IF((v.documento = 4 AND dv.documento IS NULL) OR dv.documento = 5, dv.cantidad, dv.xfacturar) * v.tipocambio) AS subtotal,
-                SUM(IF(v.documento = 5, -1, 1) * ((IFNULL(dv.impuesto1, 0) + IFNULL(dv.impuesto2, 0) + IFNULL(dv.impuesto3, 0) + IFNULL(dv.impuesto4, 0)) / dv.cantidad) * IF((v.documento = 4 AND dv.documento IS NULL) OR dv.documento = 5, dv.cantidad, dv.xfacturar) * v.tipocambio) AS impuestos
-            FROM dventa dv
-                INNER JOIN venta v ON dv.fk_venta_detalle = v.sys_pk
+                IFNULL(SUM(v.tipocambio * IF(v.documento=5, -1, 1) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar)),0) AS ventas,
+                IFNULL(SUM(v.tipocambio * IF(v.documento=5, dv.precio * -1, dv.precio) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar) - ((IFNULL(dv.descuento1,0) + IFNULL(dv.descuento2,0)) / dv.cantidad) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar)),0) AS subtotal,
+                IFNULL(SUM(v.tipocambio * IF(v.documento=5, -1, 1) * ((IFNULL(dv.impuesto1,0) + IFNULL(dv.impuesto2,0) + IFNULL(dv.impuesto3,0) + IFNULL(dv.impuesto4,0)) / dv.cantidad) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar)),0) AS impuestos,
+                (IFNULL(SUM(v.tipocambio * IF(v.documento=5, dv.precio * -1, dv.precio) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar) - ((IFNULL(dv.descuento1,0) + IFNULL(dv.descuento2,0)) / dv.cantidad) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar)),0) +
+                IFNULL(SUM(v.tipocambio * IF(v.documento=5, -1, 1) * ((IFNULL(dv.impuesto1,0) + IFNULL(dv.impuesto2,0) + IFNULL(dv.impuesto3,0) + IFNULL(dv.impuesto4,0)) / dv.cantidad) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar)),0)) AS total
+            FROM venta v
+                INNER JOIN dventa dv ON dv.fk_venta_detalle = v.sys_pk
                 INNER JOIN producto p ON dv.iproducto = p.sys_pk
                 INNER JOIN linea l ON p.ilinea = l.sys_pk
-            WHERE
-                v.statusadministrativo <> 99
-                AND l.clase BETWEEN 2 AND 6
-                AND (v.documento = 3 OR v.documento = 4 OR v.documento = 6 OR v.documento = 5)
+            WHERE (v.documento = 3 OR v.documento = 4 OR v.documento = 5 OR v.documento = 6)
+                AND v.statusadministrativo = 3
+                AND v.statusfinanciero <> 3
+                AND NOT (NOT v.aplicadoa IS NULL AND v.documento = 5)
                 /*AND (v.fecha >= @finicial AND v.fecha <= @ffinal)
                 AND (
                     IF(@icconsumo IS NULL, TRUE, v.icconsumo = @icconsumo)
@@ -81,17 +86,19 @@ module "Análisis de ventas :Analysis"
             SELECT
                 p.codigo,
                 p.descripcion,
-                SUM(IF(v.documento = 5, -1, 1) * IF((v.documento = 4 AND dv.documento IS NULL) OR dv.documento = 5, dv.cantidad, dv.xfacturar)) AS ventas,
-                SUM(IF(v.documento = 5, dv.precio * -1, dv.precio) * IF((v.documento = 4 AND dv.documento IS NULL) OR dv.documento = 5, dv.cantidad, dv.xfacturar) - ((IFNULL(dv.descuento1, 0) + IFNULL(dv.descuento2, 0)) / dv.cantidad) * IF((v.documento = 4 AND dv.documento IS NULL) OR dv.documento = 5, dv.cantidad, dv.xfacturar) * v.tipocambio) AS subtotal,
-                SUM(IF(v.documento = 5, -1, 1) * ((IFNULL(dv.impuesto1, 0) + IFNULL(dv.impuesto2, 0) + IFNULL(dv.impuesto3, 0) + IFNULL(dv.impuesto4, 0)) / dv.cantidad) * IF((v.documento = 4 AND dv.documento IS NULL) OR dv.documento = 5, dv.cantidad, dv.xfacturar) * v.tipocambio) AS impuestos
-            FROM dventa dv
-                INNER JOIN venta v ON dv.fk_venta_detalle = v.sys_pk
+                IFNULL(SUM(v.tipocambio * IF(v.documento=5, -1, 1) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar)),0) AS ventas,
+                IFNULL(SUM(v.tipocambio * IF(v.documento=5, dv.precio * -1, dv.precio) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar) - ((IFNULL(dv.descuento1,0) + IFNULL(dv.descuento2,0)) / dv.cantidad) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar)),0) AS subtotal,
+                IFNULL(SUM(v.tipocambio * IF(v.documento=5, -1, 1) * ((IFNULL(dv.impuesto1,0) + IFNULL(dv.impuesto2,0) + IFNULL(dv.impuesto3,0) + IFNULL(dv.impuesto4,0)) / dv.cantidad) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar)),0) AS impuestos,
+                (IFNULL(SUM(v.tipocambio * IF(v.documento=5, dv.precio * -1, dv.precio) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar) - ((IFNULL(dv.descuento1,0) + IFNULL(dv.descuento2,0)) / dv.cantidad) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar)),0) +
+                IFNULL(SUM(v.tipocambio * IF(v.documento=5, -1, 1) * ((IFNULL(dv.impuesto1,0) + IFNULL(dv.impuesto2,0) + IFNULL(dv.impuesto3,0) + IFNULL(dv.impuesto4,0)) / dv.cantidad) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar)),0)) AS total
+            FROM venta v
+                INNER JOIN dventa dv ON dv.fk_venta_detalle = v.sys_pk
                 INNER JOIN producto p ON dv.iproducto = p.sys_pk
                 INNER JOIN linea l ON p.ilinea = l.sys_pk
-            WHERE
-                v.statusadministrativo <> 99
-                AND l.clase BETWEEN 2 AND 6
-                AND (v.documento = 3 OR v.documento = 4 OR v.documento = 6 OR v.documento = 5)
+            WHERE (v.documento = 3 OR v.documento = 4 OR v.documento = 5 OR v.documento = 6)
+                AND v.statusadministrativo = 3
+                AND v.statusfinanciero <> 3
+                AND NOT (NOT v.aplicadoa IS NULL AND v.documento = 5)
                 /*AND (v.fecha >= @finicial AND v.fecha <= @ffinal)
                 AND (
                     IF(@icconsumo IS NULL, TRUE, v.icconsumo = @icconsumo)
@@ -111,18 +118,20 @@ module "Análisis de ventas :Analysis"
             SELECT
                 c.codigo,
                 c.nombre,
-                SUM(IF(v.documento = 5, -1, 1) * IF((v.documento = 4 AND dv.documento IS NULL) OR dv.documento = 5, dv.cantidad, dv.xfacturar)) AS ventas,
-                SUM(IF (v.documento = 5, dv.precio * -1, dv.precio) * IF((v.documento = 4 AND dv.documento IS NULL) OR dv.documento = 5, dv.cantidad, dv.xfacturar) - ((IFNULL(dv.descuento1, 0) + IFNULL(dv.descuento2, 0)) / dv.cantidad) * IF((v.documento = 4 AND dv.documento IS NULL) OR dv.documento = 5, dv.cantidad, dv.xfacturar) * v.tipocambio) AS subtotal,
-                SUM(IF(v.documento = 5, -1, 1) * ((IFNULL(dv.impuesto1, 0) + IFNULL(dv.impuesto2, 0) + IFNULL(dv.impuesto3, 0) + IFNULL(dv.impuesto4, 0)) / dv.cantidad) * IF((v.documento = 4 AND dv.documento IS NULL) OR dv.documento = 5, dv.cantidad, dv.xfacturar) * v.tipocambio) AS impuestos
-            FROM dventa dv
-                INNER JOIN venta v ON dv.fk_venta_detalle = v.sys_pk
+                IFNULL(SUM(v.tipocambio * IF(v.documento=5, -1, 1) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar)),0) AS ventas,
+                IFNULL(SUM(v.tipocambio * IF(v.documento=5, dv.precio * -1, dv.precio) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar) - ((IFNULL(dv.descuento1,0) + IFNULL(dv.descuento2,0)) / dv.cantidad) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar)),0) AS subtotal,
+                IFNULL(SUM(v.tipocambio * IF(v.documento=5, -1, 1) * ((IFNULL(dv.impuesto1,0) + IFNULL(dv.impuesto2,0) + IFNULL(dv.impuesto3,0) + IFNULL(dv.impuesto4,0)) / dv.cantidad) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar)),0) AS impuestos,
+                (IFNULL(SUM(v.tipocambio * IF(v.documento=5, dv.precio * -1, dv.precio) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar) - ((IFNULL(dv.descuento1,0) + IFNULL(dv.descuento2,0)) / dv.cantidad) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar)),0) +
+                IFNULL(SUM(v.tipocambio * IF(v.documento=5, -1, 1) * ((IFNULL(dv.impuesto1,0) + IFNULL(dv.impuesto2,0) + IFNULL(dv.impuesto3,0) + IFNULL(dv.impuesto4,0)) / dv.cantidad) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar)),0)) AS total
+            FROM venta v
+                INNER JOIN dventa dv ON dv.fk_venta_detalle = v.sys_pk
                 INNER JOIN producto p ON dv.iproducto = p.sys_pk
                 INNER JOIN linea l ON p.ilinea = l.sys_pk
                 INNER JOIN cliente c ON v.icliente = c.sys_pk
-            WHERE
-                v.statusadministrativo <> 99
-                AND l.clase BETWEEN 2 AND 6
-                AND (v.documento = 3 OR v.documento = 4 OR v.documento = 6 OR v.documento = 5)
+            WHERE (v.documento = 3 OR v.documento = 4 OR v.documento = 5 OR v.documento = 6)
+                AND v.statusadministrativo = 3
+                AND v.statusfinanciero <> 3
+                AND NOT (NOT v.aplicadoa IS NULL AND v.documento = 5)
                 /*AND (v.fecha >= @finicial AND v.fecha <= @ffinal)
                 AND (
                     IF(@icconsumo IS NULL, TRUE, v.icconsumo = @icconsumo)

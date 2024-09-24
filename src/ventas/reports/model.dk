@@ -23,8 +23,6 @@ module "Reportes de ventas:Report"
         do prepareDefaultReportData(db,data)
     }
 
-
-
     prepareDefaultReportData::&db,&data
     {
         using data
@@ -38,7 +36,6 @@ module "Reportes de ventas:Report"
             }
         }
     }
-
 
     VentasNetasTotales::&db,&params
     {
@@ -647,9 +644,6 @@ order by
         return data //retorna la data
         exception{ do catch() }
     }
-
-
-
 
     NotImplemented::&db,&params { do rise_error(404,"Reporte no implementado") }
 

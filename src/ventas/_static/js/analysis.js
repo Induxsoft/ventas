@@ -1,13 +1,27 @@
 let analysis =
 {
-    async init()
+    init()
     {
-        const chart_last_year_sales = document.getElementById("chart_last_year_sales");
-        const chart_sales_by_line = document.getElementById("chart_sales_by_line");
-        const chart_ten_top_sellers = document.getElementById("chart_ten_top_sellers");
-        const chart_ten_top_customers = document.getElementById("chart_ten_top_customers");
+        fetch("./?_svc=last-year-sales").then(response => response.json())
+        .then(data => this.print_chart_last_year_sales(data))
+        .catch(error => { console.log(error.message ?? JSON.stringify(error)) });
 
-        const last_year_sales = await this.getData("./?_svc=last-year-sales");
+        fetch("./?_svc=sales-by-line").then(response => response.json())
+        .then(data => this.print_chart_sales_by_line(data))
+        .catch(error => { console.log(error.message ?? JSON.stringify(error)) });
+
+        fetch("./?_svc=ten-top-sellers").then(response => response.json())
+        .then(data => this.print_chart_ten_top_sellers(data))
+        .catch(error => { console.log(error.message ?? JSON.stringify(error)) });
+
+        fetch("./?_svc=ten-top-customers").then(response => response.json())
+        .then(data => this.print_chart_ten_top_customers(data))
+        .catch(error => { console.log(error.message ?? JSON.stringify(error)) });
+    },
+
+    print_chart_last_year_sales(data) {
+        const chart_last_year_sales = document.getElementById("chart_last_year_sales");
+        const last_year_sales = data;
         document.getElementById("spinner-1").remove();
         new Chart(chart_last_year_sales, {
             type: "bar",
@@ -55,8 +69,11 @@ let analysis =
                 }
             }
         });
+    },
 
-        const sales_by_line = await this.getData("./?_svc=sales-by-line");
+    print_chart_sales_by_line(data) {
+        const chart_sales_by_line = document.getElementById("chart_sales_by_line");
+        const sales_by_line = data;
         document.getElementById("spinner-2").remove();
         new Chart(chart_sales_by_line, {
             type: "bar",
@@ -75,8 +92,11 @@ let analysis =
                 }
             }
         });
+    },
 
-        const ten_top_sellers = await this.getData("./?_svc=ten-top-sellers");
+    print_chart_ten_top_sellers(data) {
+        const chart_ten_top_sellers = document.getElementById("chart_ten_top_sellers");
+        const ten_top_sellers = data;
         document.getElementById("spinner-3").remove();
         new Chart(chart_ten_top_sellers, {
             type: "pie",
@@ -107,8 +127,11 @@ let analysis =
                 }
             }
         });
+    },
 
-        const ten_top_customers = await this.getData("./?_svc=ten-top-customers");
+    print_chart_ten_top_customers(data) {
+        const chart_ten_top_customers = document.getElementById("chart_ten_top_customers");
+        const ten_top_customers = data;
         document.getElementById("spinner-4").remove();
         new Chart(chart_ten_top_customers, {
             type: "pie",

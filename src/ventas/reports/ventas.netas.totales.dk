@@ -220,14 +220,14 @@ module "ventas netas totales"
                         for i = 0; i < list.count(data); i+1
                         {
                             ref obj = list.obj(data,i)
-                            ventas = ventas + @@(obj,'#ventas') //contador sumario
+                           // ventas = ventas + @@(obj,'#ventas') //contador sumario
                             subtotal = subtotal + @@(obj,'#Subtotal') //contador sumario
                             impuestos = impuestos + @@(obj,'#Impuestos')
                             total = total + @@(obj,'#total')
                             //if doc!=obj.aplicacion
                            // {
                                 #$
-                                tr(class="bg-light-gray")
+                                tr
                                 {
                                     td(class="" )
                                     {
@@ -245,7 +245,7 @@ module "ventas netas totales"
 
                                     td(class="text-end" )
                                     {
-                                        $"#<number_format(@@(obj,'$Ventas'))>"
+                                     $"#<number_format(@@(obj,'$Ventas'))>"
                                     }
 
                                    //agreamos la columa sumario
@@ -283,8 +283,8 @@ module "ventas netas totales"
                         tr(class="group-summary")
                         {
                             $""
-                            td(colspan="3"){""}
-                             td(class="text-end fw-bold"){$"$ #<number_format(ventas)>"}
+                            td(colspan="4"){""}
+                           // td(class="text-end fw-bold"){" #<number_format(ventas)>"}
                             td(class="text-end fw-bold"){$"$ #<number_format(subtotal)>"}
                             td(class="text-end fw-bold"){$"$ #<number_format(impuestos)>"}
                             td(class="text-end fw-bold"){$"$ #<number_format(total)>"}

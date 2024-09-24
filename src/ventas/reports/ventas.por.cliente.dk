@@ -232,11 +232,11 @@ module "ventas netas totales"
 
                                     #$
                                     tr{
-                                    td(colspan="3"){""}
+                                    td(colspan="4"){""}
                                     td(class="text-end fw-bold"){"Total"}
-                                    td(class="text-end fw-bold"){$"#<number_format(sub_ventas)>"}
+                                   // td(class="text-end fw-bold"){$"#<number_format(sub_ventas)>"}
                                     td(class="text-end fw-bold"){$"$ #<number_format(sub_subtotal)>"}
-                                    td(class="text-end fw-bold"){$"#<number_format(sub_impuestos)>"}
+                                    td(class="text-end fw-bold"){$"$ #<number_format(sub_impuestos)>"}
                                     td(class="text-end fw-bold"){$"#<number_format(sub_ttotal)>"}
                                     
                                     }
@@ -256,13 +256,13 @@ module "ventas netas totales"
                                 sys_pkc = @@(obj,"#pkc")
                             }
 
-                            sub_ventas = sub_ventas + @@(obj,'#ventas')
+                            //sub_ventas = sub_ventas + @@(obj,'#ventas')
                             sub_subtotal = sub_subtotal + @@(obj,'#subtotal')
                             sub_impuestos = sub_impuestos + @@(obj,'#impuestos')
                             sub_ttotal = sub_ttotal + @@(obj,'#total') 
 
                             #$
-                            tr(class="bg-light-gray")
+                            tr
                             {
                                // td(class="" ){$"#<@@(obj,'$nombre')>"}
                                 td(class="" ){$"#<@@(obj,'$codigo')>"}
@@ -272,8 +272,8 @@ module "ventas netas totales"
                                 td(class="text-end" ){$"#<number_format(@@(obj,'$ventas'))>"}
                                 //agreamos la columa sumario
                                 td(class="text-end"){$"$ #<number_format(@@(obj,'#subtotal'))>"}
-                                td(class="text-end"){$"#<number_format(@@(obj,'$impuestos'))>"}
-                                td(class="text-end"){$"#<number_format(@@(obj,'$total'))>"}
+                                td(class="text-end"){$"$ #<number_format(@@(obj,'$impuestos'))>"}
+                                td(class="text-end"){$"$ #<number_format(@@(obj,'$total'))>"}
                             }
                             #!
 
@@ -282,23 +282,23 @@ module "ventas netas totales"
                         if list.count(data) > 0 //pintamos el final de la tabla
                         {
                         
-                            ventas= ventas + sub_ventas 
+                           //ventas= ventas + sub_ventas 
                             subtotal= subtotal + sub_subtotal
                             impuestos= impuestos + sub_impuestos
                             total= total + sub_ttotal
                             
                             #$
                                     tr{
-                                    td(colspan="3"){""}
+                                    td(colspan="4"){""}
                                     td(class="text-end fw-bold"){"Total"}
-                                    td(class="text-end fw-bold"){$"#<number_format(sub_ventas)>"}
+                                    //td(class="text-end fw-bold"){$"#<number_format(sub_ventas)>"}
                                     td(class="text-end fw-bold"){$"$ #<number_format(sub_subtotal)>"}
-                                    td(class="text-end fw-bold"){$"#<number_format(sub_impuestos)>"}
-                                    td(class="text-end fw-bold"){$"#<number_format(sub_ttotal)>"}
+                                    td(class="text-end fw-bold"){$"$ #<number_format(sub_impuestos)>"}
+                                    td(class="text-end fw-bold"){$"$ #<number_format(sub_ttotal)>"}
                                     
                                     }
                                     #!
-                                    sub_ventas=0
+                                   // sub_ventas=0
                                     sub_subtotal=0
                                     sub_impuestos=0
                                     sub_ttotal=0
@@ -310,8 +310,8 @@ module "ventas netas totales"
                     tr(class="group-summary")
                         {
                             $""
-                            td(colspan="4"){""}
-                            td(class="text-end fw-bold"){$"$ #<number_format(ventas)>"}
+                            td(colspan="5"){""}
+                           // td(class="text-end fw-bold"){$"$ #<number_format(ventas)>"}
                             td(class="text-end fw-bold"){$"$ #<number_format(subtotal)>"}
                             td(class="text-end fw-bold"){$"$ #<number_format(impuestos)>"}
                             td(class="text-end fw-bold"){$"$ #<number_format(total)>"}

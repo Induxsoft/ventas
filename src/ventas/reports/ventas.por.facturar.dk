@@ -170,14 +170,14 @@ module "ventas por facturar"
                             total = total + @@(obj,'#total')
 
                                 #$
-                                tr(class="bg-light-gray")
+                                tr
                                 {
                                     td(class="" ){$"#<@@(obj,'$fecha')>"}
                                     td(class="" ){$"#<@@(obj,'$referencia')>"}
                                     td(class=""){$"#<@@(obj,'$nombre')>"}
-                                    td(class="text-end"){$"#<number_format(@@(obj,'$subtotal'))>"}
-                                    td(class="text-end"){$"#<number_format(@@(obj,'$impuestos'))>"}
-                                    td(class="text-end"){$"#<number_format(@@(obj,'$total'))>"}
+                                    td(class="text-end"){$"$#<number_format(@@(obj,'$subtotal'))>"}
+                                    td(class="text-end"){$"$#<number_format(@@(obj,'$impuestos'))>"}
+                                    td(class="text-end"){$"$#<number_format(@@(obj,'$total'))>"}
                                     td(class=""){$"#<@@(obj,'$formaPago')>"
                                     td(class=""){$"#<@@(obj,'$status')>"}
                                 }
