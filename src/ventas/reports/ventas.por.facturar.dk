@@ -26,7 +26,7 @@ module "ventas por facturar"
     new nav_config
     {
         @"title": "Ventas por Facturar"
-        @"urlexit": "javascript:window.history.back()"
+        @"urlexit":@VNT_LISTAR 
     }
 
     #$
@@ -79,7 +79,7 @@ module "ventas por facturar"
                         div(class="col-md-2")
                         {
                         span(class=" text-dark"){"C. Consumo"}
-                            select(class="form-control form-control-sm rounded-0" name="pkcconsumo" value="#<@('$parameters/pkcconsumo')>" title="C. Consumo")
+                            select(class="form-select form-select-sm rounded-0" name="pkcconsumo" value="#<@('$parameters/pkcconsumo')>" title="C. Consumo")
                             {
                                 option(value="*"){"Todos"}
                              #!
@@ -87,7 +87,7 @@ module "ventas por facturar"
                                     {
                                         ref obj = list.obj(consumo,i)
                                             #$
-                                            option(class="bg-light-gray" "#<ifstr(@@(obj,'#sys_pk')==@('#parameters/pkcconsumo'),'selected','')>"="true" value="#<@@(obj,'sys_pk')>") //llamamos la sys_pk que es la primary key
+                                            option("#<ifstr(@@(obj,'#sys_pk')==@('#parameters/pkcconsumo'),'selected','')>"="true" value="#<@@(obj,'sys_pk')>") //llamamos la sys_pk que es la primary key
                                             {
                                             "#<@@(obj,'descripcion')>"  //agregamos los datos de la descripcion al select
                                             }

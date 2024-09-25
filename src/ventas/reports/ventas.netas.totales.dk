@@ -32,7 +32,7 @@ module "ventas netas totales"
     new nav_config
     {
         @"title": "Ventas Netas Totales"
-        @"urlexit": "javascript:window.history.back()"
+        @"urlexit": @VNT_LISTAR 
     }
 
     #$
@@ -83,9 +83,10 @@ module "ventas netas totales"
                             div(class="col-md-2")
                             {
                             span(class=" text-dark"){"Línea"}
-                                select(class="form-control form-control-sm rounded-0" name="pklinea" value="#<@('$parameters/pklinea')>" title="Linea")
+                                select(class="form-select form-select-sm rounded-0" name="pklinea" value="#<@('$parameters/pklinea')>" title="Linea")
                                 {
-                                    option(value="*"){
+                                    option(value="*")
+                                    {
                                         "Todos"
                                     }
                                     #!
@@ -93,7 +94,7 @@ module "ventas netas totales"
                                         {
                                             ref obj = list.obj(linea,i)
                                                 #$
-                                                option(class="bg-light-gray" "#<ifstr(@@(obj,'#sys_pk')==@('#parameters/pklinea'),'selected','')>"="true" value="#<@@(obj,'sys_pk')>")
+                                                option("#<ifstr(@@(obj,'#sys_pk')==@('#parameters/pklinea'),'selected','')>"="true" value="#<@@(obj,'sys_pk')>")
                                                 {
                                                 "#<@@(obj,'descripcion')>"
                                                 }
@@ -105,7 +106,7 @@ module "ventas netas totales"
                             div(class="col-md-2")
                             {
                             span(class=" text-dark"){"Marca"}
-                                select(class="form-control form-control-sm rounded-0" name="pkmarca" value="#<@('$parameters/pkmarca')>" title="Marca")
+                                select(class="form-select form-select-sm rounded-0" name="pkmarca" value="#<@('$parameters/pkmarca')>" title="Marca")
                                 {   
                                     option(value="*"){
                                         "Todos"
@@ -115,7 +116,7 @@ module "ventas netas totales"
                                         {
                                             ref obj = list.obj(marca,i)
                                                 #$                            //codigo apar seleccionar en el selected
-                                                option(class="bg-light-gray" "#<ifstr(@@(obj,'#sys_pk')==@('#parameters/pkmarca'),'selected','')>"="true" value="#<@@(obj,'sys_pk')>")
+                                                option( "#<ifstr(@@(obj,'#sys_pk')==@('#parameters/pkmarca'),'selected','')>"="true" value="#<@@(obj,'sys_pk')>")
                                                 {
                                                 "#<@@(obj,'descripcion')>"
                                                 }
@@ -129,7 +130,7 @@ module "ventas netas totales"
                             {
                             span(class=" text-dark"){"C. Consumo"}
 
-                            select(class="form-control form-control-sm rounded-0" name="pkcconsumo" value="#<@('$parameters/pkcconsumo')>" title="CConsumo")
+                            select(class="form-select form-select-sm rounded-0" name="pkcconsumo" value="#<@('$parameters/pkcconsumo')>" title="CConsumo")
                                 {
                                   option(value="*"){
                                         "Todos"
@@ -139,7 +140,7 @@ module "ventas netas totales"
                                         {
                                             ref obj = list.obj(consumo,i)
                                                 #$
-                                                option(class="bg-light-gray" "#<ifstr(@@(obj,'#sys_pk')==@('#parameters/pkcconsumo'),'selected','')>"="true" value="#<@@(obj,'sys_pk')>") //llamamos la sys_pk que es la primary key
+                                                option("#<ifstr(@@(obj,'#sys_pk')==@('#parameters/pkcconsumo'),'selected','')>"="true" value="#<@@(obj,'sys_pk')>") //llamamos la sys_pk que es la primary key
                                                 {
                                                 "#<@@(obj,'descripcion')>"  //agregamos los datos de la descripcion al select
                                                 }
@@ -224,8 +225,7 @@ module "ventas netas totales"
                             subtotal = subtotal + @@(obj,'#Subtotal') //contador sumario
                             impuestos = impuestos + @@(obj,'#Impuestos')
                             total = total + @@(obj,'#total')
-                            //if doc!=obj.aplicacion
-                           // {
+
                                 #$
                                 tr
                                 {
@@ -256,27 +256,16 @@ module "ventas netas totales"
 
                                     td(class="text-end" )
                                     {
-                                        $"#<number_format(@@(obj,'$Impuestos'))>"
+                                        $"$ #<number_format(@@(obj,'$Impuestos'))>"
                                     }
 
                                     td(class="text-end")
                                     {
-                                        $"#<number_format(@@(obj,'$Total'))>"
+                                        $"$ #<number_format(@@(obj,'$Total'))>"
                                     }
                                 }
-                         //   }
                             #$
                         
-                        /*tr
-                            {
-                                td(class="text-center"){$"#<@@(obj,'$fapl')>"}
-                                td(class=""){$"#<@@(obj,'$origen')> (#<@@(obj,'$kapp')>)"}
-                                td(class="text-end"){$"$ #<number_format(@@(obj,'#bonificaciones'))>"}
-                                td(class="text-end"){$"$ #<number_format(@@(obj,'#pagos'))>"}
-                            }
-                            #!
-                            bonis=bonis+@@(obj,"#bonificaciones")
-                            pagos=pagos+@@(obj,"#pagos") */
                         }
                        
                         #$

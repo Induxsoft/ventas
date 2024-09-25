@@ -18,8 +18,6 @@ module "ventas netas totales"
     ref cliente= @("&./cliente")
     ref data = @("&./lista")// codigo para listar todos los datos de la 
 
-
-
     ref titles = ifnull(@("&./titles"),record.create())
 
     // aqui se cortan los decimales
@@ -28,7 +26,7 @@ module "ventas netas totales"
     new nav_config
     {
         @"title": " Acumulado de ventas por cliente "
-        @"urlexit": "javascript:window.history.back()"
+        @"urlexit": @VNT_LISTAR 
     }
 
     #$
@@ -78,7 +76,7 @@ module "ventas netas totales"
                            //aqui hacemos el llenado del select mediante la consulta a la base de datos
                             div(class="col-md-2"){
                             span(class=" text-dark"){"Cliente"}
-                                select(class="form-control form-control-sm rounded-0" name="pktcliente" value="#<@('$parameters/pktcliente')>" title="Cliente")
+                                select(class="form-select form-select-sm rounded-0" name="pktcliente" value="#<@('$parameters/pktcliente')>" title="Cliente")
                                 {
                                  option(value="*"){"Todos"}
                                     #!
@@ -86,7 +84,7 @@ module "ventas netas totales"
                                         {
                                             ref obj = list.obj(cliente,i)
                                                 #$
-                                                option(class="bg-light-gray" "#<ifstr(@@(obj,'#sys_pk')==@('#parameters/pktcliente'),'selected','')>"="true" value="#<@@(obj,'sys_pk')>")
+                                                option(class="" "#<ifstr(@@(obj,'#sys_pk')==@('#parameters/pktcliente'),'selected','')>"="true" value="#<@@(obj,'sys_pk')>")
                                                 {
                                                 "#<@@(obj,'nombre')>"
                                                 }

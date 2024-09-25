@@ -237,7 +237,7 @@ where
     )
     AND (
         
-        if(IFNULL(@pkalmacen,'*') = '*',TRUE, v.icconsumo = @pkcconsumo)
+        if(IFNULL(@pkcconsumo,'*') = '*',TRUE, v.icconsumo = @pkcconsumo)
         and if(IFNULL(@pklinea, '*') = '*',TRUE, p.ilinea = @pklinea) 
 
     )
@@ -417,96 +417,96 @@ order by
     do dbr.apps.action.grant("VD24")
 
     sql_acomulado_ventas_por_cliente = "SELECT
-    p.sys_pk,
-    c.codigo,
-    c.nombre,
-    sum(
-        v.tipocambio * if (v.documento = 5, dv.precio * -1, dv.precio) * if(
-            v.documento = 4
-            or v.documento = 5,
-            dv.cantidad,
-            dv.xfacturar
-        ) - (
-            (
-                ifnull(dv.descuento1, 0) + ifnull(dv.descuento2, 0)
-            ) / dv.cantidad
-        ) * if(
-            v.documento = 4
-            or v.documento = 5,
-            dv.cantidad,
-            dv.xfacturar
-        )
-    ) ventas,
-    sum(
-        v.tipocambio * if (v.documento = 5, -1, 1) * (
-            (
-                ifnull(dv.impuesto1, 0) + ifnull(dv.impuesto2, 0) + ifnull(dv.impuesto3, 0) + ifnull(dv.impuesto4, 0)
-            ) / dv.cantidad
-        ) * if(
-            v.documento = 4
-            or v.documento = 5,
-            dv.cantidad,
-            dv.xfacturar
-        )
-    ) impuestos,
-    sum(
-        v.tipocambio * if (v.documento = 5, dv.precio * -1, dv.precio) * if(
-            v.documento = 4
-            or v.documento = 5,
-            dv.cantidad,
-            dv.xfacturar
-        ) - (
-            (
-                ifnull(dv.descuento1, 0) + ifnull(dv.descuento2, 0)
-            ) / dv.cantidad
-        ) * if(
-            v.documento = 4
-            or v.documento = 5,
-            dv.cantidad,
-            dv.xfacturar
-        ) + v.tipocambio * if (v.documento = 5, -1, 1) * (
-            (
-                ifnull(dv.impuesto1, 0) + ifnull(dv.impuesto2, 0) + ifnull(dv.impuesto3, 0) + ifnull(dv.impuesto4, 0)
-            ) / dv.cantidad
-        ) * if(
-            v.documento = 4
-            or v.documento = 5,
-            dv.cantidad,
-            dv.xfacturar
-        )
-    ) total,
-    v.fecha
-FROM
-    dventa dv
-    inner join venta v on dv.fk_venta_detalle = v.sys_pk
-    inner join producto p on dv.iproducto = p.sys_pk
-    inner join cliente c on c.sys_pk = v.icliente
-where
-    v.statusadministrativo <> 99
-    and (
-        v.documento = 3
-        or v.documento = 4
-        or v.documento = 6
-        or v.documento = 5
-    )
-    and not (
-        not v.aplicadoa is null
-        and v.documento = 5
-    )
-    and v.statusfinanciero <> 3
-    and (
-        v.fecha >= @finicial
-        and v.fecha <= @ffinal
-    )
-    AND 
-    (
-        if(IFNULL(@pktcliente, '*') = '*',TRUE, c.tipo = @pktcliente)
-    )
+                                    p.sys_pk,
+                                    c.codigo,
+                                    c.nombre,
+                                    sum(
+                                        v.tipocambio * if (v.documento = 5, dv.precio * -1, dv.precio) * if(
+                                            v.documento = 4
+                                            or v.documento = 5,
+                                            dv.cantidad,
+                                            dv.xfacturar
+                                        ) - (
+                                            (
+                                                ifnull(dv.descuento1, 0) + ifnull(dv.descuento2, 0)
+                                            ) / dv.cantidad
+                                        ) * if(
+                                            v.documento = 4
+                                            or v.documento = 5,
+                                            dv.cantidad,
+                                            dv.xfacturar
+                                        )
+                                    ) ventas,
+                                    sum(
+                                        v.tipocambio * if (v.documento = 5, -1, 1) * (
+                                            (
+                                                ifnull(dv.impuesto1, 0) + ifnull(dv.impuesto2, 0) + ifnull(dv.impuesto3, 0) + ifnull(dv.impuesto4, 0)
+                                            ) / dv.cantidad
+                                        ) * if(
+                                            v.documento = 4
+                                            or v.documento = 5,
+                                            dv.cantidad,
+                                            dv.xfacturar
+                                        )
+                                    ) impuestos,
+                                    sum(
+                                        v.tipocambio * if (v.documento = 5, dv.precio * -1, dv.precio) * if(
+                                            v.documento = 4
+                                            or v.documento = 5,
+                                            dv.cantidad,
+                                            dv.xfacturar
+                                        ) - (
+                                            (
+                                                ifnull(dv.descuento1, 0) + ifnull(dv.descuento2, 0)
+                                            ) / dv.cantidad
+                                        ) * if(
+                                            v.documento = 4
+                                            or v.documento = 5,
+                                            dv.cantidad,
+                                            dv.xfacturar
+                                        ) + v.tipocambio * if (v.documento = 5, -1, 1) * (
+                                            (
+                                                ifnull(dv.impuesto1, 0) + ifnull(dv.impuesto2, 0) + ifnull(dv.impuesto3, 0) + ifnull(dv.impuesto4, 0)
+                                            ) / dv.cantidad
+                                        ) * if(
+                                            v.documento = 4
+                                            or v.documento = 5,
+                                            dv.cantidad,
+                                            dv.xfacturar
+                                        )
+                                    ) total,
+                                    v.fecha
+                                FROM
+                                    dventa dv
+                                    inner join venta v on dv.fk_venta_detalle = v.sys_pk
+                                    inner join producto p on dv.iproducto = p.sys_pk
+                                    inner join cliente c on c.sys_pk = v.icliente
+                                where
+                                    v.statusadministrativo <> 99
+                                    and (
+                                        v.documento = 3
+                                        or v.documento = 4
+                                        or v.documento = 6
+                                        or v.documento = 5
+                                    )
+                                    and not (
+                                        not v.aplicadoa is null
+                                        and v.documento = 5
+                                    )
+                                    and v.statusfinanciero <> 3
+                                    and (
+                                        v.fecha >= @finicial
+                                        and v.fecha <= @ffinal
+                                    )
+                                    AND 
+                                    (
+                                        if(IFNULL(@pktcliente, '*') = '*',TRUE, c.sys_pk = @pktcliente)
+                                    )
 
-GROUP BY
-    c.sys_pk
-order by
-    v.sys_pk;"
+                                GROUP BY
+                                    c.sys_pk
+                                order by
+                                    v.sys_pk;"
 
 
 

@@ -29,7 +29,7 @@ module "ventas por linea"
     new nav_config
     {
         @"title": "Ventas por Línea"
-        @"urlexit": "javascript:window.history.back()"
+        @"urlexit": @VNT_LISTAR 
     }
 
     #$
@@ -84,7 +84,7 @@ module "ventas por linea"
                             div(class="col-md-2")
                             {
                             span(class=" text-dark"){"C. Consumo"}
-                            select(class="form-control form-control-sm rounded-0" name="pkcconsumo" value="#<@('$parameters/pkcconsumo')>" title="C.Consumo")
+                            select(class="form-select form-select-sm rounded-0" name="pkcconsumo" value="#<@('$parameters/pkcconsumo')>" title="C.Consumo")
                                 {
                                     option(value="*"){"Todos"}
                                     #!
@@ -92,7 +92,7 @@ module "ventas por linea"
                                         {
                                             ref obj = list.obj(consumo,i)
                                                 #$
-                                                option(class="bg-light-gray" "#<ifstr(@@(obj,'#sys_pk')==@('#parameters/pkcconsumo'),'selected','')>"="true" value="#<@@(obj,'sys_pk')>")
+                                                option( "#<ifstr(@@(obj,'#sys_pk')==@('#parameters/pkcconsumo'),'selected','')>"="true" value="#<@@(obj,'sys_pk')>")
                                                 {
                                                 "#<@@(obj,'descripcion')>"
                                                 }
@@ -105,7 +105,7 @@ module "ventas por linea"
                            div(class="col-md-2")
                            {
                             span(class=" text-dark"){"Línea"}
-                            select(class="form-control form-control-sm rounded-0" name="pklinea" value="#<@('$parameters/pklinea')>" title="Línea")
+                            select(class="form-select form-select-sm rounded-0" name="pklinea" value="#<@('$parameters/pklinea')>" title="Línea")
                                 {
                                option(value="*"){"Todos"}
                                     #!
@@ -113,7 +113,7 @@ module "ventas por linea"
                                         {
                                             ref obj = list.obj(linea,i)
                                                 #$
-                                                option(class="bg-light-gray" "#<ifstr(@@(obj,'#sys_pk')==@('#parameters/pklinea'),'selected','')>"="true" value="#<@@(obj,'sys_pk')>")
+                                                option("#<ifstr(@@(obj,'#sys_pk')==@('#parameters/pklinea'),'selected','')>"="true" value="#<@@(obj,'sys_pk')>")
                                                 {
                                                 "#<@@(obj,'descripcion')>"
                                                 }
@@ -202,7 +202,7 @@ module "ventas por linea"
                                 {
                                     td(class=""){$"#<@@(obj,'$Codigo')>"}
                                     td(class="" ){$"#<@@(obj,'$Descripcion')>"}
-                                    td(class="text-end"){$"#<number_format(@@(obj,'$Importe'))>"}
+                                    td(class="text-end"){$"$ #<number_format(@@(obj,'$Importe'))>"}
                                 }
                         } 
                         
