@@ -1,0 +1,57 @@
+#include "dkli.dkh"
+#!
+program "Controlador de eventos de Cuentas por Cobrar"
+{
+    #include "functions.dkh"
+    #include "serialize.dkh"
+    #include "dbr.dkh"
+    #include "./lib.dk"
+
+    do @context.begin(@event_context)
+
+    ref db = @("&database")
+    ref params = @("&eventdata/parameters")
+    ref data = @("&eventdata/input")
+
+    // do dir.ensure("_tests/logs/")
+    switch @("$event")
+    {
+        case "pos_GB13"
+        {
+            // Pagar documento
+            // do file.wtext("_tests/logs/___pos_GB13_context.json", to.json(@event_context))
+            do SaldarVenta(db,@@(params,"#_entity_id"))
+            break
+        }
+        case "pos_GB14"
+        {
+            // Bonificar documento
+            // do file.wtext("_tests/logs/___pos_GB14_context.json", to.json(@event_context))
+            do SaldarVenta(db,@@(params,"#_entity_id"))
+            break
+        }
+        case "pos_GB15"
+        {
+            // IntMoratorios documento
+            // do file.wtext("_tests/logs/___pos_GB15_context.json", to.json(@event_context))
+            do SaldarVenta(db,@@(params,"#_entity_id"))
+            break
+        }
+        case "pos_GB16"
+        {
+            // Aplicar pagos
+            // do file.wtext("_tests/logs/___pos_GB16_context.json", to.json(@event_context))
+            do SaldarVenta(db,@("#eventdata/output/id_destino"))
+            break
+        }
+        case "pos_GB17"
+        {
+            // Desaplicar pagos
+            // do file.wtext("_tests/logs/___pos_GB17_context.json", to.json(@event_context))
+            do SaldarVenta(db,@("#eventdata/output/id_destino"))
+            break
+        }
+    }
+
+    do @context.end()
+}

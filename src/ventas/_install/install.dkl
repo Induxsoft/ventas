@@ -12,7 +12,6 @@ program "instalador"
         "cdocumentos.csv",
         "cfg_doc_ventas.csv",
         "cfg_doc_ventas_consolida.csv",
-        "cfgimpuesto.csv",
         "cformaspago.csv",
         "cstatusadministrativos.csv",
         "cstatusdetalleventa.csv",

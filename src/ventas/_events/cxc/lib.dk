@@ -1,0 +1,28 @@
+#include "dkli.dkh"
+#!
+module "CxC-Ventas"
+{
+    #include "ventas/_lib/config.dk"
+
+    function SaldarVenta(&db,idcxc)
+    {
+        new params
+        {
+            @"_entity_id": idcxc
+        }
+
+        sql_dcxc = "
+        SELECT
+            cxc.iventa,
+            IFNULL(SUM(IFNULL(cxc.debe,0)+IFNULL(cxc.intmoratorios,0)-IFNULL(cxc.pagos,0)-IFNULL(cxc.bonificaciones,0)),0) saldo
+        FROM dcxc cxc 
+        WHERE cxc.sys_pk = @_entity_id;
+        "
+        ref dcxc = dbr.rec(db,sql_dcxc,params)
+        
+        if @@(dcxc,"#saldo") == 0 { dcxc<"edofin"> : @stt_fin_saldado }
+        else { dcxc<"edofin"> : @stt_fin_con_adeudo }
+        
+        do dbr.execute(db,"UPDATE venta SET statusfinanciero = @edofin WHERE sys_pk = @iventa",dcxc)
+    }
+}
