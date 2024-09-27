@@ -26,7 +26,7 @@ let analysis =
         new Chart(chart_last_year_sales, {
             type: "bar",
             data: {
-                labels: ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"],
+                labels: last_year_sales.map(obj => obj.mes_desc),
                 datasets: [{
                     label: 'Monto',
                     data: last_year_sales.map(obj => obj.subtotal),

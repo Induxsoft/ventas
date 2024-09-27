@@ -9,8 +9,23 @@ module "Análisis de ventas :Analysis"
         // Ventas acumuladas a lo largo del último año
         sql = "
         SELECT
-            IFNULL(YEAR(v.fecha),@anio) anio,
-            IFNULL(MONTH(v.fecha),@mes) mes,
+            IFNULL(YEAR(v.fecha),@year) anio,
+            IFNULL(MONTH(v.fecha),@month) mes,
+            CASE IFNULL(@month,-1)
+                WHEN 1 THEN 'Enero'
+                WHEN 2 THEN 'Febrero'
+                WHEN 3 THEN 'Marzo'
+                WHEN 4 THEN 'Abril'
+                WHEN 5 THEN 'Mayo'
+                WHEN 6 THEN 'Junio'
+                WHEN 7 THEN 'Julio'
+                WHEN 8 THEN 'Agosto'
+                WHEN 9 THEN 'Septiembre'
+                WHEN 10 THEN 'Octubre'
+                WHEN 11 THEN 'Noviembre'
+                WHEN 12 THEN 'Diciembre'
+                ELSE 'Indeterminado'
+            END mes_desc,
             IFNULL(SUM(v.tipocambio * IF(v.documento=5, -1, 1) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar)),0) AS ventas,
             IFNULL(SUM(v.tipocambio * IF(v.documento=5, dv.precio * -1, dv.precio) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar) - ((IFNULL(dv.descuento1,0) + IFNULL(dv.descuento2,0)) / dv.cantidad) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar)),0) AS subtotal,
             IFNULL(SUM(v.tipocambio * IF(v.documento=5, -1, 1) * ((IFNULL(dv.impuesto1,0) + IFNULL(dv.impuesto2,0) + IFNULL(dv.impuesto3,0) + IFNULL(dv.impuesto4,0)) / dv.cantidad) * IF(v.documento=4 OR v.documento=5, dv.cantidad, dv.xfacturar)),0) AS impuestos,
@@ -30,18 +45,19 @@ module "Análisis de ventas :Analysis"
                 AND IF(@ilinea IS NULL, TRUE, p.ilinea = @ilinea)
                 AND IF(@imarca IS NULL, TRUE, p.imarca = @imarca)
             )*/
-            AND YEAR(v.fecha) = @anio AND MONTH(v.fecha) = @mes
+            AND YEAR(v.fecha) = @year AND MONTH(v.fecha) = @month
         #GROUP BY YEAR(v.fecha), MONTH(v.fecha)
         #ORDER BY v.fecha;
         "
 
         ref data = list.create()
-        for i = 1; i <= 12
+        for i = if(@curr_month < 12, (@curr_month-12), 1); i < @curr_month; i+1
         {
-            year = if((@curr_month-i) >= 0, @curr_year, (@curr_year - 1))
+            month = if(i < 0, (13+i), (i+1))
+            year = if(i < 0, (@curr_year - 1), @curr_year)
             
-            params<"anio"> : year
-            params<"mes"> : i
+            params<"year"> : year
+            params<"month"> : month
 
             do list.add(data,dbr.rec(db,sql,params))
         }
@@ -69,6 +85,7 @@ module "Análisis de ventas :Analysis"
                 AND v.statusadministrativo = 3
                 AND v.statusfinanciero <> 3
                 AND NOT (NOT v.aplicadoa IS NULL AND v.documento = 5)
+                AND (v.fecha >= STR_TO_DATE(CONCAT(YEAR(DATE_ADD(NOW(), INTERVAL -1 YEAR)),'-',LPAD(MONTH(DATE_ADD(NOW(), INTERVAL -1 YEAR)), 2, '00'),'-01'),'%Y-%m-%d') AND v.fecha <= NOW())
                 /*AND (v.fecha >= @finicial AND v.fecha <= @ffinal)
                 AND (
                     IF(@icconsumo IS NULL, TRUE, v.icconsumo = @icconsumo)
@@ -99,6 +116,7 @@ module "Análisis de ventas :Analysis"
                 AND v.statusadministrativo = 3
                 AND v.statusfinanciero <> 3
                 AND NOT (NOT v.aplicadoa IS NULL AND v.documento = 5)
+                AND (v.fecha >= STR_TO_DATE(CONCAT(YEAR(DATE_ADD(NOW(), INTERVAL -1 YEAR)),'-',LPAD(MONTH(DATE_ADD(NOW(), INTERVAL -1 YEAR)), 2, '00'),'-01'),'%Y-%m-%d') AND v.fecha <= NOW())
                 /*AND (v.fecha >= @finicial AND v.fecha <= @ffinal)
                 AND (
                     IF(@icconsumo IS NULL, TRUE, v.icconsumo = @icconsumo)
@@ -132,6 +150,7 @@ module "Análisis de ventas :Analysis"
                 AND v.statusadministrativo = 3
                 AND v.statusfinanciero <> 3
                 AND NOT (NOT v.aplicadoa IS NULL AND v.documento = 5)
+                AND (v.fecha >= STR_TO_DATE(CONCAT(YEAR(DATE_ADD(NOW(), INTERVAL -1 YEAR)),'-',LPAD(MONTH(DATE_ADD(NOW(), INTERVAL -1 YEAR)), 2, '00'),'-01'),'%Y-%m-%d') AND v.fecha <= NOW())
                 /*AND (v.fecha >= @finicial AND v.fecha <= @ffinal)
                 AND (
                     IF(@icconsumo IS NULL, TRUE, v.icconsumo = @icconsumo)
