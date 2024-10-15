@@ -834,7 +834,7 @@ module ":Venta"
                 document = @@(data,"#entity/documento")
                 cur_stt_adm = @@(data,"#entity/statusadministrativo")
                 
-                valid_document = (document == @cRemision || document == @cFactura || document == @cNotaCredito)
+                valid_document = (document == @cRemision || document == @cFactura || document == @cNotaCredito || document == @cTicket)
                 valid_status = (cur_stt_adm == @stt_adm_abierto || cur_stt_adm == @stt_adm_cerrado)
 
                 if cur_stt_adm == @stt_adm_cancelado { do rise_error(500,"No es posible continuar, el documento se encuentra cancelado.") }
