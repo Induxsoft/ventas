@@ -39,20 +39,14 @@ module "Reportes de ventas:Report"
 
     VentasNetasTotales::&db,&params
     {
-   //  do rise_error(99,to.json(params))
     do dbr.apps.action.grant("VD21")
 
-    //diccionario params con el parametro vacio
-    //if @@(params,"$pkmarca") == ""{//codigos para marca que envie un null
-    //    do field.remove(params,"pkmarca")
-    //} 
-    if @@(params,"$pklinea") == ""{//codigos para marca que envie un null
-        do field.remove(params,"pklinea")
-    } 
-    if @@(params,"$pkmarca") == ""{//codigos para marca que envie un null
-        do field.remove(params,"pkmarca")
-    } 
-    //    do print("hola")
+
+    if trim(@@(params,"$pklinea"))==""{params<"pklinea">:"*"}
+    if trim(@@(params,"$pkmarca"))==""{params<"pkmarca">:"*"}
+    if trim(@@(params,"$pkcconsumo"))==""{params<"pkcconsumo">:"*"}
+    if trim(@@(params,"$finicial"))==""{params<"finicial">:date_str(now(), "yyyy-MM-dd")}
+    if trim(@@(params,"$ffinal"))==""{params<"ffinal">:date_str(now(), "yyyy-MM-dd")}
 
     sql_ventas_netos_totales = "SELECT
     p.sys_pk,
@@ -187,9 +181,14 @@ GROUP BY
     VentasPorLinea::&db,&params
     {
    
-   // do rise_error(99,to.json(params))
+   
     do dbr.apps.action.grant("VD22")
 
+    if trim(@@(params,"$finicial"))==""{params<"finicial">:date_str(now(),"yyyy-MM-dd")}
+    if trim(@@(params,"$ffinal"))==""{params<"ffinal">:date_str(now(),"yyyy-MM-dd")}
+
+    if trim(@@(params,"$pkcconsumo"))==""{params<"pkcconsumo">:"*"}
+    if trim(@@(params,"$pklinea"))==""{params<"pklinea">:"*"}
 
     sql_ventas_por_linea = "SELECT
     l.sys_pk,
@@ -274,138 +273,138 @@ GROUP BY
 
     VentasPorcliente::&db,&params
     {
-    // do rise_error(99,to.json(params))
-    do dbr.apps.action.grant("VD23")
+        
+        do dbr.apps.action.grant("VD23")
 
-    if @@(params,"$pklinea") == ""{//codigos para marca que envie un null
-        do field.remove(params,"pklinea")
-    } 
-    if @@(params,"$pkmarca") == ""{//codigos para marca que envie un null
-        do field.remove(params,"pkmarca")
-    } 
+        if trim(@@(params,"$finicial"))==""{params<"finicial">:date_str(now(),"yyyy-MM-dd")}
+        if trim(@@(params,"$ffinal"))==""{params<"ffinal">:date_str(now(),"yyyy-MM-dd")}
+        if trim(@@(params,"$pkmarca"))==""{params<"pkmarca">:"*"}
+        if trim(@@(params,"$pklinea"))==""{params<"pklinea">:"*"}
+        if trim(@@(params,"$pkcconsumo"))==""{params<"pkcconsumo">:"*"}
 
+        sql_ventas_por_cliente = "SELECT
+        c.sys_pk AS pkc,
+        p.sys_pk,
+        c.nombre,
+        p.codigo,
+        v.referencia,
+        p.descripcion,
+        p.unidad,
+        v.tipocambio * if (v.documento = 5, -1, 1) * if(
+            v.documento = 4
+            or v.documento = 5,
+            dv.cantidad,
+            dv.xfacturar
+        ) ventas,
+        v.tipocambio * if (v.documento = 5, dv.precio * -1, dv.precio) * if(
+            v.documento = 4
+            or v.documento = 5,
+            dv.cantidad,
+            dv.xfacturar
+        ) - (
+            (
+                ifnull(dv.descuento1, 0) + ifnull(dv.descuento2, 0)
+            ) / dv.cantidad
+        ) * if(
+            v.documento = 4
+            or v.documento = 5,
+            dv.cantidad,
+            dv.xfacturar
+        ) subtotal,
+        v.tipocambio * if (v.documento = 5, -1, 1) * (
+            (
+                ifnull(dv.impuesto1, 0) + ifnull(dv.impuesto2, 0) + ifnull(dv.impuesto3, 0) + ifnull(dv.impuesto4, 0)
+            ) / dv.cantidad
+        ) * if(
+            v.documento = 4
+            or v.documento = 5,
+            dv.cantidad,
+            dv.xfacturar
+        ) impuestos,
+        v.tipocambio * if (v.documento = 5, dv.precio * -1, dv.precio) * if(
+            v.documento = 4
+            or v.documento = 5,
+            dv.cantidad,
+            dv.xfacturar
+        ) - (
+            (
+                ifnull(dv.descuento1, 0) + ifnull(dv.descuento2, 0)
+            ) / dv.cantidad
+        ) * if(
+            v.documento = 4
+            or v.documento = 5,
+            dv.cantidad,
+            dv.xfacturar
+        ) + v.tipocambio * if (v.documento = 5, -1, 1) * (
+            (
+                ifnull(dv.impuesto1, 0) + ifnull(dv.impuesto2, 0) + ifnull(dv.impuesto3, 0) + ifnull(dv.impuesto4, 0)
+            ) / dv.cantidad
+        ) * if(
+            v.documento = 4
+            or v.documento = 5,
+            dv.cantidad,
+            dv.xfacturar
+        ) total
+    FROM
+        dventa dv
+        inner join venta v on dv.fk_venta_detalle = v.sys_pk
+        inner join producto p on dv.iproducto = p.sys_pk
+        inner join cliente c on c.sys_pk = v.icliente
+    where
+        v.statusadministrativo <> 99
+        and (
+            v.documento = 3
+            or v.documento = 4
+            or v.documento = 6
+            or v.documento = 5
+        )
+        and not (
+            not v.aplicadoa is null
+            and v.documento = 5
+        )
+        and v.statusfinanciero <> 3
+        and (
+            v.fecha >= @finicial
+            and v.fecha <= @ffinal
+        )
+        AND (
 
-    sql_ventas_por_cliente = "SELECT
-    c.sys_pk AS pkc,
-    p.sys_pk,
-    c.nombre,
-    p.codigo,
-    v.referencia,
-    p.descripcion,
-    p.unidad,
-    v.tipocambio * if (v.documento = 5, -1, 1) * if(
-        v.documento = 4
-        or v.documento = 5,
-        dv.cantidad,
-        dv.xfacturar
-    ) ventas,
-    v.tipocambio * if (v.documento = 5, dv.precio * -1, dv.precio) * if(
-        v.documento = 4
-        or v.documento = 5,
-        dv.cantidad,
-        dv.xfacturar
-    ) - (
-        (
-            ifnull(dv.descuento1, 0) + ifnull(dv.descuento2, 0)
-        ) / dv.cantidad
-    ) * if(
-        v.documento = 4
-        or v.documento = 5,
-        dv.cantidad,
-        dv.xfacturar
-    ) subtotal,
-    v.tipocambio * if (v.documento = 5, -1, 1) * (
-        (
-            ifnull(dv.impuesto1, 0) + ifnull(dv.impuesto2, 0) + ifnull(dv.impuesto3, 0) + ifnull(dv.impuesto4, 0)
-        ) / dv.cantidad
-    ) * if(
-        v.documento = 4
-        or v.documento = 5,
-        dv.cantidad,
-        dv.xfacturar
-    ) impuestos,
-    v.tipocambio * if (v.documento = 5, dv.precio * -1, dv.precio) * if(
-        v.documento = 4
-        or v.documento = 5,
-        dv.cantidad,
-        dv.xfacturar
-    ) - (
-        (
-            ifnull(dv.descuento1, 0) + ifnull(dv.descuento2, 0)
-        ) / dv.cantidad
-    ) * if(
-        v.documento = 4
-        or v.documento = 5,
-        dv.cantidad,
-        dv.xfacturar
-    ) + v.tipocambio * if (v.documento = 5, -1, 1) * (
-        (
-            ifnull(dv.impuesto1, 0) + ifnull(dv.impuesto2, 0) + ifnull(dv.impuesto3, 0) + ifnull(dv.impuesto4, 0)
-        ) / dv.cantidad
-    ) * if(
-        v.documento = 4
-        or v.documento = 5,
-        dv.cantidad,
-        dv.xfacturar
-    ) total
-FROM
-    dventa dv
-    inner join venta v on dv.fk_venta_detalle = v.sys_pk
-    inner join producto p on dv.iproducto = p.sys_pk
-    inner join cliente c on c.sys_pk = v.icliente
-where
-    v.statusadministrativo <> 99
-    and (
-        v.documento = 3
-        or v.documento = 4
-        or v.documento = 6
-        or v.documento = 5
-    )
-    and not (
-        not v.aplicadoa is null
-        and v.documento = 5
-    )
-    and v.statusfinanciero <> 3
-    and (
-        v.fecha >= @finicial
-        and v.fecha <= @ffinal
-    )
-    AND (
-
-        if(IFNULL(@pkcconsumo, '*') = '*',TRUE, v.icconsumo = @pkcconsumo)
-        AND if(IFNULL(@pklinea, '*')= '*', TRUE, p.ilinea = @pklinea)
-        AND if(IFNULL(@pkmarca, '*')= '*', TRUE, p.imarca = @pkmarca) 
-    )
-GROUP BY
-    c.sys_pk,
-    v.referencia
-order by
-    c.sys_pk,
-    v.referencia;"
-
-
-    sql_pklinea = "SELECT * from linea;"
-    sql_pkmarca = "SELECT * from marca;"
-    sql_occonsumo = "SELECT * from cconsumo;"
+            if(IFNULL(@pkcconsumo, '*') = '*',TRUE, v.icconsumo = @pkcconsumo)
+            AND if(IFNULL(@pklinea, '*')= '*', TRUE, p.ilinea = @pklinea)
+            AND if(IFNULL(@pkmarca, '*')= '*', TRUE, p.imarca = @pkmarca) 
+        )
+    GROUP BY
+        c.sys_pk,
+        p.Sys_PK,
+        v.referencia
+    HAVING total > 0
+    order by
+        c.sys_pk,
+        v.referencia;"
 
 
-        conditions = ""
-        if not(field.exist(params,"fil_fcorte")) { params<"fil_fcorte"> : hoy("yyyy-MM-dd") }
-        if replace(@@(params,"$fil_tipo"),"*","") != "" { conditions = conditions + " AND z.tipo = @fil_tipo" }
+        sql_pklinea = "SELECT * from linea;"
+        sql_pkmarca = "SELECT * from marca;"
+        sql_occonsumo = "SELECT * from cconsumo;"
 
-        //este data sirve para usar consultas db
-        new data
-        {
-            @"linea*": dbr.list(db,sql_pklinea,params)//resive dos parametros
-            @"marca*": dbr.list(db,sql_pkmarca,params)//resive dos parametros
-            @"cconsumo*": dbr.list(db,sql_occonsumo,params)//resive dos parametros
-            @"lista*": dbr.list(db,ftext(sql_ventas_por_cliente),params)
-        }
 
-        do prepareView(db,params,data)
-        //retorna los datos de la consulta
-        return data //retorna la data
-        exception{ do catch() } 
+            conditions = ""
+            if not(field.exist(params,"fil_fcorte")) { params<"fil_fcorte"> : hoy("yyyy-MM-dd") }
+            if replace(@@(params,"$fil_tipo"),"*","") != "" { conditions = conditions + " AND z.tipo = @fil_tipo" }
+
+            //este data sirve para usar consultas db
+            new data
+            {
+                @"linea*": dbr.list(db,sql_pklinea,params)//resive dos parametros
+                @"marca*": dbr.list(db,sql_pkmarca,params)//resive dos parametros
+                @"cconsumo*": dbr.list(db,sql_occonsumo,params)//resive dos parametros
+                @"lista*": dbr.list(db,ftext(sql_ventas_por_cliente),params)
+            }
+
+            do prepareView(db,params,data)
+            //retorna los datos de la consulta
+            return data //retorna la data
+            exception{ do catch() } 
 
 
     }
@@ -413,236 +412,246 @@ order by
     AcumuladoDeVentasPorCliente::&db,&params
     {
 
-    // do rise_error(99,to.json(params))
-    do dbr.apps.action.grant("VD24")
+        do dbr.apps.action.grant("VD24")
+        
+        if trim(@@(params,"$finicial"))==""{params<"finicial">:date_str(now(),"yyyy-MM-dd")}
+        if trim(@@(params,"$ffinal"))==""{params<"ffinal">:date_str(now(),"yyyy-MM-dd")}
+        if trim(@@(params,"$pktcliente"))==""{params<"pktcliente">:"*"}
+        
 
-    sql_acomulado_ventas_por_cliente = "SELECT
-                                    p.sys_pk,
-                                    c.codigo,
-                                    c.nombre,
-                                    sum(
-                                        v.tipocambio * if (v.documento = 5, dv.precio * -1, dv.precio) * if(
-                                            v.documento = 4
-                                            or v.documento = 5,
-                                            dv.cantidad,
-                                            dv.xfacturar
-                                        ) - (
-                                            (
-                                                ifnull(dv.descuento1, 0) + ifnull(dv.descuento2, 0)
-                                            ) / dv.cantidad
-                                        ) * if(
-                                            v.documento = 4
-                                            or v.documento = 5,
-                                            dv.cantidad,
-                                            dv.xfacturar
+        sql_acomulado_ventas_por_cliente = "SELECT
+                                        p.sys_pk,
+                                        c.codigo,
+                                        c.nombre,
+                                        sum(
+                                            v.tipocambio * if (v.documento = 5, dv.precio * -1, dv.precio) * if(
+                                                v.documento = 4
+                                                or v.documento = 5,
+                                                dv.cantidad,
+                                                dv.xfacturar
+                                            ) - (
+                                                (
+                                                    ifnull(dv.descuento1, 0) + ifnull(dv.descuento2, 0)
+                                                ) / dv.cantidad
+                                            ) * if(
+                                                v.documento = 4
+                                                or v.documento = 5,
+                                                dv.cantidad,
+                                                dv.xfacturar
+                                            )
+                                        ) ventas,
+                                        sum(
+                                            v.tipocambio * if (v.documento = 5, -1, 1) * (
+                                                (
+                                                    ifnull(dv.impuesto1, 0) + ifnull(dv.impuesto2, 0) + ifnull(dv.impuesto3, 0) + ifnull(dv.impuesto4, 0)
+                                                ) / dv.cantidad
+                                            ) * if(
+                                                v.documento = 4
+                                                or v.documento = 5,
+                                                dv.cantidad,
+                                                dv.xfacturar
+                                            )
+                                        ) impuestos,
+                                        sum(
+                                            v.tipocambio * if (v.documento = 5, dv.precio * -1, dv.precio) * if(
+                                                v.documento = 4
+                                                or v.documento = 5,
+                                                dv.cantidad,
+                                                dv.xfacturar
+                                            ) - (
+                                                (
+                                                    ifnull(dv.descuento1, 0) + ifnull(dv.descuento2, 0)
+                                                ) / dv.cantidad
+                                            ) * if(
+                                                v.documento = 4
+                                                or v.documento = 5,
+                                                dv.cantidad,
+                                                dv.xfacturar
+                                            ) + v.tipocambio * if (v.documento = 5, -1, 1) * (
+                                                (
+                                                    ifnull(dv.impuesto1, 0) + ifnull(dv.impuesto2, 0) + ifnull(dv.impuesto3, 0) + ifnull(dv.impuesto4, 0)
+                                                ) / dv.cantidad
+                                            ) * if(
+                                                v.documento = 4
+                                                or v.documento = 5,
+                                                dv.cantidad,
+                                                dv.xfacturar
+                                            )
+                                        ) total,
+                                        v.fecha
+                                    FROM
+                                        dventa dv
+                                        inner join venta v on dv.fk_venta_detalle = v.sys_pk
+                                        inner join producto p on dv.iproducto = p.sys_pk
+                                        inner join cliente c on c.sys_pk = v.icliente
+                                    where
+                                        v.statusadministrativo <> 99
+                                        and (
+                                            v.documento = 3
+                                            or v.documento = 4
+                                            or v.documento = 6
+                                            or v.documento = 5
                                         )
-                                    ) ventas,
-                                    sum(
-                                        v.tipocambio * if (v.documento = 5, -1, 1) * (
-                                            (
-                                                ifnull(dv.impuesto1, 0) + ifnull(dv.impuesto2, 0) + ifnull(dv.impuesto3, 0) + ifnull(dv.impuesto4, 0)
-                                            ) / dv.cantidad
-                                        ) * if(
-                                            v.documento = 4
-                                            or v.documento = 5,
-                                            dv.cantidad,
-                                            dv.xfacturar
+                                        and not (
+                                            not v.aplicadoa is null
+                                            and v.documento = 5
                                         )
-                                    ) impuestos,
-                                    sum(
-                                        v.tipocambio * if (v.documento = 5, dv.precio * -1, dv.precio) * if(
-                                            v.documento = 4
-                                            or v.documento = 5,
-                                            dv.cantidad,
-                                            dv.xfacturar
-                                        ) - (
-                                            (
-                                                ifnull(dv.descuento1, 0) + ifnull(dv.descuento2, 0)
-                                            ) / dv.cantidad
-                                        ) * if(
-                                            v.documento = 4
-                                            or v.documento = 5,
-                                            dv.cantidad,
-                                            dv.xfacturar
-                                        ) + v.tipocambio * if (v.documento = 5, -1, 1) * (
-                                            (
-                                                ifnull(dv.impuesto1, 0) + ifnull(dv.impuesto2, 0) + ifnull(dv.impuesto3, 0) + ifnull(dv.impuesto4, 0)
-                                            ) / dv.cantidad
-                                        ) * if(
-                                            v.documento = 4
-                                            or v.documento = 5,
-                                            dv.cantidad,
-                                            dv.xfacturar
+                                        and v.statusfinanciero <> 3
+                                        and (
+                                            v.fecha >= @finicial
+                                            and v.fecha <= @ffinal
                                         )
-                                    ) total,
-                                    v.fecha
-                                FROM
-                                    dventa dv
-                                    inner join venta v on dv.fk_venta_detalle = v.sys_pk
-                                    inner join producto p on dv.iproducto = p.sys_pk
-                                    inner join cliente c on c.sys_pk = v.icliente
-                                where
-                                    v.statusadministrativo <> 99
-                                    and (
-                                        v.documento = 3
-                                        or v.documento = 4
-                                        or v.documento = 6
-                                        or v.documento = 5
-                                    )
-                                    and not (
-                                        not v.aplicadoa is null
-                                        and v.documento = 5
-                                    )
-                                    and v.statusfinanciero <> 3
-                                    and (
-                                        v.fecha >= @finicial
-                                        and v.fecha <= @ffinal
-                                    )
-                                    AND 
-                                    (
-                                        if(IFNULL(@pktcliente, '*') = '*',TRUE, c.sys_pk = @pktcliente)
-                                    )
+                                        AND 
+                                        (
+                                            if(IFNULL(@pktcliente, '*') = '*',TRUE, c.sys_pk = @pktcliente)
+                                        )
 
-                                GROUP BY
-                                    c.sys_pk
-                                order by
-                                    v.sys_pk;"
+                                    GROUP BY
+                                        c.sys_pk
+                                    order by
+                                        v.sys_pk;"
 
 
 
-        sql_pkcliente = "SELECT * from cliente;"
+            sql_pkcliente = "SELECT * from cliente;"
 
 
-        conditions = ""
-        if not(field.exist(params,"fil_fcorte")) { params<"fil_fcorte"> : hoy("yyyy-MM-dd") }
-        if replace(@@(params,"$fil_tipo"),"*","") != "" { conditions = conditions + " AND z.tipo = @fil_tipo" }
+            conditions = ""
+            if not(field.exist(params,"fil_fcorte")) { params<"fil_fcorte"> : hoy("yyyy-MM-dd") }
+            if replace(@@(params,"$fil_tipo"),"*","") != "" { conditions = conditions + " AND z.tipo = @fil_tipo" }
 
-        //este data sirve para usar consultas db
-        new data
-        {
-            // para acceder y * para regresar los valores
-            @"cliente*": dbr.list(db,sql_pkcliente,params)//resive dos parametros
-            @"lista*": dbr.list(db,ftext(sql_acomulado_ventas_por_cliente),params) 
-        }
-    
-        do prepareView(db,params,data)
-        //retorna los datos de la consulta
-        return data //retorna la data
-        exception{ do catch() }
+            //este data sirve para usar consultas db
+            new data
+            {
+                // para acceder y * para regresar los valores
+                @"cliente*": dbr.list(db,sql_pkcliente,params)//resive dos parametros
+                @"lista*": dbr.list(db,ftext(sql_acomulado_ventas_por_cliente),params) 
+            }
+        
+            do prepareView(db,params,data)
+            //retorna los datos de la consulta
+            return data //retorna la data
+            exception{ do catch() }
     }
     
 
     VentasPorFacturar::&db,&params
     {
 
-    // do rise_error(99,to.json(params))
-    do dbr.apps.action.grant("VD25")
+            do dbr.apps.action.grant("VD25")
 
-    sql_ventas_por_facturar = "SELECT
-    p.sys_pk,
-    v.fecha,
-    v.referencia,
-    c.nombre,
-    v.tipocambio * if (v.documento = 5, dv.precio * -1, dv.precio) * if(
-        v.documento = 4
-        or v.documento = 5,
-        dv.cantidad,
-        dv.xfacturar
-    ) - (
-        (
-            ifnull(dv.descuento1, 0) + ifnull(dv.descuento2, 0)
-        ) / dv.cantidad
-    ) * if(
-        v.documento = 4
-        or v.documento = 5,
-        dv.cantidad,
-        dv.xfacturar
-    ) subtotal,
-    v.tipocambio * if (v.documento = 5, -1, 1) * (
-        (
-            ifnull(dv.impuesto1, 0) + ifnull(dv.impuesto2, 0) + ifnull(dv.impuesto3, 0) + ifnull(dv.impuesto4, 0)
-        ) / dv.cantidad
-    ) * if(
-        v.documento = 4
-        or v.documento = 5,
-        dv.cantidad,
-        dv.xfacturar
-    ) impuestos,
-    v.tipocambio * if (v.documento = 5, dv.precio * -1, dv.precio) * if(
-        v.documento = 4
-        or v.documento = 5,
-        dv.cantidad,
-        dv.xfacturar
-    ) - (
-        (
-            ifnull(dv.descuento1, 0) + ifnull(dv.descuento2, 0)
-        ) / dv.cantidad
-    ) * if(
-        v.documento = 4
-        or v.documento = 5,
-        dv.cantidad,
-        dv.xfacturar
-    ) + v.tipocambio * if (v.documento = 5, -1, 1) * (
-        (
-            ifnull(dv.impuesto1, 0) + ifnull(dv.impuesto2, 0) + ifnull(dv.impuesto3, 0) + ifnull(dv.impuesto4, 0)
-        ) / dv.cantidad
-    ) * if(
-        v.documento = 4
-        or v.documento = 5,
-        dv.cantidad,
-        dv.xfacturar
-    ) total,
-    cf.const as formapago,
-    cs.const as status
-FROM
-    dventa dv
-    inner join venta v on dv.fk_venta_detalle = v.sys_pk
-    inner join cstatusadministrativos cs on v.statusadministrativo = cs.id
-    inner join cformaspago cf on v.formapago = cf.id
-    inner join producto p on dv.iproducto = p.sys_pk
-    inner join cliente c on c.sys_pk = v.icliente
-where
-    v.statusadministrativo <> 99
-    and (
-        v.documento = 3
-        or v.documento = 6
-    )
-    and not (
-        not v.aplicadoa is null
-        and v.documento = 5
-    )
-    and v.statusfinanciero <> 3
-    and (
-        v.fecha >= @finicial
-        and v.fecha <= @ffinal
-    )
-    AND (
-        if(IFNULL(@pkcconsumo, '*') = '*',TRUE, v.icconsumo = @pkcconsumo)
-    )
-order by
-    v.sys_pk;"
+            if trim(@@(params,"$finicial"))==""{params<"finicial">:date_str(now(),"yyyy-MM-dd")}
+            if trim(@@(params,"$ffinal"))==""{params<"ffinal">:date_str(now(),"yyyy-MM-dd")}
+            if trim(@@(params,"$pkcconsumo"))==""{params<"pkcconsumo">:"*"}
+
+            sql_ventas_por_facturar = "SELECT
+            p.sys_pk,
+            v.fecha,
+            v.referencia,
+            c.nombre,
+            sum(v.tipocambio * if (v.documento = 5, dv.precio * -1, dv.precio) * if(
+                v.documento = 4
+                or v.documento = 5,
+                dv.cantidad,
+                dv.xfacturar
+            ) - (
+                (
+                    ifnull(dv.descuento1, 0) + ifnull(dv.descuento2, 0)
+                ) / dv.cantidad
+            ) * if(
+                v.documento = 4
+                or v.documento = 5,
+                dv.cantidad,
+                dv.xfacturar
+            )) subtotal,
+            sum(v.tipocambio * if (v.documento = 5, -1, 1) * (
+                (
+                    ifnull(dv.impuesto1, 0) + ifnull(dv.impuesto2, 0) + ifnull(dv.impuesto3, 0) + ifnull(dv.impuesto4, 0)
+                ) / dv.cantidad
+            ) * if(
+                v.documento = 4
+                or v.documento = 5,
+                dv.cantidad,
+                dv.xfacturar
+            )) impuestos,
+            sum(v.tipocambio * if (v.documento = 5, dv.precio * -1, dv.precio) * if(
+                v.documento = 4
+                or v.documento = 5,
+                dv.cantidad,
+                dv.xfacturar
+            ) - (
+                (
+                    ifnull(dv.descuento1, 0) + ifnull(dv.descuento2, 0)
+                ) / dv.cantidad
+            ) * if(
+                v.documento = 4
+                or v.documento = 5,
+                dv.cantidad,
+                dv.xfacturar
+            ) + v.tipocambio * if (v.documento = 5, -1, 1) * (
+                (
+                    ifnull(dv.impuesto1, 0) + ifnull(dv.impuesto2, 0) + ifnull(dv.impuesto3, 0) + ifnull(dv.impuesto4, 0)
+                ) / dv.cantidad
+            ) * if(
+                v.documento = 4
+                or v.documento = 5,
+                dv.cantidad,
+                dv.xfacturar
+            )) total,
+            cf.const as formapago,
+            cs.const as status
+        FROM
+            dventa dv
+            inner join venta v on dv.fk_venta_detalle = v.sys_pk
+            inner join cstatusadministrativos cs on v.statusadministrativo = cs.id
+            inner join cformaspago cf on v.formapago = cf.id
+            inner join producto p on dv.iproducto = p.sys_pk
+            inner join cliente c on c.sys_pk = v.icliente
+        where
+            v.statusadministrativo <> 99
+            and (
+                v.documento = 3
+                or v.documento = 6
+            )
+            and not (
+                not v.aplicadoa is null
+                and v.documento = 5
+            )
+            and v.statusfinanciero <> 3
+            and (
+                v.fecha >= @finicial
+                and v.fecha <= @ffinal
+            )
+            AND (
+                if(IFNULL(@pkcconsumo, '*') = '*',TRUE, v.icconsumo = @pkcconsumo)
+            )
+        GROUP BY 
+            v.referencia
+        HAVING total > 0
+        order by
+            v.sys_pk"
 
 
 
-        sql_consumo = "SELECT * from cconsumo;"
+                sql_consumo = "SELECT * from cconsumo;"
 
 
-        conditions = ""
-        if not(field.exist(params,"fil_fcorte")) { params<"fil_fcorte"> : hoy("yyyy-MM-dd") }
-        if replace(@@(params,"$fil_tipo"),"*","") != "" { conditions = conditions + " AND z.tipo = @fil_tipo" }
+                conditions = ""
+                if not(field.exist(params,"fil_fcorte")) { params<"fil_fcorte"> : hoy("yyyy-MM-dd") }
+                if replace(@@(params,"$fil_tipo"),"*","") != "" { conditions = conditions + " AND z.tipo = @fil_tipo" }
 
-        //este data sirve para usar consultas db
-        new data
-        {
-            // para acceder y * para regresar los valores
-            @"cconsumo*": dbr.list(db,sql_consumo,params)//resive dos parametros
-            @"lista*": dbr.list(db,ftext(sql_ventas_por_facturar),params) 
-        }
-    
-        do prepareView(db,params,data)
-        //retorna los datos de la consulta
-        return data //retorna la data
-        exception{ do catch() }
+                //este data sirve para usar consultas db
+                new data
+                {
+                    // para acceder y * para regresar los valores
+                    @"cconsumo*": dbr.list(db,sql_consumo,params)//resive dos parametros
+                    @"lista*": dbr.list(db,ftext(sql_ventas_por_facturar),params) 
+                }
+            
+                do prepareView(db,params,data)
+                //retorna los datos de la consulta
+                return data //retorna la data
+                exception{ do catch() }
     }
 
     NotImplemented::&db,&params { do rise_error(404,"Reporte no implementado") }
