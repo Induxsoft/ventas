@@ -45,6 +45,7 @@ module "Lista de consultas MySQL"
     SELECT
         vnt.sys_pk,
         vnt.sys_recver,
+        vnt.sys_guid,
         vnt.documento,
         vnt.referencia,
         DATE_FORMAT(vnt.fecha,'%Y-%m-%d') AS fecha,

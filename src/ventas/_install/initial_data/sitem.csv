@@ -17,3 +17,5 @@ VD24,Acumulado de Ventas por cliente,ventas.reports
 VD25,Ventas por Facturar,ventas.reports
 ventas.analisis,Análisis de ventas,ventas
 VD30,Análisis de ventas,ventas.analisis
+VD40,Ver mensajes,ventas.venta
+VD41,Publicar mensajes,ventas.venta

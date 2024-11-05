@@ -152,7 +152,7 @@ module "form.dk"
         @"print_mode": 1 // 0-window.print(), 1-v12PrintHTML()
         member @"hidden" { @"print": if(@enable_editing, @true, @false) }
     }
-
+    // do rise_error(0,to.json(@("&.")))
     #$ div(class="container-lg" id="view")
     {
         link(href="#<@CSS_MAIN>" rel="stylesheet")
@@ -598,6 +598,9 @@ module "form.dk"
                 venta.enable_lotes = #<@enable_lotes>;
                 venta.enable_series = #<@enable_series>;
                 venta.init();
+
+                _bitacora._url="#<@URL_BITACORA>";
+                _bitacora.EnableLog("#<@@(entity,"$sys_guid")>");
             });
         '}
     }
