@@ -1,6 +1,6 @@
 "sys_guid","sys_dtcreated","sys_timestamp","sys_info","sys_user","sys_lastuser","sys_exported","sys_dtexported","sys_recver","sys_deleted","sys_lock","codigo","descripcion","codcuenta","pmensual","tipo","padre","uf_inhabilitado","uf_fechainhabilitacion"
 
-f92cce74c29649c3a1cbc692a9f75e3b,"2024-08-17 14:00:00","2024-08-17 14:00:00",\0,\0,\0,\0,\0,0,0,\0,VDC01,Cobro de venta al contado,\0,0.00,1,\0,\0,\0
-6ccad497733944bfadbfb1a29af56a1d,"2024-08-17 14:00:00","2024-08-17 14:00:00",\0,\0,\0,\0,\0,0,0,\0,VDC02,Salida por ventas,\0,0.00,3,\0,\0,\0
-50ce9ac6db844a48bf6fc649932d55eb,"2024-08-17 14:00:00","2024-08-17 14:00:00",\0,\0,\0,\0,\0,0,0,\0,VDC03,Entrada por devolución de ventas,\0,0.00,3,\0,\0,\0
-50bc50a08cd1492aba39e0960e17d573,"2024-08-17 14:00:00","2024-08-17 14:00:00",\0,\0,\0,\0,\0,0,0,\0,VDC04,Egreso de efectivo por devolución de ventas,\0,0.00,2,\0,\0,\0
+f92cce74c29649c3a1cbc692a9f75e3b,"2024-08-17 14:00:00","2024-08-17 14:00:00",\0,\0,\0,\0,\0,0,\0,\0,VDC01,Cobro de venta al contado,\0,0.00,1,\0,\0,\0
+6ccad497733944bfadbfb1a29af56a1d,"2024-08-17 14:00:00","2024-08-17 14:00:00",\0,\0,\0,\0,\0,0,\0,\0,VDC02,Salida por ventas,\0,0.00,3,\0,\0,\0
+50ce9ac6db844a48bf6fc649932d55eb,"2024-08-17 14:00:00","2024-08-17 14:00:00",\0,\0,\0,\0,\0,0,\0,\0,VDC03,Entrada por devolución de ventas,\0,0.00,3,\0,\0,\0
+50bc50a08cd1492aba39e0960e17d573,"2024-08-17 14:00:00","2024-08-17 14:00:00",\0,\0,\0,\0,\0,0,\0,\0,VDC04,Egreso de efectivo por devolución de ventas,\0,0.00,2,\0,\0,\0
