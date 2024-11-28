@@ -182,6 +182,18 @@
                         "keyfield":"val"
                     }
                 }
+            },
+            {
+                "varname": "v12.ventas.cliente",
+                "vardefault": "(PG)",
+                "varvalue": "(PG)",
+                "varcaption": "Cliente predeterminado",
+                "varhelp": "ID del cliente predeterminado que se usará para vender",
+                "vartype": "text",
+                "varinput": 
+                {
+                    "control": "text"
+                }
             }
         ]
     }

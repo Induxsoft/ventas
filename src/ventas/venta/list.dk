@@ -172,6 +172,20 @@ module "list.dk"
             }
         }
         @"table_footer": "Mostrando los primeros # registros"
+        @"control_styles": '
+            @media print {
+                table {
+                    table-layout:auto;
+                    width:100%;
+                }
+                th {
+                    font-size:.9rem;
+                }
+                td {
+                    font-size:.8rem;
+                }
+            }
+        '
     }
 
     new nav_config
@@ -187,6 +201,15 @@ module "list.dk"
 
     #$ div(class="container-fluid v12-list-view" id="view")
     {
+        /* style
+        {$'
+            @media print {
+                @page {
+                    size: A4 landscape;
+                }
+            }
+        '} */
+
         section(class="" id="top_area")
         {
             #!
