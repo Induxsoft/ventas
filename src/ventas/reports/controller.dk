@@ -4,13 +4,12 @@ module "ReportController"
 {
     switch @@(@http_context,"$request/get/_entity_id")
     {
-        case "ventas-netas-totales" //este es el link de la url
+        case "ventas-netas-totales"
         {
-            @form_view = "ventas.netas.totales.dk" // iniciar llamar la vista
-            point @read to Report.VentasNetasTotales //inciamos el modelo con el query
+            @form_view = "ventas.netas.totales.dk"
+            point @read to Report.VentasNetasTotales
             break
         }
-  
         case "ventas-por-linea"
         {
             @form_view = "ventas.por.linea.dk"
@@ -23,21 +22,18 @@ module "ReportController"
             point @read to Report.VentasPorcliente 
             break
         }
-
-      case "acumulado-de-ventas-por-cliente"
+        case "acumulado-de-ventas-por-cliente"
         {
             @form_view = "acumulado.de.ventas.por.cliente.dk" 
             point @read to Report.AcumuladoDeVentasPorCliente 
             break
         }
-
-         case "ventas-por-facturar"
+        case "ventas-por-facturar"
         {
             @form_view = "ventas.por.facturar.dk" 
             point @read to Report.VentasPorFacturar 
             break
-        }  
-        
+        }
         /*
         case "ventas-brutas-por-cliente"
         {
@@ -45,7 +41,6 @@ module "ReportController"
             point @read to Report.VentasBrutasPorcliente
             break
         }*/
-
         default
         {
             point @read to Report.NotImplemented
