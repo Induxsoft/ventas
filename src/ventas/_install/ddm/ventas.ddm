@@ -299,41 +299,13 @@ model "erp.ventas"
         // @"ibanco" ref:"banco"
         @"idivisa" ref:"divisa" required
     }
-    // Datos de un cliente
+    /* uod.cliente */
     entity "cliente" : "TableModel"
     {
-        @"codcuenta" string(50) unique
         @"codigo" string(35) unique required
-        @"curp" string(25) unique
-        @"descuento" decimal(19,8)
-        @"diascredito" int
-        @"email" string(80)
-        @"fax" string(150)
-        @"limitecredito" decimal(19,8)
-        @"monedero" decimal(19,8)
         @"nombre" string(150) unique required
-        @"notas" memo
-        @"precio" decimal(19,8)
-        @"puntos" decimal(19,8)
-        @"rfc" string(15)
-        @"saldo" decimal(19,8)
-        @"saldopuntos" decimal(19,8)
-        @"status" ref:"cstatusorg"
-        @"telefonos" string(150)
-        @"website" string(150)
-        @"agente" ref:"agente"
-        @"contacto1" ref:"contacto"
-        @"contacto2" ref:"contacto"
-        @"contacto3" ref:"contacto"
-        @"domicilio1" ref:"domicilio"
-        @"domicilio2" ref:"domicilio"
-        @"domicilio3" ref:"domicilio"
-        @"idivisa" ref:"divisa"  required
-        @"tipo" ref:"tipocliente" required
-        @"zona" ref:"zona"
-        @"uf_sys_baja" bool
-        @"uf_addenda" bool
-        @"regfiscal" string(3)
+        @"idivisa" int ref:"divisa" ["sys_pk"] required
+        @"tipo" int ref:"tipocliente" ["sys_pk"] required
     }
     // Datos de un proveedor
     entity "proveedor" : "TableModel"
