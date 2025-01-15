@@ -151,7 +151,7 @@ module "form.procesar.dk"
             #include "./includes/frm.prcsr.devolucion.dk"
             ##
         }
-        #! else if @@(amounts,"#total") > 0
+        #! else if @@(amounts,"#total") > 0 || @@(entity,"#saldo") > 0
         {
             #$
             div(class="row mb-4")

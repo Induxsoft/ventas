@@ -152,7 +152,6 @@ module "form.dk"
         @"print_mode": 1 // 0-window.print(), 1-v12PrintHTML()
         member @"hidden" { @"print": if(@enable_editing, @true, @false) }
     }
-    // do rise_error(0,to.json(@("&.")))
     #$ div(class="container-lg" id="view")
     {
         link(href="#<@CSS_MAIN>" rel="stylesheet")
@@ -555,9 +554,9 @@ module "form.dk"
             {
                 "input-key"(id="ik_producto" "data-key"="sys_pk" "data-search"="codigo" "data-text"="descripcion" "data-source"="#<@URL_BUSCAR_PRODUCTO>" columns="codigo,descripcion,divisa" colcaptions="Código,Descripción,Divisa" "box-title-text"="Seleccione un producto de la lista" "hidden-input"="false" "control-styles"="#container{display:none !important;}"){$""}
 
-                "input-key"(id="ik_lot_prod" "data-key"="sys_pk" "data-search"="numero" "data-text"="fcaducidad" "data-source"="#<@URL_OBTENER_LOTES_DE_PRODUCTO>" columns="numero,cantidad,fcaducidad" colcaptions="Número,Cantidad,F.Caducidad" "hidden-input"="false" "control-styles"="#container{display:none !important;}"){$""}
+                "input-key"(id="ik_lot_prod" "data-key"="ilote" "data-search"="numero" "data-text"="fcaducidad" "data-source"="#<@URL_OBTENER_LOTES_DE_PRODUCTO>" columns="numero,cantidad,fcaducidad" colcaptions="Número,Cantidad,F.Caducidad" "hidden-input"="false" "control-styles"="#container{display:none !important;}"){$""}
 
-                "input-key"(id="ik_ser_prod" "data-key"="sys_pk" "data-search"="numero" "data-text"="cstatus" "data-source"="#<@URL_OBTENER_SERIES_DE_PRODUCTO>" columns="numero,cstatus,num_lote" colcaptions="Número,Estado,No.Lote" "hidden-input"="false" "control-styles"="#container{display:none !important;}"){$""}
+                "input-key"(id="ik_ser_prod" "data-key"="iserie" "data-search"="numero" "data-text"="cstatus" "data-source"="#<@URL_OBTENER_SERIES_DE_PRODUCTO>" columns="numero,cstatus,num_lote" colcaptions="Número,Estado,No.Lote" "hidden-input"="false" "control-styles"="#container{display:none !important;}"){$""}
 
                 "input-key"(id="ik_link_doc" "data-key"="sys_pk" "data-search"="referencia" "data-text"="cdocumento" "data-source"="#<@URL_BUSCAR_DOCUMENTO>" columns="cdocumento,referencia,fecha,vencimiento,forma_pago" colcaptions="Documento,Referencia,Fecha,Vencimiento,F. Pago" "box-title-text"="Seleccione el documento a incluir" "hidden-input"="false" "control-styles"="#container{display:none !important;}"){$""}
             }

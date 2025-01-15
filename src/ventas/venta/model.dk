@@ -942,6 +942,7 @@ module ":Venta"
         new data { @"entity*": entity.read(db,params) }
         do Venta.validateAccess(db,params,data)
         do Venta.prepareView(db,params,data)
+
         return data
 
         exception
