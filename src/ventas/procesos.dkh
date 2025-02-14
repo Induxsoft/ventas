@@ -168,6 +168,7 @@ module ":erp.ventas.procesos"
             IFNULL(d.sys_info,'') AS sys_info,
             d.fk_venta_detalle AS iventa,
             CONCAT(p.codigo,' - ',p.descripcion) AS dproducto,
+            p.iclase AS claseprod,
             IF(dca.rventa IS NULL AND dca2.rventa IS NULL, 0, 1) mov_aplicado
         FROM dventa d
             INNER JOIN producto AS p ON d.iproducto = p.sys_pk
@@ -196,6 +197,7 @@ module ":erp.ventas.procesos"
             @"sys_recver": 0
             @"fecha*": dbr.sql("now()")
             @"referencia": @@(venta,"$referencia")
+            @"descripcion": "Aplicado por venta con referencia: " + @@(venta,"$referencia")
             @"docventa": @@(venta,"#sys_pk")
             @"icategoria": icategoria
         }
@@ -214,27 +216,30 @@ module ":erp.ventas.procesos"
                     pk_cardex = dbr.num(db,"select last_insert_id();",@null)
                 }
 
-                salidas = @@(item,"#cantidad")
-                abonos = convertirADivisa(@@(item,"#abonos"),@@(item,"#tipocambio"),@@(venta,"#tipocambio"),@convertir_a.divisa_producto)
-                
-                new dcardex
+                if @@(item,"#claseprod") != @cls_prod_servicio
                 {
-                    @"sys_pk": 0
-                    @"sys_guid": uuid()
-                    @"sys_dtcreated*": dbr.sql("now()")
-                    @"sys_timestamp*": dbr.sql("now()")
-                    @"sys_recver": 0
-                    @"ialmacen": @@(item,"#ialmacen")
-                    @"iproducto": @@(item,"#iproducto")
-                    @"salidas": salidas
-                    @"abonos": abonos
-                    @"cpromedio": div(abonos,salidas)
-                    @"tipocambio": @@(item,"#tipocambio")
-                    @"rventa": @@(item,"#sys_pk")
-                    @"fk_cardex_movimientos": pk_cardex
+                    salidas = @@(item,"#cantidad")
+                    abonos = convertirADivisa(@@(item,"#abonos"),@@(item,"#tipocambio"),@@(venta,"#tipocambio"),@convertir_a.divisa_producto)
+                    
+                    new dcardex
+                    {
+                        @"sys_pk": 0
+                        @"sys_guid": uuid()
+                        @"sys_dtcreated*": dbr.sql("now()")
+                        @"sys_timestamp*": dbr.sql("now()")
+                        @"sys_recver": 0
+                        @"ialmacen": @@(item,"#ialmacen")
+                        @"iproducto": @@(item,"#iproducto")
+                        @"salidas": salidas
+                        @"abonos": abonos
+                        @"cpromedio": div(abonos,salidas)
+                        @"tipocambio": @@(item,"#tipocambio")
+                        @"rventa": @@(item,"#sys_pk")
+                        @"fk_cardex_movimientos": pk_cardex
+                    }
+                    do asignarLoteSerie(db,item,dcardex)
+                    do dbr.insert(db,"dcardex",dcardex)
                 }
-                do asignarLoteSerie(db,item,dcardex)
-                do dbr.insert(db,"dcardex",dcardex)
             }
         }
 

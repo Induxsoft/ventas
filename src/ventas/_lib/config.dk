@@ -25,6 +25,13 @@ module "Variables globales"
     @cTicket = 6
     @cNotaCargo = 17
     @cRetiro = 67
+    // cclaseproducto
+    @cls_prod_materia_prima = 1
+    @cls_prod_receta = 2
+    @cls_prod_servicio = 3
+    @cls_prod_articulo = 4
+    @cls_prod_ensamble = 5
+    @cls_prod_manufactura = 6
     // cstatusadministrativos
 	@stt_adm_na = 0
 	@stt_adm_abierto = 1
