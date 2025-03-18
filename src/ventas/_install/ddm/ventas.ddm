@@ -218,14 +218,14 @@ model "erp.ventas"
     // Configuracion de impuesto por zona
     entity "cfgimpuesto" : "TableModel"
     {
-        @"i1compra" string(4096)
-        @"i1venta" string(4096)
-        @"i2compra" string(4096)
-        @"i2venta" string(4096)
-        @"i3compra" string(4096)
-        @"i3venta" string(4096)
-        @"i4compra" string(4096)
-        @"i4venta" string(4096)
+        @"i1compra" string(128)
+        @"i1venta" string(128)
+        @"i2compra" string(128)
+        @"i2venta" string(128)
+        @"i3compra" string(128)
+        @"i3venta" string(128)
+        @"i4compra" string(128)
+        @"i4venta" string(128)
         @"nombre" string(25) unique required
         @"uf_tipoi1" string(25)
         @"uf_tipoi2" string(25)
