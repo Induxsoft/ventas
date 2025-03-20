@@ -155,7 +155,10 @@ module "Reportes de ventas:Report"
             AND IF(IFNULL(@pklinea,'*')='*', TRUE, p.ilinea = @pklinea)
             AND IF(IFNULL(@pkcconsumo,'*')='*', TRUE, v.icconsumo = @pkcconsumo)
         GROUP BY
-            l.sys_pk;
+            l.sys_pk,
+            l.codigo,
+            l.descripcion,
+            p.unidad
         "
         
         new data
@@ -207,7 +210,22 @@ module "Reportes de ventas:Report"
         GROUP BY
             c.sys_pk,
             p.sys_pk,
-            v.referencia
+            v.referencia,
+            c.nombre,
+            p.codigo,
+            p.descripcion,
+            p.unidad,
+            v.tipocambio,
+            v.documento,
+            dv.cantidad, 
+            dv.xfacturar,
+            dv.precio,
+            dv.impuesto1,
+            dv.impuesto2,
+            dv.impuesto3,
+            dv.impuesto4,
+            dv.descuento1,
+            dv.descuento2
         ORDER BY
             v.sys_pk,
             v.referencia;
@@ -255,7 +273,12 @@ module "Reportes de ventas:Report"
             AND (v.fecha >= @finicial AND v.fecha <= @ffinal)
             AND IF(IFNULL(@pktcliente,'*')='*', TRUE, c.tipo = @pktcliente)
         GROUP BY
-            c.sys_pk
+            c.sys_pk,
+            p.sys_pk,
+            c.codigo,
+            c.nombre,
+            v.fecha,
+            v.sys_pk
         ORDER BY
             v.sys_pk;
         "
@@ -304,7 +327,15 @@ module "Reportes de ventas:Report"
             AND v.statusfinanciero <> 3
             AND (v.fecha >= @finicial AND v.fecha <= @ffinal )
             AND IF(IFNULL(@pkcconsumo,'*')='*', TRUE, v.icconsumo = @pkcconsumo)
-        GROUP BY v.referencia
+        GROUP BY 
+            v.referencia,
+            v.fecha,
+            v.referencia,
+            c.nombre,
+            cf.const,
+            cs.const,
+            v.sys_pk,
+            p.sys_pk
         HAVING total > 0
         ORDER BY
             v.sys_pk;
