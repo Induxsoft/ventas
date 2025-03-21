@@ -480,7 +480,7 @@ module ":erp.ventas.procesos"
             INNER JOIN dventa dr ON df.doc_partida = dr.sys_pk
             INNER JOIN venta r ON dr.fk_venta_detalle = r.sys_pk
         WHERE df.fk_venta_detalle = @iventa
-        GROUP BY dr.fk_venta_detalle;
+        GROUP BY dr.fk_venta_detalle,dr.cantidad,dr.xfacturar;
         "
 
         switch dbr.num(db,"SELECT documento FROM venta WHERE sys_pk = @iventa;",params)
@@ -665,7 +665,7 @@ module ":erp.ventas.procesos"
         WHERE d.fk_venta_detalle = @ifactura
             AND fc.documento = @factura
             AND (rm.documento = @remision OR rm.documento = @ticket)
-        GROUP BY rm.sys_pk
+        GROUP BY rm.sys_pk,x.sys_pk
         "
 
         ref factura = dbr.rec(db,sql_factura,params)
