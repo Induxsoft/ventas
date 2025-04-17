@@ -832,7 +832,7 @@ var venta =
             origen: (p.origen || ""),
             codigo: p.codigo,
             descripcion: p.descripcion,
-            unidad: p.unidada,
+            unidad: p.unidadb,
             precio: i.costo,
             cotizado: (p.cotizado || ""),
             cantidad: i.cantidad,
