@@ -738,13 +738,14 @@ var venta =
         return JSON.stringify(obj);
     },
 
-    precioProducto(iproducto,cantidad)
+    precioProducto(iproducto,cantidad,unidad)
     {
         let params = {
             iproducto: Number(iproducto),
             icliente: Number(this.ff["icliente"].value),
             icconsumo: Number(this.ff["icconsumo"].value),
-            cantidad: Number(cantidad)
+            cantidad: Number(cantidad),
+            unidad: unidad
         };
         let url = InduxsoftCrudlModel.UrlReplace(this.url_get_precio,params);
 
@@ -821,7 +822,7 @@ var venta =
         
         let ialmacen = Number(opt_cconsumo.getAttribute("data-almacen"));
         let iproducto = (p.iproducto || p.sys_pk);
-        let precio = await this.precioProducto(iproducto,1);
+        let precio = await this.precioProducto(iproducto,1,p.unidada);
         if (precio > 0) p.precio = precio;
         let i = this.calculateTaxes(p);
         let lu = this.joinUnidades(p.unidada,p.unidadb,p.unidadc,p.unidadd,p.unidade);
@@ -832,7 +833,7 @@ var venta =
             origen: (p.origen || ""),
             codigo: p.codigo,
             descripcion: p.descripcion,
-            unidad: p.unidadb,
+            unidad: p.unidada,
             precio: i.costo,
             cotizado: (p.cotizado || ""),
             cantidad: i.cantidad,
@@ -1196,7 +1197,7 @@ var venta =
 
             if (cantidad > 1 && !producto.doc_partida)
             {
-                let precio = await this.precioProducto(producto.iproducto, cantidad);
+                let precio = await this.precioProducto(producto.iproducto, cantidad, producto.unidad);
                 if (precio > 0 && precio < producto.precio) {
                     document.getElementById("toast-title").innerText = producto.descripcion;
                     document.getElementById("toast-body").innerText = "Nuevo precio determinado.";

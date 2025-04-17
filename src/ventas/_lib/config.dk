@@ -4,7 +4,6 @@ module "Variables globales"
 {
     if not(isset("@http_context")) && isset("@crud_context") { ref @http_context = ifnull(@@(@crud_context,"&http"),record.create()) }
 
-    @URL_BITACORA="/!/webshell/log/DET01B/@guid/"
     // aplcxc.destino (aplicación de las cuentas por cobrar)
     @CXC_DESTINO_APLICACION_INT_FINANCIEROS = 1
     @CXC_DESTINO_APLICACION_INT_MORATORIOS = 2
@@ -94,6 +93,7 @@ module "Variables globales"
     @JS_ANALYSIS = "/$/ventas/js/analysis.js"
 
     //* ======================================== [ _PACKAGE ]
+    @URL_BITACORA = "/!/webshell/log/DET01B/@guid/"
     @URL_BUSCAR_CLIENTE = "/!/ventas/venta/?_view=buscar-cliente&search=@search"
     @URL_BUSCAR_PRODUCTO = "/!/ventas/venta/?_view=buscar-producto&search=@search"
     @URL_BUSCAR_AGENTE = "/!/ventas/venta/?_view=buscar-agente&search=@search"
@@ -102,7 +102,7 @@ module "Variables globales"
     @URL_BUSCAR_DOCUMENTO = "/!/ventas/venta/?_view=buscar-documento&search=@search&icliente=@icliente&idivisa=@idivisa&doctype=@doctype"
     @URL_OBTENER_DOCUMENTOS_INCLUIDOS = "/!/ventas/venta/?_view=obtener-documentos&iventa=@iventa"
     @URL_OBTENER_DVENTA = "/!/ventas/venta/?_view=obtener-dventa&iventa=@iventa"
-    @URL_OBTENER_PRECIO_PRODUCTO = "/!/ventas/venta/?_view=obtener-precio-producto&iproducto=@iproducto&icliente=@icliente&icconsumo=@icconsumo&cantidad=@cantidad"
+    @URL_OBTENER_PRECIO_PRODUCTO = "/!/ventas/venta/?_view=obtener-precio-producto&iproducto=@iproducto&icliente=@icliente&icconsumo=@icconsumo&cantidad=@cantidad&unidad=@unidad"
     @URL_OBTENER_LOTES_DE_PRODUCTO = "/!/ventas/venta/?_view=obtener-lotes-de-producto&iproducto=@iproducto&ialmacen=@ialmacen"
     @URL_OBTENER_SERIES_DE_PRODUCTO = "/!/ventas/venta/?_view=obtener-series-de-producto&iproducto=@iproducto&ialmacen=@ialmacen"
     @URL_OBTENER_FULTIMO = "/!/ventas/venta/?_view=obtener-fultimo&iblock=@iblock"

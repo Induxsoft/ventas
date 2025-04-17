@@ -206,6 +206,13 @@ module ":Venta"
                 ifnull(precio3,0) precio3,
                 ifnull(precio4,0) precio4,
                 ifnull(precio5,0) precio5,
+                (case @unidad
+                    when unidadb then factorb
+                    when unidadc then factorc
+                    when unidadd then factord
+                    when unidade then factore
+                    else 1
+                end) as factor,
                 ifnull(#<price_field>,0) AS PrecioA
             from producto
             where sys_pk = @iproducto
@@ -235,7 +242,7 @@ module ":Venta"
         new response
         {
             @"success": @true
-            @"precio": precio
+            @"precio": round(precio * @@(producto,"#factor"), decimals)
         }
         return response
 
