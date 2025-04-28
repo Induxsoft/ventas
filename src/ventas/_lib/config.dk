@@ -31,6 +31,9 @@ module "Variables globales"
     @cls_prod_articulo = 4
     @cls_prod_ensamble = 5
     @cls_prod_manufactura = 6
+    // ctipoproducto
+    @tpo_prod_no_inventariable = 1
+    @tpo_prod_inventariable = 2
     // cstatusadministrativos
 	@stt_adm_na = 0
 	@stt_adm_abierto = 1

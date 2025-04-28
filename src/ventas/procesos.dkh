@@ -175,6 +175,7 @@ module ":erp.ventas.procesos"
             d.fk_venta_detalle AS iventa,
             CONCAT(p.codigo,' - ',p.descripcion) AS dproducto,
             p.iclase AS claseprod,
+            p.itipo AS tipoprod,
             IF(dca.rventa IS NULL AND dca2.rventa IS NULL, 0, 1) mov_aplicado
         FROM dventa d
             INNER JOIN producto AS p ON d.iproducto = p.sys_pk
@@ -222,7 +223,7 @@ module ":erp.ventas.procesos"
                     pk_cardex = dbr.num(db,"select last_insert_id();",@null)
                 }
 
-                if @@(item,"#claseprod") != @cls_prod_servicio
+                if @@(item,"#tipoprod") != @tpo_prod_no_inventariable
                 {
                     salidas = @@(item,"#cantidad")
                     abonos = convertirADivisa(@@(item,"#abonos"),@@(item,"#tipocambio"),@@(venta,"#tipocambio"),@convertir_a.divisa_producto)
