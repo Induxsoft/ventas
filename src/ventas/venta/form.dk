@@ -5,11 +5,22 @@ module "form.dk"
     #include "functions.dkh"
     #include "serialize.dkh"
     #include "uielements.v12.dkl"
+    #include "dbr.vars.dkl"
+    #include "dbr.dkh"
     #include "../_lib/config.dk"
     #include "../_lib/lib.dk"
 	#include "../_lib/icons.dk"
 
     do @context.begin(@crud_context)
+
+    ref db=@@(@http_context,"&session/idp/database")
+    @ubicacion_img=parse.num(dbr.vars.get(db,"ventas_doc_print_logo"))
+    @img_cfg=dbr.vars.get(db,"ventas_doc_logo")
+    @height_logo=dbr.vars.get(db,"height_logo")
+    @prn_logo=dbr.vars.get(db,"prn_logo"+@img_cfg)
+    @public_content=dbr.vars.get(db,"dbext_public_content")
+    @public_content=path.concat(replace(@public_content,"@host",@@(@http_context, "$request/headers/HTTP_HOST")),"prn_logo"+@img_cfg+file.extension(@prn_logo))
+    @pie_pagina=dbr.vars.get(db,"FXCA111")
 
     ref @_GET = ifnull(@("&parameters"),record.create())
     ref entity = ifnull(@("&./entity"),record.create())
@@ -152,6 +163,51 @@ module "form.dk"
         @"print_mode": 1 // 0-window.print(), 1-v12PrintHTML()
         member @"hidden" { @"print": if(@enable_editing, @true, @false) }
     }
+    printImg::
+    {
+        if @ubicacion_img==0{return}
+        style=""
+        style_img=""
+
+        switch @ubicacion_img
+        {
+            case 1//izquierda
+            {
+                style_img="padding-left: 2px;"
+                style="display: flex;justify-content: start;"
+                break
+            }
+            case 2 //arriba
+            {
+                style="display: flex;justify-content: center;"
+            }
+            case 3 //derecha
+            {
+                style="display: flex;justify-content: end;"
+                style_img="padding-right: 2px;"
+                break
+            }
+        }
+        #$
+        div(class="" style="#<style>height:#<@height_logo>;")
+        {
+            img(src="#<@public_content>" class="#<ifstr(@ubicacion_img==2,'w-100','')>" style="#<style_img>")
+        }        
+        #!
+    }
+    printUser::
+    {
+        #$
+        div(class="h-100" style="display: flex;align-items: end;justify-content: #<ifstr(@ubicacion_img==3 || @ubicacion_img==2 || @ubicacion_img==0,'start','end')>;")
+        {
+            div
+            {
+                small(class="d-block"){ $"#<cut(@('$http/session/user/name'),25)>" }
+                small(class="d-block"){ $"#<date_str(now(),'dd/MMM/yyyy')>" }
+            }
+        }
+        #!
+    }
     #$ div(class="container-lg" id="view")
     {
         link(href="#<@CSS_MAIN>" rel="stylesheet")
@@ -187,26 +243,59 @@ module "form.dk"
         {
             div(class="printable-element show-on-print")
             {
-                p(class="text-center my-0"){$"#<@@(titles,'$title')>"}
-                p(class="text-center my-0"){$"#<@@(titles,'$subtitle')>"}
-                p(class="text-center my-0"){$"#<@@(titles,'$subtitle_2')>"}
-
                 div(class="row")
                 {
-                    div(class="col-3 text-start")
+                    #!
+                    if @ubicacion_img==2
                     {
-                        small(class="d-block"){ $"#<cut(@('$http/session/user/name'),25)>" }
-                        small(class="d-block"){ $"#<date_str(now(),'dd/MMM/yyyy')>" }
+                        #$
+                        div(class="col-12")
+                        {
+                            #!
+                            do printImg()
+                        }
                     }
-                    div(class="col-6 text-center")
-                    {
-                        h4(class=""){$"Documento de venta"}
+                    #$
+                    div(class="col-4")
+                    {$""
+                        #!
+                        if @ubicacion_img==1
+                        {
+                            do printImg()
+                        }
+                        else 
+                        {
+                            do printUser()
+                        }
+                        #$
                     }
-                    div(class="col-3 text-end")
+                    
+                    // div(class="col-6 text-center")
+                    // {
+                    //     h4(class=""){$"Documento de venta"}
+                    // }
+                    div(class="col-4 text-end")
                     {
+                        p(class="text-center my-0"){$"#<@@(titles,'$title')>"}
+                        p(class="text-center my-0"){$"#<@@(titles,'$subtitle')>"}
+                        p(class="text-center my-0"){$"#<@@(titles,'$subtitle_2')>"}
+
                         small(class="d-block" id=""){$""}
                         small(class="d-block" id=""){$""}
                         small(class="d-block" id=""){$""}
+                    }
+                    div(class="col-4")
+                    {$""
+                        #!
+                        if @ubicacion_img==3
+                        {
+                            do printImg()
+                        }
+                        if @ubicacion_img==1
+                        {
+                            do printUser()
+                        }
+                        #$
                     }
                 }
             }
@@ -248,23 +337,38 @@ module "form.dk"
                             td{$"#<@@(dtcliente,'$codigo')>"}
                             td{$"#<@@(dtcliente,'$nombre')>"}
                         }
-                        tr
+                        #!
+                        if trim(@@(dtagente,'$codigo'))!="" || trim(@@(dtagente,'$nombre'))!=""
                         {
-                            th(class="text-start bg-light-gray"){$"Vendedor:"}
-                            td{$"#<@@(dtagente,'$codigo')>"}
-                            td{$"#<@@(dtagente,'$nombre')>"}
+                            #$
+                            tr
+                            {
+                                th(class="text-start bg-light-gray"){$"Vendedor:"}
+                                td{$"#<@@(dtagente,'$codigo')>"}
+                                td{$"#<@@(dtagente,'$nombre')>"}
+                            }
                         }
-                        tr
+                        #!
+                        if trim(@@(dtrepartidor,'$codigo'))!="" || trim(@@(dtrepartidor,'$nombre'))!=""
                         {
-                            th(class="text-start bg-light-gray"){$"Repartidor:"}
-                            td{$"#<@@(dtrepartidor,'$codigo')>"}
-                            td{$"#<@@(dtrepartidor,'$nombre')>"}
+                            #$
+                            tr
+                            {
+                                th(class="text-start bg-light-gray"){$"Repartidor:"}
+                                td{$"#<@@(dtrepartidor,'$codigo')>"}
+                                td{$"#<@@(dtrepartidor,'$nombre')>"}
+                            }
                         }
-                        tr
+                        #!
+                        if trim(@@(dtporteador,'$codigo'))!="" || trim(@@(dtporteador,'$descripcion'))!=""
                         {
-                            th(class="text-start bg-light-gray"){$"Porteador:"}
-                            td{$"#<@@(dtporteador,'$codigo')>"}
-                            td{$"#<@@(dtporteador,'$descripcion')>"}
+                            #$
+                            tr
+                            {
+                                th(class="text-start bg-light-gray"){$"Porteador:"}
+                                td{$"#<@@(dtporteador,'$codigo')>"}
+                                td{$"#<@@(dtporteador,'$descripcion')>"}
+                            }
                         }
                     }
                 }
@@ -572,6 +676,10 @@ module "form.dk"
                 b{$"Descuentos: " span(id="lbl_descuentos"){$""}}
                 b{$"Impuestos: " span(id="lbl_impuestos"){$""}}
                 b{$"Total: " span(id="lbl_total"){$""}}
+            }
+            div(class="printable-element d-flex justify-content-center show-on-print mt-4")
+            {
+                small{"#<@pie_pagina>"}
             }
         }
 

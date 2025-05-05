@@ -194,6 +194,57 @@
                 {
                     "control": "text"
                 }
+            },
+            {
+                "varname": "ventas_doc_print_logo",
+                "vardefault": "1",
+                "varvalue": "1",
+                "varcaption": "Ubicación imagen de logotipo",
+                "varhelp": "",
+                "vartype": "bool",
+                "varinput": {
+                    "control": "select",
+                    "source":{
+                        "type":"list",
+                        "values":[
+                            {"val":"0", "txt":"No"},
+                            {"val":"1", "txt":"A la izquierda"},
+                            {"val":"2", "txt":"Arriba"},
+                            {"val":"3", "txt":"A la derecha"}
+                        ],
+                        "showfield":"txt",
+                        "keyfield":"val"
+                    }
+                }
+            },
+            {
+                "varname": "ventas_doc_logo",
+                "vardefault": "1",
+                "varvalue": "1",
+                "varcaption": "Imagen de logotipo",
+                "varhelp": "",
+                "vartype": "bool",
+                "varinput": {
+                    "control": "select",
+                    "source":{
+                        "type":"query",
+                        "query":"SET @i=0;SELECT @i:=@i+1 ind,g.varvalue FROM globalvar g WHERE g.varname IN('prn_logo1','prn_logo2','prn_logo1')AND TRIM(g.varvalue)!=''",
+                        "keyfield":"ind",
+                        "showfield":"varvalue"
+                    }
+                }
+            },
+            {
+                "varname": "height_logo",
+                "vardefault": "10rem",
+                "varvalue": "10rem",
+                "varcaption": "Altura del Logotipo",
+                "varhelp": "Altura del .",
+                "vartype": "string",
+                "varinput": 
+                {
+                    "control": "string"
+                }
             }
         ]
     }
