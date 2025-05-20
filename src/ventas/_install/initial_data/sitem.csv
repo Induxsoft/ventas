@@ -8,6 +8,8 @@ VD13,Procesar documento de venta,ventas.venta
 VD14,Cancelar documento de venta,ventas.venta
 VD15,Re-abrir documento de venta,ventas.venta
 VD16,Permitir editar el precio de venta,ventas.venta
+VDF0,Podar ventas,ventas.venta
+VDF1,Limpiar ventas,ventas.venta
 ventas.reports,Informes de ventas,ventas
 VD20,Reportes,ventas.reports
 VD21,Ventas netas totales,ventas.reports
@@ -17,5 +19,6 @@ VD24,Acumulado de Ventas por cliente,ventas.reports
 VD25,Ventas por Facturar,ventas.reports
 ventas.analisis,Análisis de ventas,ventas
 VD30,Análisis de ventas,ventas.analisis
+
 VD40,Ver mensajes,ventas.venta
 VD41,Publicar mensajes,ventas.venta

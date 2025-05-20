@@ -10,3 +10,6 @@
 "VD23","Ventas por Cliente","V.P.C","","/!/ventas/reports/ventas-por-cliente/","0","ventas.reports","DET01C","0","report"
 "VD24","Acumulado de Ventas por Cliente","A.D.V.P.C","","/!/ventas/reports/acumulado-de-ventas-por-cliente/","0","ventas.reports","DET01C","0","report"
 "VD25","Ventas por Facturar","V.P.F","","/!/ventas/reports/ventas-por-facturar/","0","ventas.reports","DET01C","0","report"
+
+VDF0,Podar ventas,Podar ventas,,/!/batch/taskman/VD/podar.ventas/?exit_url_encode=LyEvdmVudGFzL3ZlbnRhLw||,0,ventas.venta,DET01C,0,action
+VDF1,Limpiar ventas,Limpiar ventas,,/!/batch/taskman/VD/limpiar.ventas/?exit_url_encode=LyEvdmVudGFzL3ZlbnRhLw||,0,ventas.venta,DET01C,0,action
