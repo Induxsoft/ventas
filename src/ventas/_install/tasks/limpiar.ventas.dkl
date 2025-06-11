@@ -37,7 +37,11 @@ program "Limpiar ventas"
     //#region >EJECUCIÓN
     do batch.v12.grant("VDF1") //VDF1 - Limpiar ventas
     
+    ref params = @("&params")
     ref db = @("&database")
+
+    if not(parse.bool(@@(params,"$confirm_VDF1"))) { do rise_error(511,"No se confirmo la acción.") }
+
     do dbr.begin(db)
     do batch.saveLog(@token,"> Limpiando ventas")
     
