@@ -144,12 +144,12 @@ module "ventas por facturar"
                        {
                             th(scope="col"){"Fecha"}
                             th(scope="col"){"Referencia"}
-                            th(scope="col"){"Nombre"}
+                            th(scope="col"){"Cliente"}
                             th(scope="col"){"Subtotal"}
                             th(scope="col"){"Impuestos"}
                             th(scope="col"){"Total"}
                             th(scope="col"){"FormaPago"}
-                            th(scope="col"){"Estatus"}
+                            th(scope="col"){"Estado"}
                         }
 
                  tbody

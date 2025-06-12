@@ -183,20 +183,21 @@ module "Reportes de ventas:Report"
 
         sql = "
         SELECT
-            p.sys_pk,
-            c.nombre,
-            p.codigo,
+            c.codigo ccliente,
+            CONCAT(c.codigo,' - ',c.nombre) `cliente`,
+            DATE_FORMAT(v.fecha,'%d-%m-%Y') fecha,
             v.referencia,
+            p.codigo,
             p.descripcion,
             p.unidad,
-            v.tipocambio * IF(v.documento = 5, -1, 1) * IF(v.documento = 4 OR v.documento = 5, dv.cantidad, dv.xfacturar) ventas,
+            IF(v.documento = 5, -1, 1) * IF(v.documento = 4 OR v.documento = 5, dv.cantidad, dv.xfacturar) ventas,
             v.tipocambio * IF(v.documento = 5, dv.precio * -1, dv.precio) * IF(v.documento = 4 OR v.documento = 5, dv.cantidad, dv.xfacturar) - ((IFNULL(dv.descuento1, 0) + IFNULL(dv.descuento2, 0)) / dv.cantidad) * IF(v.documento = 4 OR v.documento = 5, dv.cantidad, dv.xfacturar) subtotal,
             v.tipocambio * IF(v.documento = 5, -1, 1) * ((IFNULL(dv.impuesto1, 0) + IFNULL(dv.impuesto2, 0) + IFNULL(dv.impuesto3, 0) + IFNULL(dv.impuesto4, 0)) / dv.cantidad) * IF(v.documento = 4 OR v.documento = 5, dv.cantidad, dv.xfacturar) impuestos,
             v.tipocambio * IF(v.documento = 5, dv.precio * -1, dv.precio) * IF(v.documento = 4 OR v.documento = 5, dv.cantidad, dv.xfacturar) - ((IFNULL(dv.descuento1, 0) + IFNULL(dv.descuento2, 0)) / dv.cantidad) * IF(v.documento = 4 OR v.documento = 5, dv.cantidad, dv.xfacturar) + v.tipocambio * IF (v.documento = 5, -1, 1) * ((IFNULL(dv.impuesto1, 0) + IFNULL(dv.impuesto2, 0) + IFNULL(dv.impuesto3, 0) + IFNULL(dv.impuesto4, 0)) / dv.cantidad) * IF(v.documento = 4 OR v.documento = 5, dv.cantidad, dv.xfacturar) total
         FROM
             dventa dv
-            INNER JOIN venta v ON dv.fk_venta_detalle = v.sys_pk
             INNER JOIN producto p ON dv.iproducto = p.sys_pk
+            INNER JOIN venta v ON dv.fk_venta_detalle = v.sys_pk
             INNER JOIN cliente c ON c.sys_pk = v.icliente
         WHERE
             v.statusadministrativo <> 99
@@ -208,26 +209,21 @@ module "Reportes de ventas:Report"
             AND IF(IFNULL(@pkmarca,'*')='*', TRUE, p.imarca = @pkmarca)
             AND IF(IFNULL(@pkcconsumo,'*')='*', TRUE, v.icconsumo = @pkcconsumo)
         GROUP BY
-            c.sys_pk,
-            p.sys_pk,
+            c.codigo,
             v.referencia,
-            c.nombre,
             p.codigo,
-            p.descripcion,
-            p.unidad,
-            v.tipocambio,
-            v.documento,
-            dv.cantidad, 
+            dv.cantidad,
             dv.xfacturar,
             dv.precio,
+            dv.descuento1,
+            dv.descuento2,
             dv.impuesto1,
             dv.impuesto2,
             dv.impuesto3,
-            dv.impuesto4,
-            dv.descuento1,
-            dv.descuento2
+            dv.impuesto4
         ORDER BY
-            v.sys_pk,
+            c.nombre,
+            v.fecha,
             v.referencia;
         "
         
@@ -248,22 +244,19 @@ module "Reportes de ventas:Report"
         
         if trim(@@(params,"$finicial"))==""{params<"finicial">:date_str(now(),"yyyy-MM-dd")}
         if trim(@@(params,"$ffinal"))==""{params<"ffinal">:date_str(now(),"yyyy-MM-dd")}
-        if trim(@@(params,"$pktcliente"))==""{params<"pktcliente">:"*"}
+        if trim(@@(params,"$icliente"))==""{params<"icliente">:"*"}
         
-
         sql = "
         SELECT
-            p.sys_pk,
             c.codigo,
             c.nombre,
             SUM(v.tipocambio * IF(v.documento = 5, dv.precio * -1, dv.precio) * IF(v.documento = 4 OR v.documento = 5, dv.cantidad, dv.xfacturar) - ((IFNULL(dv.descuento1, 0) + IFNULL(dv.descuento2, 0)) / dv.cantidad) * IF(v.documento = 4 OR v.documento = 5, dv.cantidad, dv.xfacturar)) ventas,
             SUM(v.tipocambio * IF(v.documento = 5, -1, 1) * ((IFNULL(dv.impuesto1, 0) + IFNULL(dv.impuesto2, 0) + IFNULL(dv.impuesto3, 0) + IFNULL(dv.impuesto4, 0)) / dv.cantidad) * IF(v.documento = 4 OR v.documento = 5, dv.cantidad, dv.xfacturar)) impuestos,
             SUM(v.tipocambio * IF(v.documento = 5, dv.precio * -1, dv.precio) * IF(v.documento = 4 OR v.documento = 5, dv.cantidad, dv.xfacturar) - ((IFNULL(dv.descuento1, 0) + IFNULL(dv.descuento2, 0)) / dv.cantidad) * IF(v.documento = 4 OR v.documento = 5, dv.cantidad, dv.xfacturar) + v.tipocambio * IF(v.documento = 5, -1, 1) * ((IFNULL(dv.impuesto1, 0) + IFNULL(dv.impuesto2, 0) + IFNULL(dv.impuesto3, 0) + IFNULL(dv.impuesto4, 0)) / dv.cantidad) * IF(v.documento = 4 OR v.documento = 5, dv.cantidad, dv.xfacturar)) total,
-            v.fecha
+            DATE_FORMAT(MAX(v.fecha), '%d-%m-%Y') fult_venta
         FROM
             dventa dv
             INNER JOIN venta v ON dv.fk_venta_detalle = v.sys_pk
-            INNER JOIN producto p ON dv.iproducto = p.sys_pk
             INNER JOIN cliente c ON c.sys_pk = v.icliente
         WHERE
             v.statusadministrativo <> 99
@@ -271,16 +264,11 @@ module "Reportes de ventas:Report"
             AND NOT (NOT v.aplicadoa IS NULL AND v.documento = 5)
             AND v.statusfinanciero <> 3
             AND (v.fecha >= @finicial AND v.fecha <= @ffinal)
-            AND IF(IFNULL(@pktcliente,'*')='*', TRUE, c.tipo = @pktcliente)
+            AND IF(IFNULL(@icliente,'*')='*', TRUE, c.tipo = @icliente)
         GROUP BY
-            c.sys_pk,
-            p.sys_pk,
-            c.codigo,
-            c.nombre,
-            v.fecha,
-            v.sys_pk
+            c.codigo
         ORDER BY
-            v.sys_pk;
+            c.codigo;
         "
 
         new data
@@ -292,7 +280,6 @@ module "Reportes de ventas:Report"
         return data
         exception{ do catch() }
     }
-    
 
     VentasPorFacturar::&db,&params
     {
@@ -304,21 +291,19 @@ module "Reportes de ventas:Report"
 
         sql = "
         SELECT
-            p.sys_pk,
-            v.fecha,
+            DATE_FORMAT(v.fecha,'%d-%m-%Y') fecha,
             v.referencia,
             c.nombre,
             SUM(v.tipocambio * IF(v.documento = 5, dv.precio * -1, dv.precio) * IF(v.documento = 4 OR v.documento = 5, dv.cantidad, dv.xfacturar) - ((IFNULL(dv.descuento1, 0) + IFNULL(dv.descuento2, 0)) / dv.cantidad) * IF(v.documento = 4 OR v.documento = 5, dv.cantidad, dv.xfacturar)) subtotal,
             SUM(v.tipocambio * IF(v.documento = 5, -1, 1) * ((IFNULL(dv.impuesto1, 0) + IFNULL(dv.impuesto2, 0) + IFNULL(dv.impuesto3, 0) + IFNULL(dv.impuesto4, 0)) / dv.cantidad) * IF(v.documento = 4 OR v.documento = 5, dv.cantidad, dv.xfacturar)) impuestos,
             SUM(v.tipocambio * IF(v.documento = 5, dv.precio * -1, dv.precio) * IF(v.documento = 4 OR v.documento = 5, dv.cantidad, dv.xfacturar) - ((IFNULL(dv.descuento1, 0) + IFNULL(dv.descuento2, 0)) / dv.cantidad) * IF(v.documento = 4 OR v.documento = 5, dv.cantidad, dv.xfacturar) + v.tipocambio * IF (v.documento = 5, -1, 1) * ((IFNULL(dv.impuesto1, 0) + IFNULL(dv.impuesto2, 0) + IFNULL(dv.impuesto3, 0) + IFNULL(dv.impuesto4, 0)) / dv.cantidad) * IF(v.documento = 4 OR v.documento = 5, dv.cantidad, dv.xfacturar)) total,
             cf.const AS formapago,
-            cs.const AS STATUS
+            cs.const AS `status`
         FROM
             dventa dv
             INNER JOIN venta v ON dv.fk_venta_detalle = v.sys_pk
             INNER JOIN cstatusadministrativos cs ON v.statusadministrativo = cs.id
             INNER JOIN cformaspago cf ON v.formapago = cf.id
-            INNER JOIN producto p ON dv.iproducto = p.sys_pk
             INNER JOIN cliente c ON c.sys_pk = v.icliente
         WHERE
             v.statusadministrativo <> 99
@@ -328,17 +313,10 @@ module "Reportes de ventas:Report"
             AND (v.fecha >= @finicial AND v.fecha <= @ffinal )
             AND IF(IFNULL(@pkcconsumo,'*')='*', TRUE, v.icconsumo = @pkcconsumo)
         GROUP BY 
-            v.referencia,
-            v.fecha,
-            v.referencia,
-            c.nombre,
-            cf.const,
-            cs.const,
-            v.sys_pk,
-            p.sys_pk
+            v.referencia
         HAVING total > 0
         ORDER BY
-            v.sys_pk;
+            v.referencia;
         "
         
         new data

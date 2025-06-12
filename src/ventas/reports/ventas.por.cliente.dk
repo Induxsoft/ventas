@@ -10,20 +10,14 @@ module "ventas netas totales"
 
     do @context.begin(@crud_context)
     
-
-    //llamar la consultas de almacen, linea, marca y el filtro
-    //do rise_error(23,to.json(almacenes))//coidgo para generar error 
-    
     ref linea=@("&./linea")
     ref marca=@("&./marca")
     ref consumo=@("&./cconsumo")
 
-  //  ref todo =@("&./todo") // codigo para listar tados de todos
-    ref data = @("&./lista")// codigo para listar todos los datos de la 
+    ref data = @("&./lista")
 
     ref titles = ifnull(@("&./titles"),record.create())
 
-    // aqui se cortan los decimales
     @DECIMAL_PRECISION = @("#parameters/decimals")
 
     new nav_config
@@ -46,106 +40,96 @@ module "ventas netas totales"
                 tr td { font-size:.8rem; }
             '}
 
-        #!
-        if @("error/message") != ""{
+            #!
+            if @("error/message") != ""{
+                #$
+                p{"#<@('error/message')>"}
+            }
+            #!
+            fechai = @('$parameters/finicial')
+            fechaf = @('$parameters/ffinal')
+            if fechai == "" || fechaf == ""
+            {
+                fechai = date_str(now(), "yyyy-MM-dd")
+                fechaf = date_str(now(), "yyyy-MM-dd")
+            }
+
             #$
-            p{"#<@('error/message')>"}
-        }
-        #!
-        fechai = @('$parameters/finicial')
-        fechaf = @('$parameters/ffinal')
-        if fechai == "" || fechaf == ""
-        {
-            fechai = date_str(now(), "yyyy-MM-dd")
-            fechaf = date_str(now(), "yyyy-MM-dd")
-        }
-        #$
             form(class="" action="./" method="GET" id="form-filter")
             {
                 div(class="align-items-center gap-1 mb-1")
                 {
                     div(class="gap-1 flex-grow-1")
                     {
-                        div(class="row"){
-                            div(class="col-md-2"){
-                            span(class=" text-dark"){"Fecha Inicial"}
-                            input(class="form-control form-control-sm rounded-0" type="date" name="finicial" value="#<fechai>" title="Fecha inicial")
+                        div(class="row")
+                        {
+                            div(class="col-md-2")
+                            {
+                                span(class=" text-dark"){"Fecha Inicial"}
+                                input(class="form-control form-control-sm rounded-0" type="date" name="finicial" value="#<fechai>" title="Fecha inicial")
                             }
-                            div(class="col-md-2"){
-                            span(class=" text-dark"){"Fecha Final"}
-                            input(class="form-control form-control-sm rounded-0" type="date" name="ffinal" value="#<fechaf>" title="Fecha final")
+                            div(class="col-md-2")
+                            {
+                                span(class=" text-dark"){"Fecha Final"}
+                                input(class="form-control form-control-sm rounded-0" type="date" name="ffinal" value="#<fechaf>" title="Fecha final")
                             }
-                            div(class="col-md-2"){
-                            span(class=" text-dark"){"Línea"}
+                            div(class="col-md-2")
+                            {
+                                span(class=" text-dark"){"Línea"}
                                 select(class="form-select form-select-sm rounded-0" name="pklinea" value="#<@('$parameters/pklinea')>" title="Linea")
                                 {
-                                    option(value="*"){
-                                        "Todos"
-                                    }
+                                    option(value="*"){"Todos"}
                                     #!
                                     for i = 0; i < list.count(linea); i+1
-                                        {
-                                            ref obj = list.obj(linea,i)
-                                                #$
-                                                option( "#<ifstr(@@(obj,'#sys_pk')==@('#parameters/pklinea'),'selected','')>"="true" value="#<@@(obj,'sys_pk')>")
-                                                {
-                                                "#<@@(obj,'descripcion')>"
-                                                }
-                                    #!     
+                                    {
+                                        ref obj = list.obj(linea,i)
+                                        #$
+                                        option("#<ifstr(@@(obj,'#sys_pk')==@('#parameters/pklinea'),'selected','')>"="true" value="#<@@(obj,'sys_pk')>")
+                                        {"#<@@(obj,'descripcion')>"}
                                     }
                                     #$
                                 }
                             }
-                            div(class="col-md-2"){
-                            span(class=" text-dark"){"Marca"}
-                            select(class="form-select form-select-sm rounded-0" name="pkmarca" value="#<@('$parameters/pkmarca')>" title="Marca")
+                            div(class="col-md-2")
                             {
-                                    option(value="*"){
-                                        "Todos"
-                                    }
-                                #!
-                                for i = 0; i < list.count(marca); i+1
+                                span(class=" text-dark"){"Marca"}
+                                select(class="form-select form-select-sm rounded-0" name="pkmarca" value="#<@('$parameters/pkmarca')>" title="Marca")
+                                {
+                                    option(value="*"){"Todos"}
+                                    #!
+                                    for i = 0; i < list.count(marca); i+1
                                     {
                                         ref obj = list.obj(marca,i)
-                                            #$
-                                            option( "#<ifstr(@@(obj,'#sys_pk')==@('#parameters/pkmarca'),'selected','')>"="true" value="#<@@(obj,'sys_pk')>")
-                                            {
-                                            "#<@@(obj,'descripcion')>"
-                                            }
-                                    #!     
-                                }
-                                #$
-                            }
-                            }
-                         div(class="col-md-2"){
-                            span(class=" text-dark"){"C. Consumo"}
-                            select(class="form-select form-select-sm rounded-0" name="pkcconsumo" value="#<@('$parameters/pkcconsumo')>" title="CConsumo")
-                            {
-                               option(value="*"){
-                                        "Todos"
+                                        #$
+                                        option( "#<ifstr(@@(obj,'#sys_pk')==@('#parameters/pkmarca'),'selected','')>"="true" value="#<@@(obj,'sys_pk')>")
+                                        {"#<@@(obj,'descripcion')>"}
                                     }
-                             #!
-                                for i = 0; i < list.count(consumo); i+1 //listamos todo los datos de los almacenes 
+                                    #$
+                                }
+                            }
+                            div(class="col-md-2")
+                            {
+                                span(class=" text-dark"){"C. Consumo"}
+                                select(class="form-select form-select-sm rounded-0" name="pkcconsumo" value="#<@('$parameters/pkcconsumo')>" title="CConsumo")
+                                {
+                                    option(value="*"){"Todos"}
+                                    #!
+                                    for i = 0; i < list.count(consumo); i+1
                                     {
                                         ref obj = list.obj(consumo,i)
-                                            #$
-                                            option( "#<ifstr(@@(obj,'#sys_pk')==@('#parameters/pkcconsumo'),'selected','')>"="true" value="#<@@(obj,'sys_pk')>") //llamamos la sys_pk que es la primary key
-                                            {
-                                            "#<@@(obj,'descripcion')>"  //agregamos los datos de la descripcion al select
-                                            }
-                  
-                                        #!     
-                                  }
-                                  #$
-                                  //para visualizar todo los datos
+                                        #$
+                                        option( "#<ifstr(@@(obj,'#sys_pk')==@('#parameters/pkcconsumo'),'selected','')>"="true" value="#<@@(obj,'sys_pk')>")
+                                        {"#<@@(obj,'descripcion')>"}
+                                    }
+                                    #$
+                                }
                             }
-                         }
-
-                       div(class="col-md-2 mt-4"){
-                        div(class="d-flex flex-grow-1 justify-content-end"){ button(class="btn btn-sm btn-primary rounded-0" type="submit" id="btn_filter"){$"Aplicar"} }
-                       }
+                            div(class="col-md-2 mt-4")
+                            {
+                                div(class="d-flex flex-grow-1 justify-content-end"){ button(class="btn btn-sm btn-primary rounded-0" type="submit" id="btn_filter"){$"Aplicar"} }
+                            }
+                        }
                     }
-
                 }
             }
         }
@@ -163,8 +147,7 @@ module "ventas netas totales"
                 {
                     div(class="col-3")
                     {
-                        //se comento porque no queremos que aparezca el usuario
-                       //small(class="d-block"){ $ "#<cut(@('$http/session/user/name'),25)>" }
+                        small(class="d-block"){ $ "#<cut(@('$http/session/user/name'),25)>" }
                         small(class="d-block"){ b{$"Impresión: "} $"#<date_str(now(),'dd/MMM/yyyy')>" }
                     }
                     div(class="col-6")//subtitulo
@@ -177,33 +160,30 @@ module "ventas netas totales"
                     }
                 }
                 
-
-
                 table(class="table table-sm table-bordered my-2")
                 {
-              thead{
-                               // th(scope="col"){"Nombre"}
-                            tr{
-                                th(scope="col"){"Código"}
-                                th(scope="col"){"Referencia"}
-                                th(scope="col"){"Descripción"}
-                                th(scope="col"){"Unidad"}
-                                th(scope="col"){"Ventas"}
-                                th(scope="col"){"Subtotal "}
-                                th(scope="col"){"Impuestos"}
-                                th(scope="col"){"Total"}
-                            }
+                    thead
+                    {
+                        tr
+                        {
+                            th(scope="col"){"Fecha"}
+                            th(scope="col"){"Referencia"}
+                            th(scope="col"){"Código"}
+                            th(scope="col"){"Descripción"}
+                            th(scope="col"){"Unidad"}
+                            th(scope="col"){"Ventas"}
+                            th(scope="col"){"Subtotal "}
+                            th(scope="col"){"Impuestos"}
+                            th(scope="col"){"Total"}
+                        }
                     }
 
-                 tbody
-                    {
-                        $""
+                    tbody
+                    {$""
                         #!
-                        doc=""
-                        bonis=0
-                        pagos=0
+                        ccliente = ""
 
-                        ventas=0//variables para sumario general
+                        ventas=0
                         subtotal=0 
                         impuestos=0
                         total=0
@@ -212,48 +192,41 @@ module "ventas netas totales"
                         sub_subtotal=0
                         sub_impuestos=0
                         sub_ttotal=0
-                        //variable de compracion
-                        sys_pkc = 0
                         
                         for i = 0; i < list.count(data); i+1
                         {
-                            
                             ref obj = list.obj(data,i)
 
-                            if sys_pkc != @@(obj,"#pkc")
+                            if ccliente != @@(obj,"$ccliente")
                             {
-
-                                 if sys_pkc!=0
-                                 {
-                                    ventas= ventas + sub_ventas 
-                                    subtotal= subtotal + sub_subtotal
-                                    impuestos= impuestos + sub_impuestos
-                                    total= total + sub_ttotal
-
+                                if ccliente != ""
+                                {
+                                    ventas = ventas + sub_ventas 
+                                    subtotal = subtotal + sub_subtotal
+                                    impuestos = impuestos + sub_impuestos
+                                    total = total + sub_ttotal
                                     #$
-                                    tr{
-                                    td(colspan="4"){""}
-                                    td(class="text-end fw-bold"){"Total"}
-                                   // td(class="text-end fw-bold"){$"#<number_format(sub_ventas)>"}
-                                    td(class="text-end fw-bold"){$"$ #<number_format(sub_subtotal)>"}
-                                    td(class="text-end fw-bold"){$"$ #<number_format(sub_impuestos)>"}
-                                    td(class="text-end fw-bold"){$"#<number_format(sub_ttotal)>"}
-                                    
+                                    tr
+                                    {
+                                        td(class="text-end fw-bold" colspan="6"){"Total de cliente:"}
+                                        // td(class="text-end fw-bold"){$"#<number_format(sub_ventas)>"}
+                                        td(class="text-end fw-bold"){$"$ #<number_format(sub_subtotal)>"}
+                                        td(class="text-end fw-bold"){$"$ #<number_format(sub_impuestos)>"}
+                                        td(class="text-end fw-bold"){$"#<number_format(sub_ttotal)>"}
                                     }
                                     #!
                                     sub_ventas=0
                                     sub_subtotal=0
                                     sub_impuestos=0
                                     sub_ttotal=0
-
-                                 }
+                                }
                                 #$
                                 tr(class="")         
                                 {
-                                    td(class="fw-bold" colspan="8"){$"#<@@(obj,'$nombre')>"}
+                                    td(class="fw-bold" colspan="9"){$"#<@@(obj,'$cliente')>"}
                                 }
                                 #!
-                                sys_pkc = @@(obj,"#pkc")
+                                ccliente = @@(obj,"$ccliente")
                             }
 
                             //sub_ventas = sub_ventas + @@(obj,'#ventas')
@@ -264,9 +237,9 @@ module "ventas netas totales"
                             #$
                             tr
                             {
-                               // td(class="" ){$"#<@@(obj,'$nombre')>"}
-                                td(class="" ){$"#<@@(obj,'$codigo')>"}
+                                td(class="" ){$"#<@@(obj,'$fecha')>"}
                                 td(class="" ){$"#<@@(obj,'$referencia')>"}
+                                td(class="" ){$"#<@@(obj,'$codigo')>"}
                                 td(class="" ){$"#<@@(obj,'$descripcion')>"}
                                 td(class=""){$"#<@@(obj,'$unidad')>"}
                                 td(class="text-end" ){$"#<number_format(@@(obj,'$ventas'))>"}
@@ -276,54 +249,46 @@ module "ventas netas totales"
                                 td(class="text-end"){$"$ #<number_format(@@(obj,'$total'))>"}
                             }
                             #!
-
                         }
 
-                        if list.count(data) > 0 //pintamos el final de la tabla
+                        if list.count(data) > 0
                         {
-                        
-                           //ventas= ventas + sub_ventas 
-                            subtotal= subtotal + sub_subtotal
-                            impuestos= impuestos + sub_impuestos
-                            total= total + sub_ttotal
+                            // ventas = ventas + sub_ventas 
+                            subtotal = subtotal + sub_subtotal
+                            impuestos = impuestos + sub_impuestos
+                            total = total + sub_ttotal
                             
                             #$
-                                    tr{
-                                    td(colspan="4"){""}
-                                    td(class="text-end fw-bold"){"Total"}
-                                    //td(class="text-end fw-bold"){$"#<number_format(sub_ventas)>"}
-                                    td(class="text-end fw-bold"){$"$ #<number_format(sub_subtotal)>"}
-                                    td(class="text-end fw-bold"){$"$ #<number_format(sub_impuestos)>"}
-                                    td(class="text-end fw-bold"){$"$ #<number_format(sub_ttotal)>"}
-                                    
-                                    }
-                                    #!
-                                   // sub_ventas=0
-                                    sub_subtotal=0
-                                    sub_impuestos=0
-                                    sub_ttotal=0
-                        } 
-
+                            tr
+                            {
+                                td(class="text-end fw-bold" colspan="6"){"Total de cliente"}
+                                // td(class="text-end fw-bold"){$"#<number_format(sub_ventas)>"}
+                                td(class="text-end fw-bold"){$"$ #<number_format(sub_subtotal)>"}
+                                td(class="text-end fw-bold"){$"$ #<number_format(sub_impuestos)>"}
+                                td(class="text-end fw-bold"){$"$ #<number_format(sub_ttotal)>"}
+                            }
+                            #!
+                            // sub_ventas=0
+                            sub_subtotal=0
+                            sub_impuestos=0
+                            sub_ttotal=0
+                        }
                     }
                        
-                        #$
+                    #$
                     tr(class="group-summary")
-                        {
-                            $""
-                            td(colspan="5"){""}
-                           // td(class="text-end fw-bold"){$"$ #<number_format(ventas)>"}
-                            td(class="text-end fw-bold"){$"$ #<number_format(subtotal)>"}
-                            td(class="text-end fw-bold"){$"$ #<number_format(impuestos)>"}
-                            td(class="text-end fw-bold"){$"$ #<number_format(total)>"}
-                       } 
+                    {
+                        td(colspan="6"){""}
+                        // td(class="text-end fw-bold"){$"$ #<number_format(ventas)>"}
+                        td(class="text-end fw-bold"){$"$ #<number_format(subtotal)>"}
+                        td(class="text-end fw-bold"){$"$ #<number_format(impuestos)>"}
+                        td(class="text-end fw-bold"){$"$ #<number_format(total)>"}
+                    } 
                 }
             }  
 
             p(class="text-center mb-0"){$"#<@@(titles,'$footer')>"}
-            }
         }}
-
-        // script(type="text/javascript"){$''}
     }
     #!
     do @context.end()
