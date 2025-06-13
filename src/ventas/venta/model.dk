@@ -59,7 +59,7 @@ module ":Venta"
             OR (vnt.documento = #<@cCotizacion> AND vnt.statusadministrativo = #<@stt_adm_cerrado>)
         )
         -- AND vnt.aplicadoa IS NULL
-        AND vnt.icliente = @icliente
+        AND (vnt.icliente = @icliente OR cte.rfc = 'XAXX010101000')
         AND vnt.idivisa = @idivisa
         AND (
             CASE @doctype
