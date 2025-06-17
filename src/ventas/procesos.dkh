@@ -736,6 +736,8 @@ module ":erp.ventas.procesos"
             @"referencia": @@(factura,"$referencia")
             @"icliente": @@(factura,"#icliente")
             @"factor": @@(factura,"#factor")
+            @"tcc": @@(factura,"#tcc")
+            @"tcd": @@(factura,"#tcd")
             @"total": @@(factura,"#total")
             @"contado": round(_contado,decs)
             @"credito": round(_credito,decs)
