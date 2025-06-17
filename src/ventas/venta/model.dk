@@ -21,8 +21,13 @@ module ":Venta"
 
     buscarCliente::&db,&params
     {
+        using params
+        {
+            @"id": trim(@@(params,"$id"))
+            @"icliente": @@(params,"#icliente")
+        }
         //#region buscarCliente()
-        if trim(@@(params,"$id")) != "" || trim(@@(params,"$icliente")) != ""
+        if @@(params,"$id") != "" || @@(params,"#icliente") > 0
         {
             conditions = "(cte.sys_pk = IFNULL(@id,@icliente) OR cte.sys_guid = IFNULL(@id,@icliente))"
             return dbr.rec(db,ftext(@qry_buscar_cliente),params)
