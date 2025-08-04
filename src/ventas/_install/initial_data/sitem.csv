@@ -10,6 +10,7 @@ VD15,Re-abrir documento de venta,ventas.venta
 VD16,Permitir editar el precio de venta,ventas.venta
 VDF0,Podar ventas,ventas.venta
 VDF1,Limpiar ventas,ventas.venta
+VDF2,Eliminar ventas,ventas.venta
 ventas.reports,Informes de ventas,ventas
 VD20,Reportes,ventas.reports
 VD21,Ventas netas totales,ventas.reports

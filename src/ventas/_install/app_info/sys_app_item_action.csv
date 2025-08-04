@@ -13,3 +13,4 @@
 
 VDF0,Podar ventas,Podar ventas,,/!/batch/taskman/VD/podar.ventas/?exit_url_encode=LyEvdmVudGFzL3ZlbnRhLw||,0,ventas.venta,DET01C,0,action
 VDF1,Limpiar ventas,Limpiar ventas,,/!/batch/taskman/VD/limpiar.ventas/?exit_url_encode=LyEvdmVudGFzL3ZlbnRhLw||,0,ventas.venta,DET01C,0,action
+"VDF2","Eliminar documento de venta","Eliminar","","javascript:InduxsoftCrudlModel.Delete(@_src_context_item_id)","0","ventas.venta","DET01C","1","action"

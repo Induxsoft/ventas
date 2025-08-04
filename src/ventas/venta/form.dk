@@ -147,9 +147,11 @@ module "form.dk"
         button(class="#<act_btn_cls>" type="button" id="btn_reabrir" "data-stt-adm"="#<@stt_adm_abierto>" title="Re-abrir documento"){$"#<@ICON_UNLOCK>"}
         button(class="#<act_btn_cls>" type="button" id="btn_cerrar" "data-stt-adm"="#<@stt_adm_cerrado>" title="Guardar y cerrar documento"){$"#<@ICON_LOCK>"}
         button(class="#<act_btn_cls>" type="button" id="btn_procesar" "data-stt-adm"="#<@stt_adm_procesado>" title="Procesar documento"){$"#<@ICON_PROCESS>"}
-        button(class="#<act_btn_cls>" type="button" id="btn_cancelar" "data-stt-adm"="#<@stt_adm_cancelado>" title="Cancelar documento"){$"#<@ICON_TRASH>"}
+        button(class="#<act_btn_cls>" type="button" id="btn_cancelar" "data-stt-adm"="#<@stt_adm_cancelado>" title="Cancelar documento"){$"#<@ICON_FILE_CANCEL> Cancelar"}
+        
         #!
         if not(@is_new) {#$
+            button(type="button" class="#<act_btn_cls>" id="btn-delete"){$"#<@ICON_TRASH> Eliminar"}
             button(class="#<act_btn_cls>" type="button" id="btn_new_doc" "data-new-doc"="#<@cPedido>"){$"#<@ICON_IMP_DOC> " span(id="txt_new_doc"){"Pedir"}}
         }
         #!

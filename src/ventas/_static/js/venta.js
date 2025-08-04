@@ -21,6 +21,7 @@ var venta =
         const btn_cerrar = document.getElementById("btn_cerrar");
         const btn_procesar = document.getElementById("btn_procesar");
         const btn_cancelar = document.getElementById("btn_cancelar");
+        const btn_delete=document.getElementById("btn-delete");
         const btn_new_doc = document.getElementById("btn_new_doc");
         // const btn_print = document.getElementById("btn_print");
         const toast = document.getElementById("toast");
@@ -55,6 +56,7 @@ var venta =
         if (btn_procesar) btn_procesar.addEventListener("click", (e) => this.submit(btn_procesar));
         if (btn_cancelar) btn_cancelar.addEventListener("click", (e) => this.changeStatus(btn_cancelar));
         if (btn_new_doc) btn_new_doc.addEventListener("click", (e) => this.exportarA(btn_new_doc.getAttribute("data-new-doc")));
+        if(btn_delete)btn_delete.addEventListener("click",()=>{this.Delete();});
         // if (btn_print) btn_print.addEventListener("click", (e) => v12PrintHTML());
         
         if (toast) toast.addEventListener('hidden.bs.toast', function (e) {
@@ -216,7 +218,10 @@ var venta =
         const btn_new_doc = document.getElementById("btn_new_doc");
         const txt_new_doc = document.getElementById("txt_new_doc");
 
-        hideControls(["btn_guardar","btn_reabrir","btn_cerrar","btn_procesar","btn_cancelar","btn_add_doc"]);
+        hideControls(["btn_guardar","btn_reabrir","btn_cerrar","btn_procesar","btn_cancelar","btn_add_doc","btn-delete"]);
+
+        if(this.cur_stt_adm==1)hideControls(["btn-delete"],false);
+
         switch (this.idocumento) {
             case 1: //Cotización
             {
@@ -1220,6 +1225,24 @@ var venta =
         
         this.edtProduct(producto,curr_row);
     },
+    Delete()
+    {
+        if (!confirm("¿Esta seguro de eliminar la venta?")) return;
+
+        let endpoint = ".";
+
+		InduxsoftCrudlModel.InvokeService(endpoint, null,
+			function (data) 
+            {
+				window.location.href="..";
+			},
+			function (error) 
+            {
+				if (error.message) alert(error.message);
+				else console.error(error);
+			}, "DELETE", false, false
+		);
+    }
 }
 
 var _bitacora=
