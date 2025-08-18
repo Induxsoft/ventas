@@ -21,7 +21,7 @@ var venta =
         const btn_cerrar = document.getElementById("btn_cerrar");
         const btn_procesar = document.getElementById("btn_procesar");
         const btn_cancelar = document.getElementById("btn_cancelar");
-        const btn_delete=document.getElementById("btn-delete");
+        const btn_delete = document.getElementById("btn-delete");
         const btn_new_doc = document.getElementById("btn_new_doc");
         // const btn_print = document.getElementById("btn_print");
         const toast = document.getElementById("toast");
@@ -56,7 +56,7 @@ var venta =
         if (btn_procesar) btn_procesar.addEventListener("click", (e) => this.submit(btn_procesar));
         if (btn_cancelar) btn_cancelar.addEventListener("click", (e) => this.changeStatus(btn_cancelar));
         if (btn_new_doc) btn_new_doc.addEventListener("click", (e) => this.exportarA(btn_new_doc.getAttribute("data-new-doc")));
-        if(btn_delete)btn_delete.addEventListener("click",()=>{this.Delete();});
+        if (btn_delete) btn_delete.addEventListener("click",()=>{this.Delete();});
         // if (btn_print) btn_print.addEventListener("click", (e) => v12PrintHTML());
         
         if (toast) toast.addEventListener('hidden.bs.toast', function (e) {
@@ -1260,7 +1260,6 @@ var _bitacora=
         }
 
         var uri=_bitacora._url.replace("@guid",guid).replace("@det",det);
-        console.log(uri)
         webshell.Panels.Show(webshell.Panels.Const.Right,uri);
     }
 }

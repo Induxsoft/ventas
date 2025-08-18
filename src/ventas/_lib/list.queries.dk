@@ -156,10 +156,10 @@ module "Lista de consultas MySQL"
         dt.doc_partida,
 
         ((dt.precio * vnt.tipocambio) / dt.tipocambio) AS _precio,
-        (CONVERT(REPLACE(SUBSTRING_INDEX(i.i1venta, '|', @zimpuesto),'%',''), DECIMAL) / 100) AS i1_tasa,
-        (CONVERT(REPLACE(SUBSTRING_INDEX(i.i2venta, '|', @zimpuesto),'%',''), DECIMAL) / 100) AS i2_tasa,
-        (CONVERT(REPLACE(SUBSTRING_INDEX(i.i3venta, '|', @zimpuesto),'%',''), DECIMAL) / 100) AS i3_tasa,
-        (CONVERT(REPLACE(SUBSTRING_INDEX(i.i4venta, '|', @zimpuesto),'%',''), DECIMAL) / 100) AS i4_tasa,
+        (CONVERT(REPLACE(SUBSTRING_INDEX(i.i1venta, '|', @zimpuesto),'%',''), DECIMAL(18,6)) / 100) AS i1_tasa,
+        (CONVERT(REPLACE(SUBSTRING_INDEX(i.i2venta, '|', @zimpuesto),'%',''), DECIMAL(18,6)) / 100) AS i2_tasa,
+        (CONVERT(REPLACE(SUBSTRING_INDEX(i.i3venta, '|', @zimpuesto),'%',''), DECIMAL(18,6)) / 100) AS i3_tasa,
+        (CONVERT(REPLACE(SUBSTRING_INDEX(i.i4venta, '|', @zimpuesto),'%',''), DECIMAL(18,6)) / 100) AS i4_tasa,
         TRIM(p.unidad) AS unidada,
         TRIM(IFNULL(p.unidadb,'')) AS unidadb,
         TRIM(IFNULL(p.unidadc,'')) AS unidadc,
@@ -224,13 +224,13 @@ module "Lista de consultas MySQL"
         dvs.tcambio AS tipocambio,
         imp.nombre AS conf_impuestos,
         IFNULL(imp.uf_tipoi1,'') AS i1_txt,
-        (CONVERT(REPLACE(SUBSTRING_INDEX(imp.i1venta, '|', @zimpuesto),'%',''), DECIMAL) / 100) AS i1_tasa,
+        (CONVERT(REPLACE(SUBSTRING_INDEX(imp.i1venta, '|', @zimpuesto),'%',''), DECIMAL(18,6)) / 100) AS i1_tasa,
         IFNULL(imp.uf_tipoi2,'') AS i2_txt,
-        (CONVERT(REPLACE(SUBSTRING_INDEX(imp.i2venta, '|', @zimpuesto),'%',''), DECIMAL) / 100) AS i2_tasa,
+        (CONVERT(REPLACE(SUBSTRING_INDEX(imp.i2venta, '|', @zimpuesto),'%',''), DECIMAL(18,6)) / 100) AS i2_tasa,
         IFNULL(imp.uf_tipoi3,'') AS i3_txt,
-        (CONVERT(REPLACE(SUBSTRING_INDEX(imp.i3venta, '|', @zimpuesto),'%',''), DECIMAL) / 100) AS i3_tasa,
+        (CONVERT(REPLACE(SUBSTRING_INDEX(imp.i3venta, '|', @zimpuesto),'%',''), DECIMAL(18,6)) / 100) AS i3_tasa,
         IFNULL(imp.uf_tipoi4,'') AS i4_txt,
-        (CONVERT(REPLACE(SUBSTRING_INDEX(imp.i4venta, '|', @zimpuesto),'%',''), DECIMAL) / 100) AS i4_tasa,
+        (CONVERT(REPLACE(SUBSTRING_INDEX(imp.i4venta, '|', @zimpuesto),'%',''), DECIMAL(18,6)) / 100) AS i4_tasa,
         ifnull(p.costoultimo,0)costo
         #<selects>
     FROM producto AS p
