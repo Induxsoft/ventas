@@ -243,6 +243,8 @@ module ":erp.ventas.procesos"
                         @"tipocambio": @@(item,"#tipocambio")
                         @"rventa": @@(item,"#sys_pk")
                         @"fk_cardex_movimientos": pk_cardex
+                        @"entradas": 0
+                        @"cargos": 0
                     }
                     do asignarLoteSerie(db,item,dcardex)
                     do dbr.insert(db,"dcardex",dcardex)
@@ -340,6 +342,8 @@ module ":erp.ventas.procesos"
                 @"tipocambio": @@(item,"#tipocambio")
                 @"rventa": @@(item,"#sys_pk")
                 @"fk_cardex_movimientos": pk_cardex
+                @"salidas": 0
+                @"abonos": 0
             }
             do devolverLoteSerie(db,item,dcardex)
             do dbr.insert(db,"dcardex",dcardex)
@@ -434,6 +438,12 @@ module ":erp.ventas.procesos"
                 @"sys_recver": 0
                 @"fk_cardex_movimientos": pk_cardex
             }
+            
+            if not(field.exist(dcardex,"abonos")){dcardex<"abonos">: 0}
+            if not(field.exist(dcardex,"cargos")){dcardex<"cargos">: 0}
+            if not(field.exist(dcardex,"entradas")){dcardex<"entradas">: 0}
+            if not(field.exist(dcardex,"salidas")){dcardex<"salidas">: 0}
+
             do devolverLoteSerie(db,itm,@null)
             do dbr.insert(db,"dcardex",dcardex)
         }
