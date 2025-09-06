@@ -658,7 +658,7 @@ module "form.dk"
 
             div
             {
-                "input-key"(id="ik_producto" "data-key"="sys_pk" "data-search"="codigo" "data-text"="descripcion" "data-source"="#<@URL_BUSCAR_PRODUCTO>" columns="codigo,descripcion,divisa" colcaptions="Código,Descripción,Divisa" "box-title-text"="Seleccione un producto de la lista" "hidden-input"="false" "control-styles"="#container{display:none !important;}"){$""}
+                "input-key"(id="ik_producto" "data-key"="sys_pk" "data-search"="codigo" "data-text"="descripcion" "data-source"="#<@URL_BUSCAR_PRODUCTO>" columns="codigo,descripcion,divisa,codbar1,codbar2,codbar3" colcaptions="Código,Descripción,Divisa,CodBar1,CodBar2,CodBar3" "box-title-text"="Seleccione un producto de la lista" "hidden-input"="false" "control-styles"="#container{display:none !important;}"){$""}
 
                 "input-key"(id="ik_lot_prod" "data-key"="ilote" "data-search"="numero" "data-text"="fcaducidad" "data-source"="#<@URL_OBTENER_LOTES_DE_PRODUCTO>" columns="numero,cantidad,fcaducidad" colcaptions="Número,Cantidad,F.Caducidad" "hidden-input"="false" "control-styles"="#container{display:none !important;}"){$""}
 
