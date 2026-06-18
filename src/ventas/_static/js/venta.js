@@ -1203,7 +1203,7 @@ var venta =
             if (cantidad > 1 && !producto.doc_partida)
             {
                 let precio = await this.precioProducto(producto.iproducto, cantidad, producto.unidad);
-                if (precio > 0 && precio < producto.precio) {
+                if (precio > 0 && precio != producto.precio) { 
                     document.getElementById("toast-title").innerText = producto.descripcion;
                     document.getElementById("toast-body").innerText = "Nuevo precio determinado.";
                     showToast("toast");
