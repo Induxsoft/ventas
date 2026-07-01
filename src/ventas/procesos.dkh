@@ -1258,6 +1258,7 @@ module ":erp.ventas.procesos"
         @"documento": //(int) Clave primaria del documento (tipo depósito).
         @"icuenta": //(int) Clave primaria de la cuenta bancaria donde se realizara el depósito.
         @"concepto": //(string) Descripción de la operación.
+        @"procesar_salida": //(bool) default = true
     }
     *```
     */
@@ -1271,6 +1272,7 @@ module ":erp.ventas.procesos"
             start_transaction = @true
         }
 
+        
         new params
         {
             @"cat_movinv": dbr.vars.get(db,"v12.ventas.salida")
@@ -1285,9 +1287,14 @@ module ":erp.ventas.procesos"
         factor = dbr.num(db,"SELECT (d.tipocambio/dc.tcambio) FROM venta d, chequera c INNER JOIN divisa dc ON c.idivisa=dc.sys_pk WHERE d.sys_pk=@iventa AND c.sys_pk=@icuenta;",data)
         importe = round(total * factor, decs)
 
-        // Generar movimiento de salida de inventario y aplicar.
-        mov_sys_pk = erp.ventas.procesos.salidaInventario(db,iventa,cat_movinv)
-        if mov_sys_pk > 0 { do erp.inventario.aplicar_mov(db,mov_sys_pk,@true) }
+        if not(field.exist(data,"procesar_salida")){data<"procesar_salida">:@true}
+        if @@(data,"#procesar_salida")
+        {
+            // Generar movimiento de salida de inventario y aplicar.
+            mov_sys_pk = erp.ventas.procesos.salidaInventario(db,iventa,cat_movinv)
+            if mov_sys_pk > 0 { do erp.inventario.aplicar_mov(db,mov_sys_pk,@true) }
+        }
+        
 
         // Realizar depósito a la cuenta.
         ref deposito = record.copy(data,"referencia,faplicacion,documento,icuenta,concepto")
@@ -1352,9 +1359,13 @@ module ":erp.ventas.procesos"
         icategoria = dbr.num(db,"select sys_pk from categoria where codigo=@cat_movinv",params)
         iventa = @@(data,"#iventa")
 
-        // Generar movimiento de salida de inventario y aplicar.
-        mov_sys_pk = erp.ventas.procesos.salidaInventario(db,iventa,icategoria)
-        if mov_sys_pk > 0 { do erp.inventario.aplicar_mov(db,mov_sys_pk,@true) }
+        if not(field.exist(data,"procesar_salida")){data<"procesar_salida">:@true}
+        if @@(data,"#procesar_salida")
+        {
+            // Generar movimiento de salida de inventario y aplicar.
+            mov_sys_pk = erp.ventas.procesos.salidaInventario(db,iventa,icategoria)
+            if mov_sys_pk > 0 { do erp.inventario.aplicar_mov(db,mov_sys_pk,@true) }
+        }
 
         // Agregar documento por cobrar (dcxc) y afectar el saldo del cliente.
         if @@(data,"#documento") == @cFactura
@@ -1420,7 +1431,7 @@ module ":erp.ventas.procesos"
 
         new params { @"cat_movinv": dbr.vars.get(db,"v12.ventas.salida") }
         icategoria = dbr.num(db,"select sys_pk from categoria where codigo=@cat_movinv",params)
-
+        
         // Generar movimiento de salida de inventario y aplicar.
         mov_sys_pk = erp.ventas.procesos.salidaInventario(db,iventa,icategoria)
         if mov_sys_pk > 0 { do erp.inventario.aplicar_mov(db,mov_sys_pk,@true) }
