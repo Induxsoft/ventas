@@ -1,0 +1,147 @@
+#include "dkli.dkh"
+#!
+module "list.dk"
+{
+    #include "functions.dkh"
+    #include "serialize.dkh"
+    #include "uielements.v12.dkl"
+    #include "../_lib/config.dk"
+    #include "../_lib/lib.dk"
+
+    do @context.begin(@crud_context)
+
+    ref @_GET = ifnull(@("&parameters"),record.create())
+    ref data = ifnull(@("&."),list.create())
+    ref titles = ifnull(@("&./titles"),record.create())
+
+    new nav_config
+    {
+        @"title": "Ventas por entregar"
+        @"buttons*": @null
+        @"urlexit": "/"
+        @"jscurrentcontext": "getCurrentContext"
+    }
+
+    new table_definition
+    {
+        @"datatable*": data
+        @"tableheight": "96%"
+        member @"columns"
+        {
+            member @"cdocumento" { @"caption": "Documento" }
+            member @"referencia" { @"caption": "Referencia" }
+            member @"fecha"
+            {
+                @"caption": "Fecha"
+                @"align": "center"
+            }
+            member @"cliente" { @"caption": "Cliente" }
+            member @"xsalir" { @"caption": "Por salir" }
+            // member @"vencimiento"
+            // {
+            //     @"caption": "Vencimiento"
+            //     @"align": "center"
+            // }
+            member @"cdivisa"
+            {
+                @"caption": "Divisa"
+                @"align": "center"
+            }
+            member @"tipocambio"
+            {
+                @"caption": "T. Cambio"
+                @"align": "end"
+                @"format": @true
+                @"thousandssep": @true
+                @"decs": @DECIMAL_PRECISION
+            }
+            member @"total"
+            {
+                @"caption": "Total"
+                @"align": "end"
+                @"format": @true
+                @"thousandssep": @true
+                @"decs": @DECIMAL_PRECISION
+            }
+            member @"forma_pago"
+            {
+                @"caption": "Forma de pago"
+                @"align": "center"
+            }
+            member @"stt_ent"
+            {
+                @"caption": "Estado de entrega"
+                @"align": "center"
+            }
+            member @"stt_fin"
+            {
+                @"caption": "Estado financiero"
+                @"align": "center"
+            }
+            member @"stt_fac"
+            {
+                @"caption": "Estado de facturación"
+                @"align": "center"
+            }
+            member @"stt_adm"
+            {
+                @"caption":"Estado administrativo"
+                @"align": "center"
+            }
+
+            member @"_action"
+            {
+                @"caption":"Acción"
+                @"align": "center"
+                @"template":'<a class="btn-gray" href="./${DataRow.sys_pk}/"> Detalle</a>'
+            }
+        }
+        @"table_footer": "Mostrando los primeros # registros"
+        @"control_styles": '
+            .btn-gray {
+                background-color: #6c757d;
+                color: #fff;
+                border: 1px solid #6c757d;
+                padding: 5px 10px;
+                border-radius: 4px;
+                text-decoration: none;
+                display: inline-block;
+                cursor: pointer;
+            }
+
+            .btn-gray:hover {
+                background-color: #5a6268;
+                border-color: #545b62;
+                color: #fff;
+            }
+            @media print {
+                table {
+                    table-layout:auto;
+                    width:100%;
+                }
+                th {
+                    font-size:.9rem;
+                }
+                td {
+                    font-size:.8rem;
+                }
+            }
+        '
+    }
+    table_id="ventas_x_salir"
+    #$ div(class="container-fluid v12-list-view" id="view")
+    {
+        section(class="" id="top_area")
+        {
+            #!
+            do uie.printV12FormBar(nav_config)
+            #$
+        }
+        section(class="" id="work_area")
+        {
+            #!
+            do uie.dbeditable(table_definition,table_id)
+            #$
+        }
+    }
+}

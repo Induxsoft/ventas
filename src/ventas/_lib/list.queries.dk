@@ -24,7 +24,8 @@ module "Lista de consultas MySQL"
         fp.const AS forma_pago,
         sfin.const AS stt_fin,
         sfac.const AS stt_fac,
-        sadm.const AS stt_adm
+        sadm.const AS stt_adm,
+        sent.const AS stt_ent
         #<selects>
     FROM venta AS vnt
         INNER JOIN cliente AS cte ON vnt.icliente = cte.sys_pk
@@ -34,6 +35,7 @@ module "Lista de consultas MySQL"
         INNER JOIN cstatusfinancieros AS sfin ON vnt.statusfinanciero = sfin.id
         INNER JOIN cstatusfacturacion AS sfac ON vnt.statusfacturacion = sfac.id
         INNER JOIN cstatusadministrativos AS sadm ON vnt.statusadministrativo = sadm.id
+        INNER JOIN cstatusentrega AS sent ON vnt.statusentrega=sent.id
         #<joins>
     WHERE NOT IFNULL(vnt.sys_deleted,0)
         #<conditions>
@@ -96,7 +98,8 @@ module "Lista de consultas MySQL"
         adm.const AS stt_adm,
         ent.const AS stt_ent,
         fac.const AS stt_fac,
-        fin.const AS stt_fin
+        fin.const AS stt_fin,
+        vnt.noinventario
     FROM venta AS vnt
         INNER JOIN cdocumentos AS doc ON vnt.documento = doc.id
         INNER JOIN cliente AS cte ON vnt.icliente = cte.sys_pk
@@ -183,6 +186,7 @@ module "Lista de consultas MySQL"
         LEFT JOIN serie AS s ON dc.iserie = s.sys_pk
         #<joins>
     WHERE dt.fk_venta_detalle = COALESCE(@_entity_id,@iventa,@sys_pk)
+    #<conditions>
     "
 
     @qry_buscar_cliente = "

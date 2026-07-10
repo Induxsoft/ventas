@@ -21,7 +21,7 @@ module ":erp.ventas.procesos"
     convertirADivisa::value,tcprd,tcdoc,mode
     {
         //#region convertirADivisa()
-
+        
         if mode == @convertir_a.divisa_documento {
             return div((value * tcprd), tcdoc)
         }
@@ -136,12 +136,124 @@ module ":erp.ventas.procesos"
         }
     }
 
+    actualizarCantidadXSalir::&db,&item,documento
+    {
+        if @@(item,"#cantidad_xsalir") < .01{return}
+        
+        if not(dbr.execute(db,"UPDATE dventa SET xsalir = (xsalir - @cantidad_xsalir) WHERE (xsalir - @cantidad_xsalir) >= 0 AND sys_pk = @sys_pk;",item))
+        {
+            producto = @@(item,"$dproducto")
+
+            if documento == @cPedido { do rise_error(500,ftext("No puede salir más de la cantidad cotizada del producto: #<producto>")) }
+            if documento==@cRemision || documento==@cTicket { do rise_error(500,ftext("No puede salir más de la cantidad pedida del producto: #<producto>")) }
+            if documento == @cFactura { do rise_error(500,ftext("No puede salir más de la cantidad del producto: #<producto>")) }
+        }
+    }
+    
+    /*
+     * procesos.dkh
+     * Fecha: 2026-07-07
+     * Autor: ckande
+     *
+     * Descripción:
+     * - Realiza salida del inventario conforme a los detalles `dventa`
+     *
+     * Parámetros:
+     * - db : Referencia hacia la base de datos
+     * - venta : referencia con datos de la venta
+     * - dventa : Array con datos de los productos a salir
+     * - icategoria : id de la categoría
+     * Retorna:
+     * - sys_pk del movimiento de cardex
+     */
+    ejecutarSalidaInventario::&db,&venta,&dventa,icategoria
+    {
+        if @@(venta,"#noinventario"){return 0}
+
+        start_transaction = @false
+
+        if not(dbr.in_transaction(db)) {
+            do dbr.begin(db)
+            start_transaction = @true
+        }
+
+        new cardex
+        {
+            @"sys_pk": 0
+            @"sys_guid": uuid()
+            @"sys_dtcreated*": dbr.sql("now()")
+            @"sys_timestamp*": dbr.sql("now()")
+            @"sys_recver": 0
+            @"fecha*": dbr.sql("now()")
+            @"referencia": @@(venta,"$referencia")
+            @"descripcion": "Aplicado por venta con referencia: " + @@(venta,"$referencia")
+            @"docventa": @@(venta,"#sys_pk")
+            @"icategoria": icategoria
+        }
+        pk_cardex = 0
+
+        for i = 0; i < list.count(dventa)
+        {
+            ref item = list.obj(dventa,i)
+         
+            if not(field.exist(item,"cantidad_xsalir")){item<"cantidad_xsalir">:@@(item,"#cantidad")}
+            
+            do actualizarCantidadXFacturar(db,item,@@(venta,"#documento"))
+            
+            do actualizarCantidadXSalir(db,item,@@(venta,"#documento"))
+
+            if not(@@(item,"#mov_aplicado"))
+            {
+                if pk_cardex == 0 {
+                    do dbr.insert(db,"cardex",cardex)
+                    pk_cardex = dbr.num(db,"select last_insert_id();",@null)
+                }
+
+                if @@(item,"#tipoprod") != @tpo_prod_no_inventariable
+                {
+                    salidas = @@(item,"#cantidad")
+                    if @@(item,"#cantidad_xsalir") > 0{salidas=@@(item,"#cantidad_xsalir")}
+
+                    abonos = convertirADivisa(@@(item,"#abonos"),@@(item,"#tipocambio"),@@(venta,"#tipocambio"),@convertir_a.divisa_producto)
+                    
+                    new dcardex
+                    {
+                        @"sys_pk": 0
+                        @"sys_guid": uuid()
+                        @"sys_dtcreated*": dbr.sql("now()")
+                        @"sys_timestamp*": dbr.sql("now()")
+                        @"sys_recver": 0
+                        @"ialmacen": @@(item,"#ialmacen")
+                        @"iproducto": @@(item,"#iproducto")
+                        @"salidas": salidas
+                        @"abonos": abonos
+                        @"cpromedio": div(abonos,salidas)
+                        @"tipocambio": @@(item,"#tipocambio")
+                        @"rventa": @@(item,"#sys_pk")
+                        @"fk_cardex_movimientos": pk_cardex
+                        @"entradas": 0
+                        @"cargos": 0
+                    }
+                    do asignarLoteSerie(db,item,dcardex)
+                    do dbr.insert(db,"dcardex",dcardex)
+                }
+            }
+        }
+
+        if start_transaction { do dbr.commit(db) }
+
+        return pk_cardex
+
+        exception
+        {
+            if start_transaction { do dbr.rollback(db) }
+            do rise_error(last_error_code(),last_error())
+        }
+    }
     salidaInventario::&db,iventa,icategoria
     {
         //#region salidaInventario()
         namespace "erp.ventas.procesos"
-
-        start_transaction = @false
 
         sql_venta = "
         SELECT
@@ -149,7 +261,8 @@ module ":erp.ventas.procesos"
             v.documento,
             v.referencia,
             v.tipocambio,
-            cc.ialmacen
+            cc.ialmacen,
+            v.noinventario
         FROM venta v
             INNER JOIN cconsumo cc ON v.icconsumo = cc.sys_pk
         WHERE v.sys_pk = @iventa
@@ -186,80 +299,11 @@ module ":erp.ventas.procesos"
         "
         
         new params { @"iventa": parse.num(iventa) }
-
-        if not(dbr.in_transaction(db)) {
-            do dbr.begin(db)
-            start_transaction = @true
-        }
-
+        
         ref venta = dbr.rec(db,sql_venta,params)
         ref dventa = dbr.list(db,sql_dventa,params)
 
-        new cardex
-        {
-            @"sys_pk": 0
-            @"sys_guid": uuid()
-            @"sys_dtcreated*": dbr.sql("now()")
-            @"sys_timestamp*": dbr.sql("now()")
-            @"sys_recver": 0
-            @"fecha*": dbr.sql("now()")
-            @"referencia": @@(venta,"$referencia")
-            @"descripcion": "Aplicado por venta con referencia: " + @@(venta,"$referencia")
-            @"docventa": @@(venta,"#sys_pk")
-            @"icategoria": icategoria
-        }
-        pk_cardex = 0
-
-        for i = 0; i < list.count(dventa)
-        {
-            ref item = list.obj(dventa,i)
-
-            do actualizarCantidadXFacturar(db,item,@@(venta,"#documento"))
-
-            if not(@@(item,"#mov_aplicado"))
-            {
-                if pk_cardex == 0 {
-                    do dbr.insert(db,"cardex",cardex)
-                    pk_cardex = dbr.num(db,"select last_insert_id();",@null)
-                }
-
-                if @@(item,"#tipoprod") != @tpo_prod_no_inventariable
-                {
-                    salidas = @@(item,"#cantidad")
-                    abonos = convertirADivisa(@@(item,"#abonos"),@@(item,"#tipocambio"),@@(venta,"#tipocambio"),@convertir_a.divisa_producto)
-                    
-                    new dcardex
-                    {
-                        @"sys_pk": 0
-                        @"sys_guid": uuid()
-                        @"sys_dtcreated*": dbr.sql("now()")
-                        @"sys_timestamp*": dbr.sql("now()")
-                        @"sys_recver": 0
-                        @"ialmacen": @@(item,"#ialmacen")
-                        @"iproducto": @@(item,"#iproducto")
-                        @"salidas": salidas
-                        @"abonos": abonos
-                        @"cpromedio": div(abonos,salidas)
-                        @"tipocambio": @@(item,"#tipocambio")
-                        @"rventa": @@(item,"#sys_pk")
-                        @"fk_cardex_movimientos": pk_cardex
-                        @"entradas": 0
-                        @"cargos": 0
-                    }
-                    do asignarLoteSerie(db,item,dcardex)
-                    do dbr.insert(db,"dcardex",dcardex)
-                }
-            }
-        }
-
-        if start_transaction { do dbr.commit(db) }
-        return pk_cardex
-
-        exception
-        {
-            if start_transaction { do dbr.rollback(db) }
-            do rise_error(last_error_code(),last_error())
-        }
+        return ejecutarSalidaInventario(db,venta,dventa,icategoria)
     }
 
     entradaInventario::&db,iventa,icategoria
@@ -587,6 +631,8 @@ module ":erp.ventas.procesos"
             }
         }
         
+        if dbr.num(db,"SELECT SUM(dv.xsalir) FROM dventa dv WHERE dv.fk_venta_detalle=@iventa;",params) > 0{status<"statusentrega">:@stt_ent_xentregar}
+
         if not(dbr.in_transaction(db)) {
             do dbr.begin(db)
             start_transaction = @true

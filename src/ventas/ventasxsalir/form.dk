@@ -1,0 +1,128 @@
+#include "dkli.dkh"
+#!
+module "list.dk"
+{
+    #include "functions.dkh"
+    #include "serialize.dkh"
+    #include "uielements.v12.dkl"
+    #include "../_lib/config.dk"
+    #include "../_lib/lib.dk"
+    #include "../_lib/icons.dk"
+
+    do @context.begin(@crud_context)
+
+    ref entity = ifnull(@("&./entity"),record.create())
+    ref @_GET = ifnull(@("&parameters"),record.create())
+    @enable_lotes=@false
+    @enable_series=@false
+
+    fn_print_buttons::
+    {
+        act_btn_cls = "btn btn-sm border-secondary induxsoft-corners btn-main-action"
+        
+        #$
+        button(class="#<act_btn_cls>" type="button" id="btn_procesar" "data-stt-adm"="#<@stt_adm_procesado>" title="Procesar entrega"){$"#<@ICON_PROCESS>"}
+        #!
+    }
+    point print_buttons to fn_print_buttons
+    new nav_config
+    {
+        @"title": "Venta por entregar: "+@@(entity,"$referencia")
+        @"buttons*": print_buttons
+        @"urlexit": "../"
+        @"print_mode": 1 
+    }
+    
+    ref detail=ifnull(@("&./detail"),list.create())
+
+    #$ div(class="container-lg" id="view")
+    {
+        link(href="#<@CSS_MAIN>" rel="stylesheet")
+        link(href="#<@CSS_VENTA>" rel="stylesheet")
+
+        section(id="top_area")
+        {
+            
+            #!
+            do uie.printV12FormBar(nav_config)
+            #$
+            h5{"Cliente: #<@@(entity,'$dcliente')>"}
+            div(class="d-flex flex-wrap gap-2")
+            {
+                small{b{$"E. Administrativo: "} $"#<@@(entity,'$stt_adm')>"}
+                small{b{$"E. Entrega: "} $"#<@@(entity,'$stt_ent')>"}
+                small{b{$"E. Facturación: "} $"#<@@(entity,'$stt_fac')>"}
+                small{b{$"E. Financiero: "} $"#<@@(entity,'$stt_fin')>"}
+            }
+            
+            div(class="d-flex flex-wrap gap-2" )
+            {
+                small{b{"Documento: "} "#<@@(entity,'$cdocumento')>"}
+                small{b{"Por entregar: "} "#<@('#./xentregar'):#.00>"}
+                small{b{"Divisa: "} "#<@@(entity,'$ddivisa')>"}
+                small{b{"Serie: "} "#<@@(entity,'$serie')>"}
+                small{b{"Folio: "} "#<@@(entity,'$folio')>"}
+            }
+        }
+
+        section(class="" id="work_area")
+        {
+            div(class="border border-top-0" id="div_tbl_productos" style="display:flex;width:auto;min-width:100%;")
+            {
+                "edit-table"(id="tbl_productos" data="#<to.json(detail)>" class="printable-element" style="width:100%;"
+                "auto-confirm"="true"
+                "row-height"="1.2rem"
+                "hidde-selector"="false"
+                "control-styles"="
+                    tr th { font-size:.9rem; font-weight:500 !important; outline:none !important; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; -o-text-overflow:ellipsis; }
+                    tr td { font-size:.8rem; }
+                    tr td[data-cell='Entregar']
+                    {
+                        background-color:lightgray;
+                        color:#000;
+                    }
+                    #__table_input { font-size:unset !important; }
+
+                    @media print
+                    {
+                        tr th { background-color: #DCDCDC; }
+                        tr td { background-color: #FFF !important; color:#000 !important; }
+                    }
+                ")
+                {
+                    "edit-thead"
+                    {
+                        "edit-tr"
+                        {
+                            "edit-th"(type="NoEditable" field="codigo" ){$"Código"}
+                            "edit-th"(type="NoEditable" field="descripcion"){$"Descripción"}
+                            "edit-th"(type="NoEditable" field="unidad" options="{}"){$"Unidad"}
+                            "edit-th"(type="NoEditable" field="precio" textalign="end" format="true" thousandssep="true" decs="#<@DECIMAL_PRECISION>"){$"Precio"}
+                            "edit-th"(type="NoEditable" field="cantidad" textalign="center" format="true" decs="#<@DECIMAL_PRECISION>"){$"Cantidad"}
+                            // "edit-th"(type="NoEditable" field="subtotal" textalign="end" format="true" thousandssep="true" decs="#<@DECIMAL_PRECISION>"){$"Subtotal"}
+                            // "edit-th"(type="NoEditable" field="descuentos" textalign="end" format="true" thousandssep="true" decs="#<@DECIMAL_PRECISION>"){$"Descuentos"}
+                            // "edit-th"(type="NoEditable" field="impuestos" textalign="end" format="true" thousandssep="true" decs="#<@DECIMAL_PRECISION>"){$"Impuestos"}
+                            "edit-th"(type="NoEditable" field="importe" textalign="end" format="true" thousandssep="true" decs="#<@DECIMAL_PRECISION>"){$"Importe"}
+                            "edit-th"(type="NoEditable" field="xsalir" textalign="end" format="true" thousandssep="true" decs="#<@DECIMAL_PRECISION>"){$"Por salir"}
+                            "edit-th"(type="Number" field="cantidad_a_salir" textalign="end" format="true" thousandssep="true" decs="#<@DECIMAL_PRECISION>"){$"Entregar"}
+                            #! if @enable_lotes
+                            {
+                                #$
+                                "edit-th"(type="NoEditable" field="lote" button="true" readonly="true"){$"Lote"}
+                                "edit-th"(type="NoEditable" field="fcad" readonly="true"){$"Caducidad"}
+                            }
+                            #! if @enable_series
+                            {
+                                #$
+                                "edit-th"(type="NoEditable" field="serie" button="true" readonly="true"){$"Serie"}
+                            }
+                            // "edit-th"(type="Memo" field="notas"){$"Notas"}
+                        }
+                    }
+                }
+            }
+        }
+
+        script(src="/$/ventas/js/ventaxsalir.js"){""}
+    }
+}

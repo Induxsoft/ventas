@@ -1,0 +1,224 @@
+#include "dkli.dkh"
+#!
+module ""
+{
+    @table_name = "venta"
+    @keyfield = "sys_pk"
+    @sys_fields = "sys_pk,sys_guid,sys_dtcreated,sys_timestamp,sys_info,sys_user,sys_lastuser,sys_exported,sys_dtexported,sys_recver,sys_deleted,sys_lock"
+
+     @qry_dventa = "
+    SELECT
+        dt.sys_pk,
+        dt.sys_recver,
+        IFNULL(dt.sys_info,'') AS sys_info,
+        IFNULL(src.referencia,'') AS origen,
+        p.codigo,
+        p.descripcion,
+        dt.unidad,
+        dt.precio,
+        CONCAT(ROUND(dt2.cantidad - IFNULL(dt2.xfacturar,dt2.cantidad),0), '/', ROUND(dt2.cantidad,0)) AS cotizado,
+        dt.cantidad,
+        (IFNULL(dt.precio,0) * IFNULL(dt.cantidad,0)) AS subtotal,
+        (IFNULL(dt.descuento1,0) + IFNULL(dt.descuento2,0)) AS descuentos,
+        (IFNULL(dt.impuesto1,0) + IFNULL(dt.impuesto2,0) + IFNULL(dt.impuesto3,0) + IFNULL(dt.impuesto4,0)) AS impuestos,
+        (((IFNULL(dt.precio,0) * IFNULL(dt.cantidad,0))
+            - IFNULL(dt.descuento1,0)
+            - IFNULL(dt.descuento2,0))
+            + IFNULL(dt.impuesto1,0)
+            + IFNULL(dt.impuesto2,0)
+            + IFNULL(dt.impuesto3,0)
+            + IFNULL(dt.impuesto4,0)
+        ) AS importe,
+        dt.notas,
+
+        dt.descuento1,
+        dt.descuento2,
+        dt.factor,
+        dt.impuesto1,
+        dt.impuesto2,
+        dt.impuesto3,
+        dt.impuesto4,
+        dt.status,
+        dt.tipocambio,
+        dt.xfacturar,
+        dt.xsalir,
+        dt.ialmacen,
+        dt.iproducto,
+        dt.documento,
+        dt.doc_partida,
+
+        ((dt.precio * vnt.tipocambio) / dt.tipocambio) AS _precio,
+        (CONVERT(REPLACE(SUBSTRING_INDEX(i.i1venta, '|', @zimpuesto),'%',''), DECIMAL(18,6)) / 100) AS i1_tasa,
+        (CONVERT(REPLACE(SUBSTRING_INDEX(i.i2venta, '|', @zimpuesto),'%',''), DECIMAL(18,6)) / 100) AS i2_tasa,
+        (CONVERT(REPLACE(SUBSTRING_INDEX(i.i3venta, '|', @zimpuesto),'%',''), DECIMAL(18,6)) / 100) AS i3_tasa,
+        (CONVERT(REPLACE(SUBSTRING_INDEX(i.i4venta, '|', @zimpuesto),'%',''), DECIMAL(18,6)) / 100) AS i4_tasa,
+        TRIM(p.unidad) AS unidada,
+        TRIM(IFNULL(p.unidadb,'')) AS unidadb,
+        TRIM(IFNULL(p.unidadc,'')) AS unidadc,
+        TRIM(IFNULL(p.unidadd,'')) AS unidadd,
+        TRIM(IFNULL(p.unidade,'')) AS unidade,
+        IFNULL(p.factorb,0) AS factorb,
+        IFNULL(p.factorc,0) AS factorc,
+        IFNULL(p.factord,0) AS factord,
+        IFNULL(p.factore,0) AS factore,
+        p.reqlote,
+        p.reqserie
+        #<selects>
+    FROM dventa AS dt
+        INNER JOIN producto AS p ON dt.iproducto = p.sys_pk
+        INNER JOIN cfgimpuesto AS i ON p.impuestos = i.sys_pk
+        INNER JOIN venta AS vnt ON dt.fk_venta_detalle = vnt.sys_pk
+        LEFT JOIN dventa AS dt2 ON dt.doc_partida = dt2.sys_pk
+        LEFT JOIN venta AS src ON dt.documento = src.sys_pk
+        #<joins>
+    WHERE dt.fk_venta_detalle = COALESCE(@_entity_id,@iventa,@sys_pk)
+    #<conditions>
+    "
+
+    @list_query=@qry_list_venta
+    @read_query=@qry_read_venta
+    @childs_query =@qry_dventa
+
+    list::&db,&params
+    {
+        do dbr.apps.action.grant("VD17")
+
+        selects=",sum(dv.xsalir)xsalir"
+        joins="INNER JOIN dventa dv on vnt.sys_pk=dv.fk_venta_detalle
+        INNER JOIN producto p on dv.iproducto=p.sys_pk"
+        conditions=ftext("
+        AND vnt.documento in(#<@cRemision>,#<@cCotizacion>,#<@cFactura>,#<@cTicket>,#<@cPedido>)
+        AND vnt.statusentrega<>#<@stt_ent_entregado>
+        AND vnt.statusadministrativo=#<@stt_adm_procesado>
+        AND if(vnt.documento in(#<@cRemision>,#<@cTicket>),vnt.statusfacturacion not in(#<@stt_fac_parcialmente_facturado>,#<@stt_fac_facturado>),true )
+        AND p.itipo=#<@tpo_prod_inventariable>
+        GROUP BY vnt.sys_pk HAVING xsalir > 0")
+        return dbr.list(db,ftext(@list_query),params)
+    }
+    read::&db,&params
+    {
+        do dbr.apps.action.grant("VD17")
+
+        selects=",sum(dt.xsalir)xsalir"
+        conditions=ftext("AND p.itipo=#<@tpo_prod_inventariable>
+        GROUP BY dt.sys_pk HAVING xsalir > 0
+        ORDER BY p.codigo DESC")
+
+        xentregar = 0
+
+        ref detail=dbr.list(db,ftext(@childs_query),params)
+
+        for i = 0; i < @count(detail){xentregar=xentregar + @@(@item(detail,i),"#xsalir")}
+
+        new entity
+        {
+            @"entity*":entity.read(db,params)
+            @"detail*": detail
+            @"xentregar":xentregar
+        }
+
+        return entity
+    }
+    procesar::&db,&params,&data
+    {
+        do dbr.apps.action.grant("VD18")
+
+        if trim(@@(data,"$_detalle")) == ""{do rise_error(500,"No ha indicado datos para procesar")}
+
+        sql_dventa = "
+        SELECT
+            d.sys_pk,
+            (CASE d.unidad
+                WHEN p.unidadb THEN (ifnull(@cantidad_a_salir,0) * p.factorb)
+                WHEN p.unidadc THEN (ifnull(@cantidad_a_salir,0) * p.factorc)
+                WHEN p.unidadd THEN (ifnull(@cantidad_a_salir,0) * p.factord)
+                WHEN p.unidade THEN (ifnull(@cantidad_a_salir,0) * p.factore)
+                ELSE ifnull(@cantidad_a_salir,0)
+            END) AS cantidad,
+            d.precio,
+            d.tipocambio,
+            d.ialmacen,
+            d.iproducto,
+            ((IFNULL(d.precio,0) * ifnull(@cantidad_a_salir,0)) - IFNULL(d.descuento1,0) - IFNULL(d.descuento2,0)) AS abonos,
+            IFNULL(d.xfacturar,0) AS xfacturar,
+            IFNULL(d.doc_partida,0) AS doc_partida,
+            IFNULL(d.sys_info,'') AS sys_info,
+            d.fk_venta_detalle AS iventa,
+            CONCAT(p.codigo,' - ',p.descripcion) AS dproducto,
+            p.iclase AS claseprod,
+            p.itipo AS tipoprod,
+            d.xsalir
+            -- IF(dca.rventa IS NULL AND dca2.rventa IS NULL, 0, 1) mov_aplicado
+        FROM dventa d
+            INNER JOIN producto AS p ON d.iproducto = p.sys_pk
+            LEFT JOIN dcardex AS dca ON d.sys_pk = dca.rventa
+            LEFT JOIN dventa AS d2 ON d.doc_partida = d2.sys_pk
+            LEFT JOIN dcardex AS dca2 ON dca2.rventa = d2.sys_pk
+        WHERE d.sys_pk = @sys_pk
+        "
+        sql_venta = "
+        SELECT
+            v.sys_pk,
+            v.documento,
+            v.referencia,
+            v.tipocambio,
+            cc.ialmacen,
+            v.formapago
+        FROM venta v
+            INNER JOIN cconsumo cc ON v.icconsumo = cc.sys_pk
+        WHERE v.sys_pk = @_entity_id
+        "
+        ref venta=dbr.rec(db,sql_venta,params)
+        if isnull(venta){do rise_error(500,"No se encotró datos de la venta indicado")}
+
+        venta<"referencia">:@@(venta,"$referencia")+"/"+uuid()
+
+        ref details=from.json(@@(data,"$_detalle"))
+        
+        ref list_dventa=list.create()
+        for i = 0; i < @count(details)
+        {
+            ref v=@item(details,i)
+            ref dventa=dbr.rec(db,sql_dventa,v)
+            if not(isnull(dventa))
+            {
+                do list.add(list_dventa,dventa)
+            }
+        }
+        if @count(list_dventa) < 1{do rise_error(500,"No se encontró datos del detalle de la venta")}
+        categoria=dbr.vars.get(db,"v12.ventas.salida")
+        categoria >> params
+        icategoria=dbr.num(db,"SELECT sys_pk from categoria where codigo=@categoria",params)
+        
+        do dbr.begin(db)
+        /*
+         * Summary:
+         * - Realizar salida del inventario
+         */
+        mov_sys_pk=erp.ventas.procesos.ejecutarSalidaInventario(db,venta,list_dventa,icategoria)
+
+        /*
+         * Summary:
+         * - Aplicar movimiento de salida
+         */
+
+        if mov_sys_pk > 0 { do erp.inventario.aplicar_mov(db,mov_sys_pk,@true) }
+        /*
+         * Summary:
+         * - Actualizar estado de la venta
+         */
+         do erp.ventas.procesos.setStatus(db,@@(venta,"#sys_pk"),@@(venta,"#formapago"))
+        do dbr.commit(db)
+
+        return record.create()
+
+        exception
+        {
+            if dbr.in_transaction(db){do dbr.rollback(db)}
+            do rise_error(500,last_error())
+        }
+    }
+    
+    point @list to list
+    point @read to read
+}

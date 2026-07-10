@@ -759,6 +759,7 @@ model "erp.ventas"
         @"xmlcondicionespago" string(255)
         @"xmlmetodopago" string(255)
         @"xmlnumerocuentapago" string(100)
+        @"noinventario" bool
     }
     // Detalle de las ventas (productos vendidos)
     entity "dventa" : "TableModel"

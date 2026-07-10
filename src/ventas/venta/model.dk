@@ -1013,7 +1013,7 @@ module ":Venta"
 
         ref venta = record.copy(data,"*")
         ref _detalle = from.json(@@(venta,"_detalle"))
-
+        
         using venta
         {
             @"sys_user": @@(@http_context, "$session/user/uid")
@@ -1044,6 +1044,8 @@ module ":Venta"
         do validateFields(db,params,venta)
         do validateStatus(db,params,venta)
         do setLoteSerie(db,@@(venta,"&_detalle"),@@(venta,"#documento"))
+        venta<"noinventario">:if(parse.bool(@@(data,"$noinventario")),1,0)
+        
         ref entity = entity.create(db,params,venta)
         do documentsIncluded(db,@@(venta,"$docs_included_id"),@@(entity,"#sys_pk"))
         do updateAmounts(db,@@(entity,"#sys_pk"))
@@ -1109,6 +1111,7 @@ module ":Venta"
         do validateFields(db,params,venta)
         do validateStatus(db,params,venta)
         do setLoteSerie(db,@@(venta,"&_detalle"),@@(venta,"#documento"))
+        venta<"noinventario">:if(parse.bool(@@(data,"$noinventario")),1,0)
         ref entity = entity.update(db,params,venta)
         do documentsIncluded(db,@@(venta,"$docs_included_id"),@@(entity,"#sys_pk"))
         do updateAmounts(db,@@(entity,"#sys_pk"))

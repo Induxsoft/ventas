@@ -32,7 +32,7 @@ module "form.dk"
     ref dtporteador = ifnull(@("&./dtporteador"),record.create())
     ref dvspred = ifnull(@("&./dvspred"),record.create())
     ref docs_included = ifnull(@("&./docs_included"),record.create())
-
+    
     @_entities_type = @("$parameters/_entities_type")
 	@_entity_id = @("$parameters/_entity_id")
 
@@ -451,6 +451,14 @@ module "form.dk"
                                 ##
                                 do uie.dbSelect(sel_cconsumo)
                                 ##
+                            }
+                            div(class="col-lg-auto col-md-5 col-sm-auto d-flex align-items-end")
+                            {
+                                div(class="form-check form-switch")
+                                {
+                                    input(class="form-check-input" type="checkbox" role="switch" id="noinventario" "#<ifstr(parse.bool(@@(entity,'$noinventario')),'checked','')>"="" name="noinventario" "#<ifstr(not(@enable_editing),'disabled','')>"="")
+                                    label(class="form-check-label" "for"="noinventario"){"No realizar salida del inventario"}
+                                }
                             }
                         }
                     }

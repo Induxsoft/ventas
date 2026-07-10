@@ -1,0 +1,15 @@
+#include "dkli.dkh"
+#!
+module ""
+{
+    do errordet(@false)
+    
+    switch @@(params,"$_view")
+    {
+        case "process"
+        {
+            point @update to procesar
+            break
+        }
+    }
+}
