@@ -13,8 +13,12 @@ form(class="row" action="./" method="POST" id="form_liquidacion_credito")
         {
             div(class="col-lg-3 col-md-3 col-sm-4")
             {
+                ##
+                // Fecha límite de pago para el documento por cobrar
+                entity<"flimite"> : @@(entity,"$vencimiento")
+                ##
                 label(class="form-label" "for"="txt_flimite"){$"F. limite de pago:"}
-                input(class="form-control form-control-sm rounded-0" type="date" name="flimite" value="#<form('flimite','dt',@null)>" id="txt_flimite" required="")
+                input(class="form-control form-control-sm rounded-0" type="date" name="flimite" value="#<form('flimite','dt',entity)>" id="txt_flimite" readonly="")
             }
             div(class="col-lg-6 col-md-6 col-sm-8")
             {

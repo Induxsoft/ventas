@@ -1383,7 +1383,7 @@ module ":erp.ventas.procesos"
     {
         @"iventa": //(int) Clave primaria del documento de venta a procesar.
         @"icliente": //(int) Clave primaria del cliente.
-        @"flimite": //(string) Fecha [yyyy-MM-dd] limite.
+        @"flimite": //(string) Fecha [yyyy-MM-dd] límite de pago para el documento por cobrar.
         @"referencia": //(string) Referencia del documento de venta.
         @"documento": //(int) Clave primaria del tipo de documento de la venta.
         @"concepto": //(string) Descripción de la operación
