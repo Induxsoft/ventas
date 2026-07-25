@@ -152,7 +152,12 @@ module "form.dk"
         #!
         if not(@is_new) {#$
             button(type="button" class="#<act_btn_cls>" id="btn-delete"){$"#<@ICON_TRASH> Eliminar"}
-            button(class="#<act_btn_cls>" type="button" id="btn_new_doc" "data-new-doc"="#<@cPedido>"){$"#<@ICON_IMP_DOC> " span(id="txt_new_doc"){"Pedir"}}
+            #!
+            if @("#./allowexport")
+            {
+                #$
+                button(class="#<act_btn_cls>" type="button" id="btn_new_doc" "data-new-doc"="#<@cPedido>"){$"#<@ICON_IMP_DOC> " span(id="txt_new_doc"){"Pedir"}}
+            }
         }
         #!
     }

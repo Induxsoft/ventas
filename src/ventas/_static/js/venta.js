@@ -307,7 +307,7 @@ var venta =
                 }
                 break;
             }
-            case 5: //Nora de crédito
+            case 5: //Nota de crédito
             {
                 if (btn_new_doc) btn_new_doc.setAttribute("data-new-doc",0);
                 if (txt_new_doc) txt_new_doc.innerText = "";

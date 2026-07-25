@@ -53,6 +53,35 @@ module ":Venta"
         return dbr.list(db,ftext(@qry_buscar_producto),params)
     }
 
+    allowExportDocument::&db,&params
+    {
+        joins = "INNER JOIN dventa AS dv ON dv.fk_venta_detalle = vnt.sys_pk"
+        
+        conditions = ftext("
+        AND (
+            vnt.statusadministrativo = #<@stt_adm_procesado>
+            OR (vnt.documento = #<@cCotizacion> AND vnt.statusadministrativo = #<@stt_adm_cerrado>)
+        )
+        -- AND vnt.aplicadoa IS NULL
+        -- AND (vnt.icliente = @icliente OR cte.rfc = 'XAXX010101000')
+        -- AND vnt.idivisa = @idivisa
+        AND (
+            CASE @doctype
+                WHEN #<@cPedido> THEN vnt.documento = #<@cCotizacion>
+                WHEN #<@cRemision> THEN vnt.documento IN (#<@cCotizacion>,#<@cPedido>)
+                WHEN #<@cFactura> THEN vnt.documento IN (#<@cCotizacion>,#<@cPedido>,#<@cRemision>,#<@cTicket>)
+                WHEN #<@cNotaCredito> THEN vnt.documento IN (#<@cRemision>,#<@cFactura>,#<@cTicket>)
+                WHEN #<@cTicket> THEN vnt.documento IN (#<@cCotizacion>,#<@cPedido>)
+            END
+        )
+        AND vnt.sys_pk=@iventa
+        GROUP BY vnt.sys_pk
+        HAVING SUM(IFNULL(dv.xfacturar,0)) > 0
+        ")
+
+        ref venta=dbr.rec(db,ftext(@qry_list_venta),params)
+        return not(isnull(venta)) 
+    }
     buscarDocumento::&db,&params
     {
         //#region buscarDocumento()
@@ -883,8 +912,10 @@ module ":Venta"
         {
             @"_entity_id": @@(params,"#src")
             @"iventa": @@(params,"#src")
+            @"doctype":@@(params,"#doc")
         }
-        
+        if not(allowExportDocument(db,p)){do rise_error(500,"El documento seleccionado no puede exportarse")}
+
         ref entity = entity.read(db,p)
         using entity
         {
@@ -951,7 +982,26 @@ module ":Venta"
         if not(isset("@read_entity_only")){ @read_entity_only = @false }
         if @read_entity_only { return entity.read(db,params) }
 
-        new data { @"entity*": entity.read(db,params) }
+        ref entity=entity.read(db,params)
+        new p
+        {
+            @"iventa": @@(entity,"#sys_pk")
+            @"doctype": 0
+        }
+
+        if entity.documento == 1{p.doctype= 2}
+        else if entity.documento == 2{p.doctype := 3}
+        else if entity.documento == 3{p.doctype := 4}
+        else if entity.documento == 4{p.doctype := 5}
+        else if entity.documento == 5{p.doctype := 0}
+        else if entity.documento == 6{p.doctype := 4}
+
+        new data 
+        { 
+            @"entity*":  entity
+            @"allowexport":allowExportDocument(db,p)
+        }
+        
         do Venta.validateAccess(db,params,data)
         do Venta.prepareView(db,params,data)
 
