@@ -1,0 +1,222 @@
+#include "dkli.dkh"
+#!
+module ":promos"
+{
+    @table_name="promocion"
+    @list_query="SELECT p.*,t.const tipo,m.const modo,
+    if(p.activa,'Sí','No') str_activo,
+    trim(p.fecha_inicio) str_fecha_inicio,
+    trim(p.fecha_fin) str_fecha_fin
+    FROM promocion p
+        INNER JOIN ctipopromocion t ON p.tipo_promocion=t.id
+        INNER JOIN cmodocombinacion m ON p.modo_combinacion=m.id
+        WHERE IFNULL(p.sys_deleted,0)=0
+    ORDER BY p.activa DESC, p.prioridad ASC;"
+
+    @read_query="SELECT * FROM promocion WHERE sys_pk=@_entity_id"
+
+    list::&db,&params
+    {
+        do dbr.apps.action.grant("VD50")
+
+        new data
+        {
+            @"data*":dbr.list(db,ftext(@list_query),params)
+        }
+        return data
+    }
+    create_data::&db,&payload
+    {
+        ref data=from.json(@@(payload,"$detalle"))
+
+        duracion_inicion=@@(data,"$duracion/inicio")
+        duracion_fin=@@(data,"$duracion/fin")
+        ref diasSemana=@@(data,"&duracion/diasSemana")
+        ref mesesHabilitados=@@(data,"&duracion/mesesHabilitados")
+        ref tipoPromocion=@@(data,"&tipoPromocion")
+        ref reglas=@@(data,"&reglas")
+        meses=trim(ranychars(to.json(mesesHabilitados),"[]"," "))
+
+        tipo_promocion=dbr.num(db,"SELECT id from ctipopromocion WHERE trim(lower(const))=trim(lower(@tipo))",tipoPromocion)
+        modo_combinacion=dbr.num(db,"SELECT id from cmodocombinacion where trim(lower(const))=trim(lower(@modoCombinacion))",reglas)
+        
+        if trim(@@(data,"$codigo")) == ""{do rise_error(500,"Debe indicar un código")}
+        if trim(@@(data,"$nombre")) == ""{do rise_error(500,"Debe indicar un nombre")}
+        
+        new promocion
+        {
+            @"codigo": trim(@@(data,"$codigo"))
+            @"nombre": trim(@@(data,"$nombre"))
+            @"activa": parse.bool(@@(data,"$activa"))
+
+            @"tipo_promocion": tipo_promocion
+            @"prioridad": @@(data,"#reglas/prioridad")
+            @"modo_combinacion":modo_combinacion
+            @"grupo_exclusion":@@(data,"$reglas/grupoExclusion")
+
+            @"fecha_inicio": duracion_inicion
+            @"fecha_fin": duracion_fin
+
+            @"lunes":parse.bool(@@(diasSemana,"$lunes"))
+            @"martes":parse.bool(@@(diasSemana,"$martes"))
+            @"miercoles":parse.bool(@@(diasSemana,"$miercoles"))
+            @"jueves":parse.bool(@@(diasSemana,"$jueves"))
+            @"viernes":parse.bool(@@(diasSemana,"$viernes"))
+            @"sabado":parse.bool(@@(diasSemana,"$sabado"))
+            @"domingo":parse.bool(@@(diasSemana,"$domingo"))
+
+            @"enero": isanyword("1",meses)
+            @"febrero":isanyword("2",meses)
+            @"marzo":isanyword("3",meses)
+            @"abril":isanyword("4",meses)
+            @"mayo":isanyword("5",meses)
+            @"junio":isanyword("6",meses)
+            @"julio":isanyword("7",meses)
+            @"agosto":isanyword("8",meses)
+            @"septiembre":isanyword("9",meses)
+            @"octubre":isanyword("10",meses)
+            @"noviembre":isanyword("11",meses)
+            @"diciembre":isanyword("12",meses)
+
+            @"json_config":to.json(data)
+        }
+        if duracion_inicion == ""{do field.remove(promocion,"fecha_inicio")}
+        if duracion_fin == ""{do field.remove(promocion,"fecha_fin")}
+
+        return promocion
+    }
+    read::&db,&params
+    {
+        do dbr.apps.action.grant("VD50")
+
+        new data
+        {
+            @"entity*":dbr.rec(db,ftext(@read_query),params)
+        }
+
+        return data
+    }
+    save::&db,&params,&data
+    {
+        do dbr.begin(db)
+
+        ref promocion=create_data(db,data)
+
+        if @@(params,"$_entity_id") == "_new"{ref entity=entity.create(db,params,promocion)}
+        else
+        {
+            promocion<"sys_recver">:dbr.num(db,"SELECT ifnull(sys_recver,0) FROM promocion WHERE sys_pk=@_entity_id",params)
+            ref entity=entity.update(db,params,promocion)
+        }
+
+        do dbr.apps.action.pos(entity)  
+        do dbr.commit(db)
+        do dbr.apps.action.ext(entity)
+
+        entity<"url_redir">:".."
+
+        return entity
+
+        exception
+        {
+            if dbr.in_transaction(db){do dbr.rollback(db)}
+            do dbr.apps.action.log()
+            do rise_error(last_error_code(),last_error())
+        }
+    }
+    create::&db,&params,&data
+    {
+        @use_transaction = @false
+        
+        do dbr.apps.action.pre("VD51")
+        ref entity= save(db,params,data)
+
+        return entity
+    }
+
+    update::&db,&params,&data
+    {
+        @use_transaction = @false
+        do dbr.apps.action.pre("VD52")
+        ref entity= save(db,params,data)
+
+        return entity
+    }
+
+    blank::&db,&params
+    {
+        do dbr.apps.action.grant("VD50")
+    }
+    delete::&db,&params
+    {
+        do dbr.apps.action.grant("VD53")
+        do entity.delete(db,params)
+    }
+    search::&db,&params
+    {
+        switch @@(params,"$entity")
+        {
+            case "linea"
+            {
+                sql="SELECT sys_pk as id,codigo,descripcion as nombre FROM linea 
+                WHERE IFNULL(sys_deleted,0)=0
+                AND CONCAT_WS(' ',codigo,descripcion) LIKE concat('%',@search,'%')"
+                return dbr.list(db,sql,params)
+            }
+            case "marca"
+            {
+                sql="SELECT sys_pk id,codigo,descripcion nombre FROM marca 
+                WHERE IFNULL(sys_deleted,0)=0
+                AND CONCAT_WS(' ',codigo,descripcion) LIKE concat('%',@search,'%')"
+                return dbr.list(db,sql,params)
+            }
+            case "depto"
+            {
+                sql="SELECT sys_pk id,codigo,descripcion as nombre FROM departamento 
+                WHERE IFNULL(sys_deleted,0)=0
+                AND CONCAT_WS(' ',codigo,descripcion) LIKE concat('%',@search,'%')"
+                return dbr.list(db,sql,params)
+            }
+            case "grupo"
+            {
+                sql="SELECT sys_pk id,sys_guid codigo, nombre FROM grupoproductos 
+                WHERE IFNULL(sys_deleted,0)=0
+                AND CONCAT_WS(' ',nombre) LIKE concat('%',@search,'%')"
+                return dbr.list(db,sql,params)
+            }
+            case "producto"
+            {
+                sql="SELECT p.sys_pk id,p.codigo,p.descripcion nombre ,codbar1,codbar2,codbar3,d.codigo divisa,
+                concat_ws(' - ',p.codigo,p.descripcion)producto,1 cantidad,p.sys_pk producto_id
+                FROM producto p
+                INNER JOIN divisa d on p.idivisa=d.sys_pk
+                WHERE IFNULL(p.sys_deleted,0)=0
+                AND CONCAT_WS(' ',p.codigo,p.descripcion) LIKE concat('%',@search,'%')"
+                return dbr.list(db,sql,params)
+            }
+            case "tipo-cliente"
+            {
+                sql="SELECT sys_pk id,codigo,descripcion nombre FROM tipocliente 
+                WHERE IFNULL(sys_deleted,0)=0
+                AND CONCAT_WS(' ',codigo,descripcion) LIKE concat('%',@search,'%')"
+                return dbr.list(db,sql,params)
+            }
+            case "grupo-cliente"
+            {
+                sql="SELECT sys_pk,codigo,descripcion FROM grupocliente WHERE CONCAT_WS(' ',codigo,descripcion) LIKE concat('%',@search,'%')"
+                // return dbr.list(db,sql,params)
+                return list.create()
+            }
+            case "cliente"
+            {
+                sql="SELECT sys_pk id,codigo,nombre FROM cliente 
+                WHERE IFNULL(sys_deleted,0)=0
+                AND CONCAT_WS(' ',codigo,nombre) LIKE concat('%',@search,'%')"
+                return dbr.list(db,sql,params)
+            }
+        }
+
+        return list.create()
+    }
+    
+}

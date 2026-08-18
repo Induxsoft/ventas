@@ -117,5 +117,6 @@ module "Variables globales"
     @VNT_PROCESAR = "/!/ventas/venta/@iventa/procesar/"
     @VNT_CANCELAR = "/!/ventas/venta/@iventa/cancelar/"
 
+    @path_html_promo_cfg="ventas/_static/html/cfg_promo.html"
     //* ======================================== [ AUTHORIZATIONS ]
 }

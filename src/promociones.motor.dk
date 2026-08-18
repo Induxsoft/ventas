@@ -1,0 +1,1677 @@
+// =================================================================================
+// promociones.motor.dk
+// ---------------------------------------------------------------------------------
+// Motor de aplicación de Promociones Comerciales (DKL)
+// Implementa las dos funciones descritas en especificaciones-proyecto.md (Parte 2):
+//
+//      calcular_promociones_productos(venta, promociones_activas, configs)
+//      calcular_promociones_total(venta, promociones_activas, configs, total)
+//
+// Este archivo es una biblioteca: no tiene punto de entrada propio. Se incluye
+// desde el programa/tarea que orquesta el cálculo de una venta, por ejemplo:
+//
+//      #include "dkli.dkh"
+//      #!
+//      program "recalcular-venta"
+//      {
+//          #include "functions.dkh"
+//          #include "promociones.motor.dk"
+//
+//          namespace "promociones.motor"
+//
+//          ref r1 = calcular_promociones_productos(venta, promos, configs)
+//          venta = r1<"venta">
+//          ... (recalcular impuestos/total con la capa anterior) ...
+//          ref r2 = calcular_promociones_total(venta, promos, configs, venta_total)
+//          venta = r2<"venta">
+//      }
+//
+// ---------------------------------------------------------------------------------
+// SUPUESTOS DE IMPLEMENTACIÓN (la especificación deja varios puntos abiertos a
+// propósito; estas son las decisiones tomadas para poder escribir código concreto)
+// ---------------------------------------------------------------------------------
+//
+// S1. Forma de `venta` y `venta.lineas`:
+//     venta es un registro con, al menos:
+//       - lineas: lista de registros (dventa "enriquecido"), cada uno con:
+//           cantidad, precio, d1 (no se toca), fecha_captura (fecha numérica
+//           ndatetime), exclude (bool, opcional), y
+//           producto: sub-registro YA RESUELTO por la capa orquestadora con
+//                     { id, nombre, linea:{id}, marca:{id}, depto:{id}, grupo:{id} }
+//                     — el motor no consulta catálogo, así que esta info debe
+//                     venir pegada a la línea para poder evaluar filtros.
+//       - cliente: registro { id, nombre, tipo:{id}, grupo:{id} } (opcional).
+//       - fecha: fecha numérica de la venta, solo se usa si
+//                configs.referencia_temporal == "venta".
+//     El campo de salida (slot promocional) se escribe con el nombre real de
+//     columna que indique configs.slot_promocional (default "descuento2", ver
+//     spec.md Parte 3 — los nombres reales son descuento1/descuento2, no d1/d2).
+//
+// S2. `promociones_activas` es una lista de registros ya deserializados desde
+//     `json_config` (es decir, exactamente la "Estructura JSON de la promoción"
+//     documentada), con el filtro grueso por día/mes ya aplicado por la capa
+//     orquestadora (promociones_activas()). El motor solo hace el chequeo fino
+//     (horario por día, días del mes, vigencia por línea).
+//
+// S3. Los filtros de producto (linea/marca/depto/grupo/producto) y de cliente
+//     (tipoCliente/grupoCliente/cliente) se evalúan en modo "Y": si el filtro
+//     tiene más de un criterio activo, TODOS deben cumplirse. Un filtro ausente
+//     o vacío (compactarFiltro lo dejó en null) significa "aplica a todos".
+//
+// S4. `configs` es un registro con (todas con default si no vienen):
+//       referencia_temporal   "captura" | "venta" | "actual"      default "captura"
+//       slot_promocional      "descuento1" | "descuento2"          default "descuento2"
+//       decimales_redondeo    entero                                default 2
+//       metodoDescuento       "sustraccion" | "division"           default "sustraccion"
+//       catalogo (opcional)   lista de productos {id,nombre,precio,linea:{id},...}
+//                             usada SOLO para poder reportar `producto_candidatos`
+//                             en `obsequios` cuando el producto regalo no está
+//                             presente en la venta (el motor no tiene catálogo
+//                             propio; esto es una extensión razonable no definida
+//                             explícitamente en la spec, ver _candidatos_de_filtro).
+//
+// S5. Reglas de combinación (exclusiva/grupo/combinable): se procesan las
+//     promociones en orden de prioridad (menor primero). Una promoción
+//     "exclusiva" reclama sus líneas en cuanto aplica con éxito; cualquier
+//     promoción procesada después (sin importar su propia prioridad) no puede
+//     tocar esas líneas. Una promoción "grupo" reclama sus líneas solo frente a
+//     otras promociones del MISMO grupoExclusion (no bloquea exclusivas ni
+//     combinables de otros grupos). No se modela el caso "una exclusiva de baja
+//     prioridad numérica anula a una combinable que ya se aplicó antes" porque,
+//     al procesar siempre en orden de prioridad ascendente, ese escenario no se
+//     presenta (la exclusiva con menor número siempre se procesa primero).
+//
+// S6. Combo: `paquete[].producto` en el JSON es texto libre (la spec lo marca
+//     como pendiente: falta un input-key). El motor intenta primero
+//     `producto_id` (si la capa orquestadora ya lo resolvió a numérico) y, si no
+//     existe, hace match por nombre contra `linea.producto.nombre`.
+//
+// S7. Progresivo, modo "soloExcedente": el monto por tramo se calcula usando un
+//     precio promedio ponderado (subtotal original / cantidad total) de las
+//     líneas candidatas, ya que un tramo puede abarcar unidades de líneas con
+//     precios distintos y la spec no detalla cómo prorratear en ese caso.
+//
+// S8. Venta cruzada / regalos (Por monto, Total de venta): cuando hay varios
+//     productos candidatos presentes para recibir el beneficio, se selecciona
+//     primero el de mayor precio (regla explícita de la spec). Cuando el mismo
+//     producto está repartido en varias líneas, se reparte FIFO por
+//     fecha_captura (regla explícita de la spec).
+//
+// S9. `producto_candidatos` en `obsequios`: se arma, en orden de preferencia,
+//     desde (1) líneas de la venta que ya matchean el filtro, (2)
+//     configs.catalogo si fue provisto, (3) el nombre/id puntual embebido en el
+//     propio filtro (sin precio, ya que el motor no tiene catálogo). Ver S4.
+//
+// =================================================================================
+
+#include "dkli.dkh"
+#!
+module "Motor de aplicación de promociones:promociones.motor"
+{
+    #include "datetime.dk"
+    // =============================================================================
+    // SECCIÓN 1 — Utilidades numéricas y de cálculo de porcentaje
+    // =============================================================================
+
+    /**
+    * Calcula el monto de descuento de un porcentaje sobre un monto, según el
+    * método configurado. Los porcentajes de 100% (regalos completos) siempre se
+    * calculan de forma directa, sin pasar por el método (ver descuentos.md).
+    *
+    * @param Decimal monto    | Monto base sobre el que se calcula el descuento
+    * @param Decimal tasaPct  | Porcentaje (0-100)
+    * @param String metodo    | "sustraccion" | "division"
+    */
+    _pct_descuento :: monto, tasaPct, metodo
+    {
+        if tasaPct >= 100
+        {
+            return monto
+        }
+        if tasaPct <= 0
+        {
+            return 0
+        }
+        if metodo == "division"
+        {
+            precioFinal = (monto / (1 + (tasaPct / 100)))
+            return monto - precioFinal
+        }
+        // "sustraccion" (predeterminado)
+        return monto * (tasaPct / 100)
+    }
+
+    // =============================================================================
+    // SECCIÓN 2 — Filtros de producto y de cliente
+    // =============================================================================
+
+    /**
+    * ¿El producto de una línea cumple un filtro de selección (linea//marca//depto//
+    * grupo//producto)? Un filtro nulo o sin criterios cumple siempre (S3).
+    */
+    _producto_matches_filtro :: &producto, &filtro
+    {
+        if isnull(filtro) { return @true }
+        if isnull(producto) { return @false }
+
+        ok = @true
+        if field_exist(filtro, "producto")
+        {
+            ok = and(ok, field.dnum(filtro, "producto/id", -1) == field.dnum(producto, "id", -2))
+        }
+        if field_exist(filtro, "linea")
+        {
+            ok = and(ok, field.dnum(filtro, "linea/id", -1) == field.dnum(producto, "linea/id", -2))
+        }
+        if field_exist(filtro, "marca")
+        {
+            ok = and(ok, field.dnum(filtro, "marca/id", -1) == field.dnum(producto, "marca/id", -2))
+        }
+        if field_exist(filtro, "depto")
+        {
+            ok = and(ok, field.dnum(filtro, "depto/id", -1) == field.dnum(producto, "depto/id", -2))
+        }
+        if field_exist(filtro, "grupo")
+        {
+            ok = and(ok, field.dnum(filtro, "grupo/id", -1) == field.dnum(producto, "grupo/id", -2))
+        }
+        return ok
+    }
+
+    /**
+    * ¿El cliente cumple un filtro de clientes (tipoCliente/grupoCliente/cliente)?
+    */
+    _cliente_cumple_filtro :: &cliente, &filtro
+    {
+        if isnull(filtro) { return @true }
+        if isnull(cliente) { return @false }
+
+        ok = @true
+        if field_exist(filtro, "tipoCliente")
+        {
+            ok = and(ok, field.dnum(filtro, "tipoCliente/id", -1) == field.dnum(cliente, "tipo/id", -2))
+        }
+        if field_exist(filtro, "grupoCliente")
+        {
+            ok = and(ok, field.dnum(filtro, "grupoCliente/id", -1) == field.dnum(cliente, "grupo/id", -2))
+        }
+        if field_exist(filtro, "cliente")
+        {
+            ok = and(ok, field.dnum(filtro, "cliente/id", -1) == field.dnum(cliente, "id", -2))
+        }
+        return ok
+    }
+
+    /**
+    * Evalúa clientes.restriccion // clientes.excepcion contra venta.cliente.
+    * Si la promoción no trae el miembro "clientes", aplica a cualquier cliente.
+    */
+    _cliente_aplica :: &venta, &promo
+    {
+        if not(field_exist(promo,"clientes")) { return @true }
+        ref cliente = field.dobj(venta, "cliente", _null())
+        ref restriccion = field.dobj(promo, "clientes/restriccion", _null())
+        ref excepcion = field.dobj(promo, "clientes/excepcion", _null())
+        
+        if not(isnull(restriccion))
+        {
+            if not(_cliente_cumple_filtro(cliente, restriccion))
+            {
+                return @false
+            }
+        }
+
+        if not(isnull(excepcion))
+        {
+            if _cliente_cumple_filtro(cliente, excepcion)
+            {
+                return @false
+            }
+        }
+
+        return @true
+    }
+
+    // =============================================================================
+    // SECCIÓN 3 — Vigencia fina por línea (horario, días del mes)
+    // =============================================================================
+
+    /**
+    * Nombre del día de la semana ("lunes".."domingo") para una fecha numérica
+    * (ndatetime). Se calcula por diferencia de días contra una fecha de
+    * referencia conocida (2024-01-01 fue lunes), en vez de depender de un
+    * formato de cadena cuyo idioma podría no ser español según la cultura del
+    * servidor.
+    */
+    _nombre_dia_semana :: ndt // ndt fecha en cadena yyyy-MM-dd HH:mm:ss
+    {
+        // refLunes = ndatetime.fromstr("2024-01-01 00:00:00", "yyyy-MM-dd")
+        // dias = mod(ndatetime.diff(refLunes, ndt, "day"), 7)
+        dias= mod(datetime.diff("2024-01-01 00:00:00",ndt),7)
+        switch dias
+        {
+            case 0 { return "lunes" }
+            case 1 { return "martes" }
+            case 2 { return "miercoles" }
+            case 3 { return "jueves" }
+            case 4 { return "viernes" }
+            case 5 { return "sabado" }
+            default { return "domingo" }
+        }
+    }
+
+    _es_ultimo_dia_del_mes :: ndt
+    {
+        // siguienteDia = ndatetime.add(ndt, 1, "day")
+        ref mes_actual=str2dt(ndt)
+        ref siguienteDia=datetime.addDays(mes_actual,1)
+        // return ndatetime.month(siguienteDia) != ndatetime.month(ndt)
+        return datetime.compareTo(siguienteDia,mes_actual) != 0
+    }
+
+    /**
+    * ¿El día del mes de `ndt` está incluido en el texto libre de
+    * duracion.diasDelMes (ej. "1,15,X")? "X" se interpreta como "último día
+    * del mes" (no está definido explícitamente en la spec; es la lectura más
+    * natural dado el contexto de nómina//cierres de mes).
+    */
+    _dia_del_mes_incluido :: ndt, diasDelMesTexto
+    {
+        ref partes = split(diasDelMesTexto, ",")
+        // diaActual = ndatetime.day(ndt)
+        diaActual=datetime.day(str2dt(ndt))
+        esUltimoDia = _es_ultimo_dia_del_mes(ndt)
+
+        for i = 0; i < list.count(partes); i + 1
+        {
+            parte = trim(list.str(partes, i))
+            if parte == "X" || parte == "x"
+            {
+                if esUltimoDia { return @true }
+            }
+            else if val(parte) == diaActual
+            {
+                return @true
+            }
+        }
+        return @false
+    }
+
+    /**
+    * Fecha numérica de referencia para evaluar vigencia, según
+    * configs.referencia_temporal (S1, S4). Se asume que fecha_captura y
+    * venta.fecha ya llegan como fecha numérica (ndatetime), no como cadena.
+    */
+    _fecha_referencia :: &linea, &venta, referenciaTemporal
+    {
+        now_str=date_str(now(),"yyyy-MM-dd HH:mm:ss")
+        if referenciaTemporal == "actual"
+        {
+            // return ndatetime.now()
+            return now_str
+        }
+        if referenciaTemporal == "venta"
+        {
+            // return field.dnum(venta, "fecha", ndatetime.now())
+            return field.dstr(venta,"fecha",now_str)
+        }
+        // "captura" (default)
+        // return field.dnum(linea, "fecha_captura", ndatetime.now())
+        return field.dstr(linea,"fecha_captura",now_str)
+    }
+    field_exist::&obj,path_field
+    {
+        return field.exist(obj,path_field)
+
+        exception{}
+
+        return @false
+    }
+    /**
+    * Chequeo fino de vigencia para una línea concreta: horario por día y días
+    * del mes, leídos de promo.duracion. El filtro grueso (día de la
+    * semana//mes habilitados) ya lo hizo la capa orquestadora.
+    */
+    _linea_vigente :: &linea, &venta, &promo, referenciaTemporal
+    {
+        ndt = _fecha_referencia(linea, venta, referenciaTemporal)
+        diaSemana = _nombre_dia_semana(ndt)
+        
+        rutaHorario = "duracion/horarioPorDia/" + diaSemana
+        if field_exist(promo, rutaHorario)
+        {
+            horaIni = field.dstr(promo, rutaHorario + "/inicio", "00:00:00")
+            horaFin = field.dstr(promo, rutaHorario + "/fin", "23:59:59")
+            
+            // horaLinea = ndatetime.tostr(ndt, "HH:mm:ss")
+            // horaLinea=parse.num(datetime.time(ndt,"HH:mm:ss"))
+            horaLinea=date_str(str2dt(ndt),"HH:mm:ss")
+            ref horaIni_t1=datetime.timeParse(horaIni)
+            ref horaLinea_t1=datetime.timeParse(horaLinea)
+            ref horaFin_t1=datetime.timeParse(horaFin)
+            
+            // if horaLinea < horaIni || horaLinea > horaFin
+            if datetime.tmCompareTo(horaLinea_t1,horaIni_t1) < 0 || datetime.tmCompareTo(horaLinea_t1,horaFin_t1) > 0
+            {
+                return @false
+            }
+        }
+
+        diasDelMes = field.dstr(promo, "duracion/diasDelMes", "")
+        if diasDelMes != ""
+        {
+            if not(_dia_del_mes_incluido(ndt, diasDelMes))
+            {
+                return @false
+            }
+        }
+
+        return @true
+    }
+
+    // =============================================================================
+    // SECCIÓN 4 — Reclamo de líneas (exclusiva / grupo) y base de cálculo
+    // =============================================================================
+
+    /**
+    * ¿Puede `promo` tocar la línea `idx`? Falso si ya fue reclamada
+    * exclusivamente por otra promoción, o si pertenece al mismo grupoExclusion
+    * que una promoción de "grupo" ya procesada sobre esa línea (S5).
+    */
+    _linea_disponible_para :: idx, &promo, &reclamoExclusivo, &reclamoGrupo
+    {
+        if list.str(reclamoExclusivo, idx) != "" { return @false }
+
+        modo = field.dstr(promo, "reglas/modoCombinacion", "combinable")
+        if modo == "grupo"
+        {
+            grupo = field.dstr(promo, "reglas/grupoExclusion", "")
+            grupoPrevio = list.str(reclamoGrupo, idx)
+            if grupoPrevio != "" && grupoPrevio == grupo
+            {
+                return @false
+            }
+        }
+        return @true
+    }
+
+    /**
+    * Marca la línea `idx` como reclamada por `promo`, según su modoCombinacion.
+    * Las "combinable" nunca reclaman (no bloquean a nadie).
+    */
+    _marcar_linea_reclamada :: idx, &promo, &reclamoExclusivo, &reclamoGrupo
+    {
+        modo = field.dstr(promo, "reglas/modoCombinacion", "combinable")
+        if modo == "exclusiva"
+        {
+            do list.set(reclamoExclusivo, idx, field.dstr(promo, "codigo", ""))
+        }
+        else if modo == "grupo"
+        {
+            do list.set(reclamoGrupo, idx, field.dstr(promo, "reglas/grupoExclusion", ""))
+        }
+    }
+
+    /**
+    * Base monetaria sobre la que se calcula el descuento de una línea, según
+    * reglas.calculoCombinado: "aditivo" usa siempre el subtotal original;
+    * "compuesto" usa lo que queda tras los descuentos ya acumulados en esta
+    * misma corrida (no contempla d1, que es manual y no compite por espacio).
+    */
+    _base_linea :: &linea, idx, &acumulado, calculoCombinado
+    {
+        cantidad = field.dnum(linea, "cantidad", 0)
+        precio = field.dnum(linea, "precio", 0)
+        subtotalOriginal = cantidad * precio
+        if calculoCombinado == "compuesto"
+        {
+            return subtotalOriginal - list.num(acumulado, idx)
+        }
+        return subtotalOriginal
+    }
+
+    /**
+    * Ordena (in-place) una lista de promociones por reglas.prioridad ascendente
+    * (menor número = mayor prioridad = se evalúa primero).
+    */
+    _ordenar_por_prioridad :: &lista
+    {
+        n = list.count(lista)
+        for i = 0; i < n - 1; i + 1
+        {
+            for j = 0; j < n - 1 - i; j + 1
+            {
+                ref a = list.obj(lista, j)
+                ref b = list.obj(lista, j + 1)
+                pa = field.dnum(a, "reglas/prioridad", 10)
+                pb = field.dnum(b, "reglas/prioridad", 10)
+                if pa > pb
+                {
+                    do list.set(lista, j, b)
+                    do list.set(lista, j + 1, a)
+                }
+            }
+        }
+    }
+
+    _from_num::index
+    {
+        return from.json(ftext('#<index>'))
+    }
+
+    list.addnum::&l,v
+    {
+        return list.add(l, _from_num(v))
+    }
+
+    list.setnum::&l,idx,v
+    {
+        return list.set(l,idx,_from_num(v))
+    }
+
+    /**
+    * Devuelve una copia de `idxList` (índices de línea) ordenada por
+    * fecha_captura ascendente (FIFO — la línea más antigua primero).
+    */
+    _ordenar_indices_por_captura :: &lineas, &idxList
+    {
+        ref copia = list.create()
+        for i = 0; i < list.count(idxList); i + 1
+        {
+            do list.addnum(copia, list.num(idxList, i))
+        }
+        n = list.count(copia)
+        for i = 0; i < n - 1; i + 1
+        {
+            for j = 0; j < n - 1 - i; j + 1
+            {
+                idxA = list.num(copia, j)
+                idxB = list.num(copia, j + 1)
+                ref la = list.obj(lineas, idxA)
+                ref lb = list.obj(lineas, idxB)
+                // fa = field.dnum(la, "fecha_captura", 0)
+                // fb = field.dnum(lb, "fecha_captura", 0)
+                // if fa > fb
+                // {
+                //     do list.set(copia, j, _from_index(idxB))
+                //     do list.set(copia, j + 1, _from_index(idxA))
+                // }
+
+                ref fa=str2dt(field.dstr(la,"fecha_captura",date_str(now(),"yyyy-MM-dd HH:mm:ss")))
+                ref fb=str2dt(field.dstr(lb,"fecha_captura",date_str(now(),"yyyy-MM-dd HH:mm:ss")))
+
+                if datetime.compareTo(fa,fb) > 0
+                {
+                    do list.setnum(copia, j, idxB)
+                    do list.setnum(copia, j + 1, idxA)
+                }
+            }
+        }
+        
+        return copia
+    }
+
+    /**
+    * Devuelve una copia de `idxList` ordenada por precio de línea descendente
+    * (se usa para "seleccionar el de mayor precio primero" en regalos//venta
+    * cruzada — S8).
+    */
+    _ordenar_indices_por_precio_desc :: &lineas, &idxList
+    {
+        ref copia = list.create()
+        for i = 0; i < list.count(idxList); i + 1
+        {
+            do list.addnum(copia, list.num(idxList, i))
+        }
+        n = list.count(copia)
+        for i = 0; i < n - 1; i + 1
+        {
+            for j = 0; j < n - 1 - i; j + 1
+            {
+                idxA = list.num(copia, j)
+                idxB = list.num(copia, j + 1)
+                ref la = list.obj(lineas, idxA)
+                ref lb = list.obj(lineas, idxB)
+                pa = field.dnum(la, "precio", 0)
+                pb = field.dnum(lb, "precio", 0)
+                if pa < pb
+                {
+                    do list.setnum(copia, j, idxB)
+                    do list.setnum(copia, j + 1, idxA)
+                }
+            }
+        }
+        return copia
+    }
+
+    // =============================================================================
+    // SECCIÓN 5 — Trazabilidad, candidatos para obsequios, selección de líneas
+    // =============================================================================
+
+    /**
+    * Agrega una entrada a la traza efímera (ver spec.md Parte 2 — "Trazabilidad").
+    */
+    _traza_add :: &traza, idx, &promo, tipo, monto, &parametros
+    {
+        ref t = record.create()
+        t<"linea_idx">: idx
+        t<"promocion">: field.dstr(promo, "codigo", "")
+        t<"tipo">: tipo
+        t<"monto">: monto
+        t<"parametros*">: parametros
+        do list.add(traza, t)
+    }
+
+    /**
+    * Arma la lista `producto_candidatos` para reportar en `obsequios` (S9):
+    * 1) productos ya presentes en `idxPresentes` (precio//nombre reales),
+    * 2) si no hay ninguno, configs.catalogo (si fue provisto),
+    * 3) si tampoco, el producto puntual embebido en el propio filtro (sin precio).
+    */
+    _candidatos_de_filtro :: &promo, filtroPath, &lineas, &idxPresentes, &configs
+    {
+        ref filtro = field.dobj(promo, filtroPath, _null())
+        ref candidatos = list.create()
+        ref idsAgregados = list.create()
+
+        for i = 0; i < list.count(idxPresentes); i + 1
+        {
+            idx = list.num(idxPresentes, i)
+            ref linea = list.obj(lineas, idx)
+            pid = field.dnum(linea, "producto/id", -1)
+            yaEsta = @false
+            for j = 0; j < list.count(idsAgregados); j + 1
+            {
+                if list.num(idsAgregados, j) == pid { yaEsta = @true }
+            }
+            if not(yaEsta)
+            {
+                ref c = record.create()
+                c<"id">: pid
+                c<"nombre">: field.dstr(linea, "producto/nombre", "")
+                c<"precio">: field.dnum(linea, "precio", 0)
+                do list.add(candidatos, c)
+                do list.addnum(idsAgregados, pid)
+            }
+        }
+
+        if list.count(candidatos) <= 0
+        {
+            ref catalogo = field.dobj(configs, "catalogo", _null())
+            if not(isnull(catalogo))
+            {
+                for i = 0; i < list.count(catalogo); i + 1
+                {
+                    ref p = list.obj(catalogo, i)
+                    if _producto_matches_filtro(p, filtro)
+                    {
+                        ref c = record.create()
+                        c<"id">: field.dnum(p, "id", -1)
+                        c<"nombre">: field.dstr(p, "nombre", "")
+                        c<"precio">: field.dnum(p, "precio", 0)
+                        do list.add(candidatos, c)
+                    }
+                }
+            }
+        }
+
+        if list.count(candidatos) <= 0 && not(isnull(filtro)) && field_exist(filtro, "producto")
+        {
+            ref c = record.create()
+            c<"id">: field.dnum(filtro, "producto/id", -1)
+            c<"nombre">: field.dstr(filtro, "producto/nombre", "")
+            c<"precio">: 0
+            do list.add(candidatos, c)
+        }
+
+        return candidatos
+    }
+
+    /**
+    * Índices de línea que: no están excluidas (exclude:true), su producto
+    * cumple el filtro indicado por `filtroPath` dentro de `promo`, están
+    * vigentes (chequeo fino) y están disponibles (no reclamadas por otra
+    * promoción incompatible).
+    */
+    _lineas_candidatas :: &venta, &lineas, &promo, &configs, referenciaTemporal, filtroPath, &reclamoExclusivo, &reclamoGrupo
+    {
+        ref filtro = field.dobj(promo, filtroPath, _null())
+        ref resultado = list.create()
+        
+        for i = 0; i < list.count(lineas); i + 1
+        {
+            ref linea = list.obj(lineas, i)
+            incluir = @true
+
+            if field.parse.dbool(linea, "exclude", @false)
+            {
+                incluir = @false
+            }
+            
+            if incluir
+            {
+                ref producto = field.dobj(linea, "producto", _null())
+                if not(_producto_matches_filtro(producto, filtro)) { incluir = @false }
+            }
+
+            if incluir
+            {
+                if not(_linea_vigente(linea, venta, promo, referenciaTemporal)) { incluir = @false }
+            }
+
+            if incluir
+            {
+                if not(_linea_disponible_para(i, promo, reclamoExclusivo, reclamoGrupo)) { incluir = @false }
+            }
+
+            if incluir
+            {
+                do list.addnum(resultado, i)
+            }
+        }
+        
+        return resultado
+    }
+
+    /**
+    * Consume hasta `unidadesNecesarias` unidades discretas entre las líneas
+    * candidatas `idxObjetivo`, aplicando `pctDescuento` por unidad. Selecciona
+    * primero el producto de mayor precio (S8) y reparte FIFO entre las líneas
+    * de un mismo producto (S8). Marca cada línea tocada como reclamada.
+    * Devuelve { montoTotal, unidadesConsumidas }.
+    */
+    _consumir_unidades_objetivo :: &lineas, &idxObjetivo, unidadesNecesarias, pctDescuento, &acumulado, metodo, decimales, &promo, &traza, tipoTraza, &reclamoExclusivo, &reclamoGrupo
+    {
+        ref resultado = record.create()
+        resultado<"montoTotal">: 0
+        resultado<"unidadesConsumidas">: 0
+
+        if unidadesNecesarias <= 0 { return resultado }
+        if list.count(idxObjetivo) <= 0 { return resultado }
+
+        // Productos distintos presentes en las candidatas, con un precio
+        // representativo (el de su primera línea encontrada)
+        ref productosId = list.create()
+        ref productosPrecio = list.create()
+
+        for i = 0; i < list.count(idxObjetivo); i + 1
+        {
+            idx = list.num(idxObjetivo, i)
+            ref linea = list.obj(lineas, idx)
+            pid = field.dnum(linea, "producto/id", -1)
+            
+            precio = field.dnum(linea, "precio", 0)
+            encontrado = @false
+            for j = 0; j < list.count(productosId); j = j + 1
+            {
+                if list.num(productosId, j) == pid { encontrado = @true }
+            }
+            if not(encontrado)
+            {
+                do list.addnum(productosId, pid)
+                do list.add(productosPrecio, precio)
+            }
+        }
+
+        np = list.count(productosId)
+        for i = 0; i < np - 1; i + 1
+        {
+            for j = 0; j < np - 1 - i; j + 1
+            {
+                if list.num(productosPrecio, j) < list.num(productosPrecio, j + 1)
+                {
+                    pa = list.num(productosId, j)
+                    pb = list.num(productosId, j + 1)
+                    pra = list.num(productosPrecio, j)
+                    prb = list.num(productosPrecio, j + 1)
+
+                    do list.setnum(productosId, j, pb)
+                    do list.setnum(productosId, j + 1, pa)
+                    do list.setnum(productosPrecio, j, prb)
+                    do list.setnum(productosPrecio, j + 1, pra)
+                }
+            }
+        }
+
+        restantes = unidadesNecesarias
+        montoTotal = 0
+        consumidas = 0
+
+        for p = 0; p < np; p + 1
+        {
+            if restantes <= 0 { break }
+            
+            pid = list.num(productosId, p)
+            
+            ref idxProducto = list.create()
+            for i = 0; i < list.count(idxObjetivo); i + 1
+            {
+                idx = list.num(idxObjetivo, i)
+                ref linea = list.obj(lineas, idx)
+                if field.dnum(linea, "producto/id", -1) == pid
+                {
+                    do list.addnum(idxProducto,idx)
+                }
+            }
+
+            ref idxProductoOrdenado = _ordenar_indices_por_captura(lineas, idxProducto)
+
+            for i = 0; i < list.count(idxProductoOrdenado); i + 1
+            {
+                if restantes <= 0 { break }
+                idx = list.num(idxProductoOrdenado, i)
+                ref linea = list.obj(lineas, idx)
+                cantidadLinea = field.dnum(linea, "cantidad", 0)
+                precio = field.dnum(linea, "precio", 0)
+                tomar = restantes
+                if tomar > cantidadLinea { tomar = cantidadLinea }
+                
+                if tomar > 0
+                {
+                    montoUnidad = _pct_descuento(precio, pctDescuento, metodo)
+                    monto = round(tomar * montoUnidad, decimales)
+                    
+                    if monto != 0
+                    {
+                        nuevo = list.num(acumulado, idx) + monto
+                        do list.setnum(acumulado, idx, nuevo)
+                        montoTotal = montoTotal + monto
+
+                        ref param = record.create()
+                        param<"unidades">: tomar
+                        param<"porcentaje">: pctDescuento
+                        do _traza_add(traza, idx, promo, tipoTraza, monto, param)
+                        do _marcar_linea_reclamada(idx, promo, reclamoExclusivo, reclamoGrupo)
+                    }
+                    consumidas = consumidas + tomar
+                    restantes = restantes - tomar
+                }
+            }
+        }
+        
+        resultado<"montoTotal">: montoTotal
+        resultado<"unidadesConsumidas">: consumidas
+        return resultado
+    }
+
+    // =============================================================================
+    // SECCIÓN 6 — Mecanismos de descuento sobre líneas de producto
+    // =============================================================================
+
+    /** Rebaja: % directo sobre la base (aditiva o compuesta) de cada línea candidata. */
+    _aplicar_rebaja :: &lineas, &promo, &idxCandidatas, calculoCombinado, &acumulado, metodo, decimales, &traza
+    {
+        pct = field.dnum(promo, "tipoPromocion/productos/rebaja/porcentaje", 0)
+        totalMonto = 0
+        
+        for i = 0; i < list.count(idxCandidatas); i + 1
+        {
+            idx = list.num(idxCandidatas, i)
+            ref linea = list.obj(lineas, idx)
+            
+            base = _base_linea(linea, idx, acumulado, calculoCombinado)
+            
+            monto = round(_pct_descuento(base, pct, metodo), decimales)
+            
+            if monto != 0
+            {
+                nuevo = list.num(acumulado, idx) + monto
+                do list.setnum(acumulado, idx, nuevo)
+                totalMonto = totalMonto + monto
+
+                ref param = record.create()
+                param<"porcentaje">: pct
+                
+                do _traza_add(traza, idx, promo, "descuento", monto, param)
+            }
+        }
+        return totalMonto
+    }
+
+    /**
+    * A×B: por cada grupo completo de (cantidadA + cantidadB) unidades del
+    * producto, se otorgan cantidadB unidades gratis. Las unidades gratis se
+    * reparten FIFO entre las líneas candidatas, usando el precio propio de
+    * cada línea (no hay método de descuento configurable aquí: una unidad
+    * gratis vale $0 directamente, ver descuentos.md).
+    */
+    _aplicar_axb :: &lineas, &promo, &idxCandidatas, &acumulado, decimales, &traza
+    {
+        cantA = field.dnum(promo, "tipoPromocion/productos/aXb/cantidadA", 1)
+        cantB = field.dnum(promo, "tipoPromocion/productos/aXb/cantidadB", 1)
+        tamGrupo = cantA + cantB
+        if tamGrupo <= 0 { return 0 }
+        
+        ref ordenadas = _ordenar_indices_por_captura(lineas, idxCandidatas)
+        
+        cantidadTotal = 0
+        for i = 0; i < list.count(ordenadas); i + 1
+        {
+            idx = list.num(ordenadas, i)
+            ref linea = list.obj(lineas, idx)
+            cantidadTotal = cantidadTotal + field.dnum(linea, "cantidad", 0)
+        }
+        
+        gruposCompletos = trun(round(cantidadTotal / tamGrupo,0))
+        unidadesGratis = gruposCompletos * cantB
+        
+        if unidadesGratis <= 0 { return 0 }
+
+        restantes = unidadesGratis
+        totalMonto = 0
+        
+        for i = 0; i < list.count(ordenadas); i + 1
+        {
+            if restantes <= 0 { break }
+            idx = list.num(ordenadas, i)
+            ref linea = list.obj(lineas, idx)
+            cantidadLinea = field.dnum(linea, "cantidad", 0)
+            precio = field.dnum(linea, "precio", 0)
+            tomar = restantes
+            if tomar > cantidadLinea { tomar = cantidadLinea }
+
+            monto = round(tomar * precio, decimales)
+            if monto != 0
+            {
+                nuevo = list.num(acumulado, idx) + monto
+                do list.setnum(acumulado, idx, nuevo)
+                totalMonto = totalMonto + monto
+
+                ref param = record.create()
+                param<"unidadesGratisEnLinea">: tomar
+                param<"cantidadA">: cantA
+                param<"cantidadB">: cantB
+                do _traza_add(traza, idx, promo, "descuento", monto, param)
+            }
+            restantes = restantes - tomar
+        }
+        return totalMonto
+    }
+
+    /** Tramo (limite//descuento) más alto cuyo límite ya fue alcanzado. */
+    _tramo_alcanzado :: &limites, cantidad
+    {
+        pct = 0
+        for i = 0; i < list.count(limites); i + 1
+        {
+            ref tramo = list.obj(limites, i)
+            lim = field.dnum(tramo, "limite", 0)
+            if cantidad >= lim
+            {
+                pct = field.dnum(tramo, "descuento", 0)
+            }
+        }
+        return pct
+    }
+
+    /** Primer tramo cuyo límite todavía no se alcanza (para notificar avance). */
+    _siguiente_tramo :: &limites, cantidad
+    {
+        for i = 0; i < list.count(limites); i + 1
+        {
+            ref tramo = list.obj(limites, i)
+            if field.dnum(tramo, "limite", 0) > cantidad
+            {
+                return tramo
+            }
+        }
+        return _null()
+    }
+
+    /**
+    * Monto total (modo "soloExcedente"): cada tramo aporta
+    * unidades_en_el_tramo × precio_promedio × % del tramo, usando un precio
+    * promedio ponderado de las líneas candidatas (S7).
+    */
+    _monto_progresivo_por_tramos ::&limites, cantidadTotal, precioPromedio, metodo
+    {
+        montoTotal = 0
+        limiteAnterior = 0
+
+        for i = 0; i < list.count(limites); i + 1
+        {
+            ref tramo = list.obj(limites, i)
+            lim = field.dnum(tramo, "limite", 0)
+            pct = field.dnum(tramo, "descuento", 0)
+            
+            techoTramo = lim
+            if techoTramo > cantidadTotal { techoTramo = cantidadTotal }
+
+            unidadesEnTramo = techoTramo - limiteAnterior
+            if unidadesEnTramo > 0
+            {
+                montoTotal = montoTotal + _pct_descuento(unidadesEnTramo * precioPromedio, pct, metodo)
+            }
+
+            limiteAnterior = lim
+            if limiteAnterior >= cantidadTotal { break }
+        }
+        
+        return montoTotal
+    }
+
+    /**
+    * Progresivo: descuento que crece con el volumen comprado, plano (sobre el
+    * total) o por tramos ("soloExcedente"). Genera además una notificación de
+    * "cuánto falta" para alcanzar el siguiente nivel, cuando aplica.
+    */
+    _aplicar_progresivo :: &lineas, &promo, &idxCandidatas, calculoCombinado, &acumulado, metodo, decimales, &traza, &notificaciones
+    {
+        ref limites = field.dobj(promo, "tipoPromocion/productos/progresivo/limites", list.create())
+        soloExcedente = field.parse.dbool(promo, "tipoPromocion/productos/progresivo/soloExcedente", @false)
+
+        cantidadTotal = 0
+        subtotalOriginal = 0
+        for i = 0; i < list.count(idxCandidatas); i + 1
+        {
+            idx = list.num(idxCandidatas, i)
+            ref linea = list.obj(lineas, idx)
+            cantidadTotal = cantidadTotal + field.dnum(linea, "cantidad", 0)
+            subtotalOriginal = subtotalOriginal + (field.dnum(linea, "cantidad", 0) * field.dnum(linea, "precio", 0))
+        }
+        if cantidadTotal <= 0 { return 0 }
+
+        precioPromedio = (subtotalOriginal / cantidadTotal)
+        totalMonto = 0
+
+        if not(soloExcedente)
+        {
+            pct = _tramo_alcanzado(limites, cantidadTotal)
+            if pct > 0
+            {
+                for i = 0; i < list.count(idxCandidatas); i + 1
+                {
+                    idx = list.num(idxCandidatas, i)
+                    ref linea = list.obj(lineas, idx)
+                    base = _base_linea(linea, idx, acumulado, calculoCombinado)
+                    monto = round(_pct_descuento(base, pct, metodo), decimales)
+                    if monto != 0
+                    {
+                        nuevo = list.num(acumulado, idx) + monto
+                        do list.setnum(acumulado, idx, nuevo)
+                        totalMonto = totalMonto + monto
+
+                        ref param = record.create()
+                        param<"modo">: "plano"
+                        param<"porcentaje">: pct
+                        param<"cantidadTotal">: cantidadTotal
+                        do _traza_add(traza, idx, promo, "descuento", monto, param)
+                    }
+                }
+            }
+        }
+        else
+        {
+            montoTramos = _monto_progresivo_por_tramos(limites, cantidadTotal, precioPromedio, metodo)
+            if montoTramos > 0 && subtotalOriginal > 0
+            {
+                for i = 0; i < list.count(idxCandidatas); i + 1
+                {
+                    idx = list.num(idxCandidatas, i)
+                    ref linea = list.obj(lineas, idx)
+                    base = _base_linea(linea, idx, acumulado, calculoCombinado)
+                    proporcion = ((field.dnum(linea, "cantidad", 0) * field.dnum(linea, "precio", 0)) / subtotalOriginal)
+                    monto = round(montoTramos * proporcion, decimales)
+                    if monto != 0
+                    {
+                        nuevo = list.num(acumulado, idx) + monto
+                        do list.setnum(acumulado, idx, nuevo)
+                        totalMonto = totalMonto + monto
+
+                        ref param = record.create()
+                        param<"modo">: "soloExcedente"
+                        param<"cantidadTotal">: cantidadTotal
+                        do _traza_add(traza, idx, promo, "descuento", monto, param)
+                    }
+                }
+            }
+        }
+
+        ref siguienteTramo = _siguiente_tramo(limites, cantidadTotal)
+        if not(isnull(siguienteTramo))
+        {
+            limiteSiguiente = field.dnum(siguienteTramo, "limite", 0)
+            unidadesFaltantes = limiteSiguiente - cantidadTotal
+            if unidadesFaltantes > 0
+            {
+                montoFaltante = round(unidadesFaltantes * precioPromedio, decimales)
+                do list.add(notificaciones, "Faltan $" + str(montoFaltante) + " para alcanzar el siguiente nivel de descuento progresivo de " + field.dstr(promo, "codigo", "") + ".")
+            }
+        }
+
+        return totalMonto
+    }
+
+    // =============================================================================
+    // SECCIÓN 7 — Venta cruzada y Por monto
+    // =============================================================================
+
+    /**
+    * Venta cruzada: vecesActivada = floor(cantidadDisparadora // cantidadCompra).
+    * Cada activación habilita el % de descuento sobre 1 unidad de un producto
+    * que cumpla filtroObjetivo. Lo no reclamado se reporta en obsequios.
+    */
+    _aplicar_venta_cruzada :: &venta, &lineas, &promo, &idxDisparadoras, &configs, referenciaTemporal, &reclamoExclusivo, &reclamoGrupo, &acumulado, metodo, decimales, &traza, &obsequios
+    {
+        cantidadCompra = field.dnum(promo, "tipoPromocion/productos/ventaCruzada/cantidadCompra", 1)
+        pct = field.dnum(promo, "tipoPromocion/productos/ventaCruzada/porcentajeDescuento", 0)
+
+        cantidadDisparadora = 0
+        for i = 0; i < list.count(idxDisparadoras); i + 1
+        {
+            idx = list.num(idxDisparadoras, i)
+            ref linea = list.obj(lineas, idx)
+            cantidadDisparadora = cantidadDisparadora + field.dnum(linea, "cantidad", 0)
+        }
+        if cantidadCompra <= 0 { return 0 }
+
+        vecesActivada = trun(round(cantidadDisparadora / cantidadCompra,0))
+        if vecesActivada <= 0 { return 0 }
+        
+        ref idxObjetivo = _lineas_candidatas(venta, lineas, promo, configs, referenciaTemporal, "tipoPromocion/productos/ventaCruzada/filtroObjetivo", reclamoExclusivo, reclamoGrupo)
+    
+        ref consumo = _consumir_unidades_objetivo(lineas, idxObjetivo, vecesActivada, pct, acumulado, metodo, decimales, promo, traza, "descuento", reclamoExclusivo, reclamoGrupo)
+
+        unidadesConsumidas = field.dnum(consumo, "unidadesConsumidas", 0)
+        if unidadesConsumidas < vecesActivada
+        {
+            ref obs = record.create()
+            obs<"promocion">: field.dstr(promo, "codigo", "")
+            obs<"porcentajeDescuento">: pct
+            obs<"unidadesNoReclamadas">: vecesActivada - unidadesConsumidas
+            obs<"producto_candidatos*">: _candidatos_de_filtro(promo, "tipoPromocion/productos/ventaCruzada/filtroObjetivo", lineas, idxObjetivo, configs)
+            do list.add(obsequios, obs)
+        }
+
+        return field.dnum(consumo, "montoTotal", 0)
+    }
+
+    /**
+    * Por monto: dispara si el subtotal de las líneas que matchean el filtro
+    * principal de la promoción alcanza montoMinimo (una sola vez, no escalable).
+    * Beneficio "descuento": % sobre ese mismo subtotal, igual que Rebaja.
+    * Beneficio "regalo": misma mecánica de consumo de unidades que Venta
+    * cruzada//Total de venta, siempre al 100% (es un regalo, no un % parcial).
+    */
+    _aplicar_por_monto :: &venta, &lineas, &promo, &idxCandidatas, calculoCombinado, &configs, referenciaTemporal, &reclamoExclusivo, &reclamoGrupo, &acumulado, metodo, decimales, &traza, &obsequios
+    {
+        montoMinimo = field.dnum(promo, "tipoPromocion/productos/porMonto/montoMinimo", 0)
+
+        subtotalFiltro = 0
+        for i = 0; i < list.count(idxCandidatas); i + 1
+        {
+            idx = list.num(idxCandidatas, i)
+            ref linea = list.obj(lineas, idx)
+            subtotalFiltro = subtotalFiltro + (field.dnum(linea, "cantidad", 0) * field.dnum(linea, "precio", 0))
+        }
+        if subtotalFiltro < montoMinimo { return 0 }
+
+        tipoBeneficio = field.dstr(promo, "tipoPromocion/productos/porMonto/tipoBeneficio", "descuento")
+
+        if tipoBeneficio == "descuento"
+        {
+            pct = field.dnum(promo, "tipoPromocion/productos/porMonto/descuento/porcentaje", 0)
+            totalMonto = 0
+            for i = 0; i < list.count(idxCandidatas); i + 1
+            {
+                idx = list.num(idxCandidatas, i)
+                ref linea = list.obj(lineas, idx)
+                base = _base_linea(linea, idx, acumulado, calculoCombinado)
+                monto = round(_pct_descuento(base, pct, metodo), decimales)
+                if monto != 0
+                {
+                    nuevo = list.num(acumulado, idx) + monto
+                    do list.setnum(acumulado, idx, nuevo)
+                    totalMonto = totalMonto + monto
+
+                    ref param = record.create()
+                    param<"subtotalFiltro">: subtotalFiltro
+                    param<"porcentaje">: pct
+                    do _traza_add(traza, idx, promo, "descuento", monto, param)
+                }
+            }
+            return totalMonto
+        }
+
+        // tipoBeneficio == "regalo"
+        cantidadRegalo = field.dnum(promo, "tipoPromocion/productos/porMonto/regalo/cantidad", 0)
+        ref idxRegalo = _lineas_candidatas(venta, lineas, promo, configs, referenciaTemporal, "tipoPromocion/productos/porMonto/regalo/filtroRegalo", reclamoExclusivo, reclamoGrupo)
+        ref consumo = _consumir_unidades_objetivo(lineas, idxRegalo, cantidadRegalo, 100, acumulado, metodo, decimales, promo, traza, "regalo", reclamoExclusivo, reclamoGrupo)
+
+        unidadesConsumidas = field.dnum(consumo, "unidadesConsumidas", 0)
+        if unidadesConsumidas < cantidadRegalo
+        {
+            ref obs = record.create()
+            obs<"promocion">: field.dstr(promo, "codigo", "")
+            obs<"porcentajeDescuento">: 100
+            obs<"unidadesNoReclamadas">: cantidadRegalo - unidadesConsumidas
+            obs<"producto_candidatos*">: _candidatos_de_filtro(promo, "tipoPromocion/productos/porMonto/regalo/filtroRegalo", lineas, idxRegalo, configs)
+            do list.add(obsequios, obs)
+        }
+        return field.dnum(consumo, "montoTotal", 0)
+    }
+
+    // =============================================================================
+    // SECCIÓN 8 — Combo
+    // =============================================================================
+
+    /**
+    * Resuelve el id de producto de un ítem de paquete de combo. Intenta primero
+    * `producto_id` (numérico, si la capa orquestadora ya lo resolvió); si no
+    * existe, hace match por nombre contra `linea.producto.nombre` (S6, ya que
+    * `paquete[].producto` en el JSON original es texto libre).
+    */
+    _id_producto_de_item_combo :: &itemPaquete, &lineas
+    {
+        if field_exist(itemPaquete, "producto_id")
+        {
+            return field.dnum(itemPaquete, "producto_id", -1)
+        }
+        nombre = field.dstr(itemPaquete, "producto", "")
+        for i = 0; i < list.count(lineas); i + 1
+        {
+            ref linea = list.obj(lineas, i)
+            if field.dstr(linea, "producto/nombre", "") == nombre
+            {
+                return field.dnum(linea, "producto/id", -1)
+            }
+        }
+        return -1
+    }
+
+    /** Precio (de catálogo, vía la primera línea encontrada) de un producto por id. */
+    _precio_producto_en_venta :: &lineas, idProducto
+    {
+        for i = 0; i < list.count(lineas); i + 1
+        {
+            ref linea = list.obj(lineas, i)
+            if field.dnum(linea, "producto/id", -1) == idProducto
+            {
+                return field.dnum(linea, "precio", 0)
+            }
+        }
+        return 0
+    }
+
+    /**
+    * Combo: forma tantos "juegos" completos del paquete como el producto más
+    * escaso permita. El descuento total de cada juego (subtotal natural -
+    * precioFijo) se prorratea entre los productos del paquete según su precio,
+    * y dentro de cada producto se reparte FIFO entre sus líneas (S8).
+    */
+    _procesar_combo :: &lineas, &promo, &reclamoExclusivo, &reclamoGrupo, &acumulado, decimales, &traza
+    {
+        ref paquete = field.dobj(promo, "tipoPromocion/combo/paquete", list.create())
+        precioFijo = field.dnum(promo, "tipoPromocion/combo/precioFijo", 0)
+        if list.count(paquete) <= 0 { return }
+        
+        juegosPosibles = -1
+        for i = 0; i < list.count(paquete); i + 1
+        {
+            ref itemPaquete = list.obj(paquete, i)
+            cantidadRequerida = field.dnum(itemPaquete, "cantidad", 1)
+            if cantidadRequerida <= 0 { cantidadRequerida = 1 }
+            idProducto = _id_producto_de_item_combo(itemPaquete, lineas)
+
+            disponible = 0
+            for j = 0; j < list.count(lineas); j + 1
+            {
+                ref linea = list.obj(lineas, j)
+                if not(field.parse.dbool(linea, "exclude", @false))
+                {
+                    if field.dnum(linea, "producto/id", -1) == idProducto
+                    {
+                        if _linea_disponible_para(j, promo, reclamoExclusivo, reclamoGrupo)
+                        {
+                            disponible = disponible + field.dnum(linea, "cantidad", 0)
+                        }
+                    }
+                }
+            }
+
+            posibles = trun(round(disponible / cantidadRequerida,0))
+            if juegosPosibles < 0 || posibles < juegosPosibles
+            {
+                juegosPosibles = posibles
+            }
+        }
+        
+        if juegosPosibles <= 0 { return }
+        
+        subtotalJuego = 0
+        for i = 0; i < list.count(paquete); i + 1
+        {
+            ref itemPaquete = list.obj(paquete, i)
+            cantidadRequerida = field.dnum(itemPaquete, "cantidad", 1)
+            idProducto = _id_producto_de_item_combo(itemPaquete, lineas)
+            precio = _precio_producto_en_venta(lineas, idProducto)
+            subtotalJuego = subtotalJuego + (precio * cantidadRequerida)
+        }
+        
+        descuentoPorJuego = subtotalJuego - precioFijo
+        if descuentoPorJuego <= 0 { return }
+        descuentoTotal = descuentoPorJuego * juegosPosibles
+
+        for i = 0; i < list.count(paquete); i + 1
+        {
+            ref itemPaquete = list.obj(paquete, i)
+            cantidadRequerida = field.dnum(itemPaquete, "cantidad", 1)
+            if cantidadRequerida <= 0 { cantidadRequerida = 1 }
+            idProducto = _id_producto_de_item_combo(itemPaquete, lineas)
+            precio = _precio_producto_en_venta(lineas, idProducto)
+        
+            proporcion = 0
+            if subtotalJuego > 0 { proporcion = ((precio * cantidadRequerida) / subtotalJuego) }
+            montoProducto = round(descuentoTotal * proporcion, decimales)
+            unidadesNecesarias = cantidadRequerida * juegosPosibles
+
+            ref idxProducto = list.create()
+            for j = 0; j < list.count(lineas); j + 1
+            {
+                ref linea = list.obj(lineas, j)
+                if field.dnum(linea, "producto/id", -1) == idProducto && not(field.parse.dbool(linea, "exclude", @false))
+                {
+                    do list.addnum(idxProducto,j)
+                }
+            }
+            
+            ref idxOrdenado = _ordenar_indices_por_captura(lineas, idxProducto)
+
+            restantesUnidades = unidadesNecesarias
+            for j = 0; j < list.count(idxOrdenado); j + 1
+            {
+                if restantesUnidades <= 0 { break }
+                idx = list.num(idxOrdenado, j)
+                ref linea = list.obj(lineas, idx)
+                cantidadLinea = field.dnum(linea, "cantidad", 0)
+                tomar = restantesUnidades
+                if tomar > cantidadLinea { tomar = cantidadLinea }
+
+                montoLinea = 0
+                if unidadesNecesarias > 0
+                {
+                    montoLinea = round(montoProducto * (tomar / unidadesNecesarias), decimales)
+                }
+                if montoLinea != 0
+                {
+                    nuevo = list.num(acumulado, idx) + montoLinea
+                    do list.setnum(acumulado, idx, nuevo)
+
+                    ref param = record.create()
+                    param<"combo">: field.dstr(promo, "codigo", "")
+                    param<"unidades">: tomar
+                    param<"precioFijo">: precioFijo
+                    do _traza_add(traza, idx, promo, "descuento", montoLinea, param)
+                    do _marcar_linea_reclamada(idx, promo, reclamoExclusivo, reclamoGrupo)
+                }
+                restantesUnidades = restantesUnidades - tomar
+            }
+        }
+    }
+
+    // =============================================================================
+    // SECCIÓN 9 — Dispatcher de promociones de productos
+    // =============================================================================
+
+    /**
+    * Procesa una promoción de tipo "productos": calcula el monto según
+    * tipoDescuento y, si efectivamente aplicó algo, marca las líneas
+    * involucradas como reclamadas (exclusiva//grupo, S5).
+    */
+    _procesar_promocion_productos :: &venta, &lineas, &promo, &configs, referenciaTemporal, &acumulado, &reclamoExclusivo, &reclamoGrupo, &traza, &obsequios, &notificaciones, metodo, decimales
+    {
+        tipoDescuento = field.dstr(promo, "tipoPromocion/productos/tipoDescuento", "")
+        calculoCombinado = field.dstr(promo, "reglas/calculoCombinado", "aditivo")
+        
+        ref idxCandidatas = _lineas_candidatas(venta, lineas, promo, configs, referenciaTemporal, "tipoPromocion/productos/filtro", reclamoExclusivo, reclamoGrupo)
+        
+        montoAplicado = 0
+        switch tipoDescuento
+        {
+            case "rebaja"
+            {
+                montoAplicado = _aplicar_rebaja(lineas, promo, idxCandidatas, calculoCombinado, acumulado, metodo, decimales, traza)
+                break
+            }
+            case "aXb"
+            {
+                montoAplicado = _aplicar_axb(lineas, promo, idxCandidatas, acumulado, decimales, traza)
+                break
+            }
+            case "progresivo"
+            {
+                montoAplicado = _aplicar_progresivo(lineas, promo, idxCandidatas, calculoCombinado, acumulado, metodo, decimales, traza, notificaciones)
+                break
+            }
+            case "ventaCruzada"
+            {
+                montoAplicado = _aplicar_venta_cruzada(venta, lineas, promo, idxCandidatas, configs, referenciaTemporal, reclamoExclusivo, reclamoGrupo, acumulado, metodo, decimales, traza, obsequios)
+                break
+            }
+            case "porMonto"
+            {
+                montoAplicado = _aplicar_por_monto(venta, lineas, promo, idxCandidatas, calculoCombinado, configs, referenciaTemporal, reclamoExclusivo, reclamoGrupo, acumulado, metodo, decimales, traza, obsequios)
+                break
+            }
+            default
+            {
+                break
+            }
+        }
+        
+        if montoAplicado != 0
+        {
+            for i = 0; i < list.count(idxCandidatas); i + 1
+            {
+                idx = list.num(idxCandidatas, i)
+                do _marcar_linea_reclamada(idx, promo, reclamoExclusivo, reclamoGrupo)
+            }
+        }
+    }
+
+    // =============================================================================
+    // SECCIÓN 10 — Función pública: calcular_promociones_productos
+    // =============================================================================
+
+    /**
+    * Promociones de producto (alcance Productos y Combo). No necesita el total
+    * de la venta (ver spec.md Parte 2 — "Dos funciones, no una").
+    *
+    * @param Object venta                | { lineas: [...], cliente: {...}, fecha }
+    * @param Object promociones_activas  | Lista de promociones (JSON ya parseado),
+    *                                      filtradas por día//mes por la capa orquestadora
+    * @param Object configs              | { referencia_temporal, slot_promocional,
+    *                                         decimales_redondeo, metodoDescuento,
+    *                                         catalogo (opcional) }
+    * @return Object { venta, traza, obsequios, notificaciones }
+    */
+    calcular_promociones_productos :: &venta, &promociones_activas, &configs
+    {
+        referenciaTemporal = field.dstr(configs, "referencia_temporal", "captura")
+        slot = field.dstr(configs, "slot_promocional", "descuento2")
+        decimales = field.dnum(configs, "decimales_redondeo", 2)
+        metodo = field.dstr(configs, "metodoDescuento", "sustraccion")
+
+        ref lineas = field.dobj(venta, "lineas", list.create())
+        totalLineas = list.count(lineas)
+
+        ref traza = list.create()
+        ref obsequios = list.create()
+        ref notificaciones = list.create()
+
+        ref acumulado = list.create()
+        ref reclamoExclusivo = list.create()
+        ref reclamoGrupo = list.create()
+        
+        // Inicialización: resetea el slot promocional de cada línea, notificando
+        // si traía un valor previo no generado por el motor (spec.md Parte 2 —
+        // "Slots de descuento en dventa")
+        
+        for i = 0; i < totalLineas; i + 1
+        {
+            ref linea = list.obj(lineas, i)
+            valorPrevio = field.dnum(linea, slot, 0)
+            if valorPrevio != 0
+            {
+                do list.add(notificaciones, "Se sobrescribió un valor existente en " + slot + " de la línea " + str(i) + ".")
+            }
+            
+            linea<slot>: 0
+            
+            do list.addnum(acumulado, 0)
+            do list.add(reclamoExclusivo, "")
+            do list.add(reclamoGrupo, "")
+        }
+        
+        // Candidatas: tipo "productos" o "combo", cliente elegible, ordenadas por prioridad
+        ref candidatas = list.create()
+        for i = 0; i < list.count(promociones_activas); i + 1
+        {
+            ref promo = list.obj(promociones_activas, i)
+            tipo = field.dstr(promo, "tipoPromocion/tipo", "")
+            
+            if tipo == "productos" || tipo == "combo"
+            {
+                if _cliente_aplica(venta, promo)
+                {
+                    do list.add(candidatas, promo)
+                }
+            }
+        }
+        
+        do _ordenar_por_prioridad(candidatas)
+        
+        for i = 0; i < list.count(candidatas); i + 1
+        {
+            ref promo = list.obj(candidatas, i)
+            tipo = field.dstr(promo, "tipoPromocion/tipo", "")
+            if tipo == "combo"
+            {
+                do _procesar_combo(lineas, promo, reclamoExclusivo, reclamoGrupo, acumulado, decimales, traza)
+            }
+            else
+            {
+                do _procesar_promocion_productos(venta, lineas, promo, configs, referenciaTemporal, acumulado, reclamoExclusivo, reclamoGrupo, traza, obsequios, notificaciones, metodo, decimales)
+            }
+            
+        }
+        
+        // Escritura final del slot promocional (suma de todas las contribuciones)
+        for i = 0; i < totalLineas; i + 1
+        {
+            ref linea = list.obj(lineas, i)
+            linea<slot>: round(list.num(acumulado, i), decimales)
+        }
+
+        ref resultado = record.create()
+        resultado<"venta*">: venta
+        resultado<"traza*">: traza
+        resultado<"obsequios*">: obsequios
+        resultado<"notificaciones*">: notificaciones
+        return resultado
+    }
+
+    // =============================================================================
+    // SECCIÓN 11 — Total de venta (descuento general y regalo)
+    // =============================================================================
+
+    /**
+    * Descuento general de Total de venta: se prorratea entre todas las líneas
+    * elegibles (no excluidas, no reclamadas por otra promoción incompatible)
+    * según su propio subtotal.
+    */
+    _aplicar_total_venta_descuento :: &lineas, &promo, pct, &reclamoExclusivo, &reclamoGrupo, &acumulado, metodo, decimales, &traza
+    {
+        ref idxElegibles = list.create()
+        subtotalTotal = 0
+        for i = 0; i < list.count(lineas); i + 1
+        {
+            ref linea = list.obj(lineas, i)
+            if not(field.parse.dbool(linea, "exclude", @false))
+            {
+                if _linea_disponible_para(i, promo, reclamoExclusivo, reclamoGrupo)
+                {
+                    do list.addnum(idxElegibles, i)
+                    subtotalTotal = subtotalTotal + (field.dnum(linea, "cantidad", 0) * field.dnum(linea, "precio", 0))
+                }
+            }
+        }
+        
+        if subtotalTotal <= 0 { return }
+
+        descuentoTotal = _pct_descuento(subtotalTotal, pct, metodo)
+
+        for i = 0; i < list.count(idxElegibles); i + 1
+        {
+            idx = list.num(idxElegibles, i)
+            ref linea = list.obj(lineas, idx)
+            
+            subtotalLinea = field.dnum(linea, "cantidad", 0) * field.dnum(linea, "precio", 0)
+            proporcion = (subtotalLinea / subtotalTotal)
+            monto = round(descuentoTotal * proporcion, decimales)
+            if monto != 0
+            {
+                nuevo = list.num(acumulado, idx) + monto
+                do list.setnum(acumulado, idx, nuevo)
+
+                ref param = record.create()
+                param<"porcentaje">: pct
+                param<"prorrateo">: "subtotal"
+                do _traza_add(traza, idx, promo, "descuento", monto, param)
+            }
+        }
+        
+        for i = 0; i < list.count(idxElegibles); i + 1
+        {
+            idx = list.num(idxElegibles, i)
+            do _marcar_linea_reclamada(idx, promo, reclamoExclusivo, reclamoGrupo)
+        }
+    }
+
+    /**
+    * Regalo de Total de venta: 100% genuino sobre 1 unidad del producto de
+    * mayor precio entre los presentes que cumplan filtroRegalo. Si ninguno
+    * está presente, se reporta en obsequios (nunca se crea una fila nueva).
+    */
+    _aplicar_total_venta_regalo :: &lineas, &promo, &configs, &reclamoExclusivo, &reclamoGrupo, &acumulado, decimales, traza, &obsequios
+    {
+        ref filtro = field.dobj(promo, "tipoPromocion/totalVenta/filtroRegalo", _null())
+
+        ref idxPresentes = list.create()
+        for i = 0; i < list.count(lineas); i + 1
+        {
+            ref linea = list.obj(lineas, i)
+            if not(field.parse.dbool(linea, "exclude", @false))
+            {
+                ref producto = field.dobj(linea, "producto", _null())
+                if _producto_matches_filtro(producto, filtro)
+                {
+                    if _linea_disponible_para(i, promo, reclamoExclusivo, reclamoGrupo)
+                    {
+                        do list.addnum(idxPresentes,i)
+                    }
+                }
+            }
+        }
+        
+        if list.count(idxPresentes) <= 0
+        {
+            ref obs = record.create()
+            obs<"promocion">: field.dstr(promo, "codigo", "")
+            obs<"porcentajeDescuento">: 100
+            obs<"producto_candidatos*">: _candidatos_de_filtro(promo, "tipoPromocion/totalVenta/filtroRegalo", lineas, idxPresentes, configs)
+            do list.add(obsequios, obs)
+            return
+        }
+        
+        ref ordenadosPorPrecio = _ordenar_indices_por_precio_desc(lineas, idxPresentes)
+        
+        idx = list.num(ordenadosPorPrecio, 0)
+        ref linea = list.obj(lineas, idx)
+        precio = field.dnum(linea, "precio", 0)
+        monto = round(precio, decimales)
+        if monto != 0
+        {
+            nuevo = list.num(acumulado, idx) + monto
+            do list.setnum(acumulado, idx, nuevo)
+
+            ref param = record.create()
+            param<"regaloTotalVenta">: @true
+            do _traza_add(traza, idx, promo, "regalo", monto, param)
+            do _marcar_linea_reclamada(idx, promo, reclamoExclusivo, reclamoGrupo)
+        }
+    }
+
+    // =============================================================================
+    // SECCIÓN 12 — Función pública: calcular_promociones_total
+    // =============================================================================
+
+    /**
+    * Promociones de Total de venta. Recibe el total ya resuelto (con
+    * impuestos, después de los descuentos de producto) por la capa anterior
+    * (ver spec.md Parte 2 — "Dos funciones, no una").
+    *
+    * @param Object venta                | Misma forma que en calcular_promociones_productos
+    * @param Object promociones_activas  | Lista completa (incluye todas las fases;
+    *                                      esta función filtra solo tipo "totalVenta")
+    * @param Object configs              | Igual que en calcular_promociones_productos
+    * @param Decimal total                | Total de la venta ya calculado por la capa anterior
+    * @return Object { venta, traza, obsequios, notificaciones }
+    */
+    calcular_promociones_total :: &venta, &promociones_activas, &configs, total
+    {
+        slot = field.dstr(configs, "slot_promocional", "descuento2")
+        decimales = field.dnum(configs, "decimales_redondeo", 2)
+        metodo = field.dstr(configs, "metodoDescuento", "sustraccion")
+
+        ref lineas = field.dobj(venta, "lineas", list.create())
+
+        ref traza = list.create()
+        ref obsequios = list.create()
+        ref notificaciones = list.create()
+
+        // El acumulador parte de lo que ya haya en el slot (lo que dejó
+        // calcular_promociones_productos), para sumar sobre eso, no reemplazarlo.
+        ref acumulado = list.create()
+        ref reclamoExclusivo = list.create()
+        ref reclamoGrupo = list.create()
+        for i = 0; i < list.count(lineas); i + 1
+        {
+            ref linea = list.obj(lineas, i)
+            do list.addnum(acumulado, field.dnum(linea, slot, 0))
+            do list.add(reclamoExclusivo, "")
+            do list.add(reclamoGrupo, "")
+        }
+        
+        // Candidatas: tipo "totalVenta", cliente elegible, total >= montoMinimo.
+        // La prioridad aquí solo se compara entre promociones de esta misma fase
+        // (spec.md Parte 2 — "Reglas de combinación entre promociones").
+        ref candidatas = list.create()
+        for i = 0; i < list.count(promociones_activas); i + 1
+        {
+            ref promo = list.obj(promociones_activas, i)
+            if field.dstr(promo, "tipoPromocion/tipo", "") == "totalVenta"
+            {
+                if _cliente_aplica(venta, promo)
+                {
+                    montoMinimo = field.dnum(promo, "tipoPromocion/totalVenta/montoMinimo", 0)
+                    if total >= montoMinimo
+                    {
+                        do list.add(candidatas, promo)
+                    }
+                }
+            }
+        }
+        
+        do _ordenar_por_prioridad(candidatas)
+        
+        for i = 0; i < list.count(candidatas); i + 1
+        {
+            ref promo = list.obj(candidatas, i)
+            descuentoGeneral = field.dnum(promo, "tipoPromocion/totalVenta/descuentoGeneral", 0)
+            
+            if descuentoGeneral > 0
+            {
+                do _aplicar_total_venta_descuento(lineas, promo, descuentoGeneral, reclamoExclusivo, reclamoGrupo, acumulado, metodo, decimales, traza)
+            }
+
+            if field_exist(promo, "tipoPromocion/totalVenta/filtroRegalo")
+            {
+                do _aplicar_total_venta_regalo(lineas, promo, configs, reclamoExclusivo, reclamoGrupo, acumulado, decimales, traza, obsequios)
+            }
+        }
+        
+        for i = 0; i < list.count(lineas); i + 1
+        {
+            ref linea = list.obj(lineas, i)
+            linea<slot>: round(list.num(acumulado, i), decimales)
+        }
+
+        ref resultado = record.create()
+        resultado<"venta*">: venta
+        resultado<"traza*">: traza
+        resultado<"obsequios*">: obsequios
+        resultado<"notificaciones*">: notificaciones
+        return resultado
+    }
+}

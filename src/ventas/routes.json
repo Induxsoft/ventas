@@ -17,6 +17,10 @@
             {
                 "route": "/ventaxsalir/",
                 "entity_type": "ventasxsalir"
+            },
+            {
+                "route": "/promos/",
+                "entity_type": "promos"
             }
         ]
     }

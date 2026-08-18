@@ -1,6 +1,6 @@
 {
 	"id":"ventas",
 	"installable":["ventas"],
-	"version":"1.0.80",
-	"schema_ver":"1.0.11"
+	"version":"1.0.81",
+	"schema_ver":"1.0.12"
 }

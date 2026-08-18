@@ -1,6 +1,99 @@
 #include "ddm.dkh"
 model "erp.ventas"
 {
+    /*
+     * Summary:
+     * Modelo de promociones
+    */
+    //* ======================================== [ CATÁLOGOS DE ENUMERACIÓN ]
+    // Tipo de promoción: productos | combo | totalVenta
+    entity "ctipopromocion" : "EnumModel" {}
+
+    // Modo de combinación con otras promociones: exclusiva | combinable | grupo
+    entity "cmodocombinacion" : "EnumModel" {}
+
+    // Tipo de aplicación registrada en la trazabilidad: descuento | regalo
+    entity "ctipoaplicacionpromocion" : "EnumModel" {}
+
+    //* ======================================== [ CONFIGURACIÓN DE PROMOCIONES ]
+    // Solo se guardan los campos necesarios para localizar rápidamente las
+    // promociones vigentes (filtro grueso por fecha/día/mes), más prioridad
+    // y modo de combinación, que el motor necesita de inmediato al cargar
+    // candidatas. El resto de la configuración (filtros de producto, montos,
+    // % de descuento, horario por día, etc.) vive completo en json_config —
+    // ver "Estructura JSON de la promoción" en especificaciones-proyecto.md.
+    entity "promocion" : "TableModel"
+    {
+        @"codigo" string(30) unique required
+        @"nombre" string(150) required
+        @"activa" bool required
+
+        @"tipo_promocion" ref:"ctipopromocion" required
+        @"prioridad" int required
+        @"modo_combinacion" ref:"cmodocombinacion" required
+        @"grupo_exclusion" string(60)
+
+        @"fecha_inicio" datetime
+        @"fecha_fin" datetime
+
+        @"lunes" bool
+        @"martes" bool
+        @"miercoles" bool
+        @"jueves" bool
+        @"viernes" bool
+        @"sabado" bool
+        @"domingo" bool
+
+        @"enero" bool
+        @"febrero" bool
+        @"marzo" bool
+        @"abril" bool
+        @"mayo" bool
+        @"junio" bool
+        @"julio" bool
+        @"agosto" bool
+        @"septiembre" bool
+        @"octubre" bool
+        @"noviembre" bool
+        @"diciembre" bool
+
+        @"json_config" memo required   // configuración completa serializada (ver spec)
+
+        index "idx_promocion_vigentes"
+        {
+            field "activa"
+            field "fecha_inicio"
+            field "fecha_fin"
+        }
+    }
+
+    //* ======================================== [ TRAZABILIDAD MATERIALIZADA ]
+    // Una fila por cada promoción que contribuyó al slot promocional de una
+    // línea de dventa. Se escribe únicamente al cierre de la venta — durante
+    // la captura, la trazabilidad vive en memoria/JSON (efímera, recalculada
+    // en cada llamada al motor; ver especificaciones-proyecto.md).
+    entity "trazapromocion" : "TableModel"
+    {
+        @"fk_venta" ref:"venta" required
+        @"fk_dventa" ref:"dventa" required
+        @"fk_promocion" ref:"promocion" required
+
+        @"tipo_aplicacion" ref:"ctipoaplicacionpromocion" required
+        @"slot" string(15) required        // "descuento1" | "descuento2"
+        @"monto" decimal(18,8) required
+
+        @"parametros" memo                 // snapshot del cálculo (tramo, vecesActivada, etc.)
+        @"fecha_aplicacion" datetime required
+
+        index "idx_traza_venta"
+        {
+            field "fk_venta"
+        }
+        index "idx_traza_dventa"
+        {
+            field "fk_dventa"
+        }
+    }
     /* 
     Ventas
     =======================================================================

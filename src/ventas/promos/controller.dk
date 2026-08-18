@@ -1,0 +1,17 @@
+#include "dkli.dkh"
+#!
+module ""
+{
+    point @blank to promos.blank
+    point @list to promos.list
+    point @read to promos.read
+    point @create to promos.create
+    point @update to promos.update
+    point @delete to promos.delete
+
+    if @@(params,"$_view") == "search"
+    {
+        point @blank to promos.search
+        point @read to promos.search
+    }
+}

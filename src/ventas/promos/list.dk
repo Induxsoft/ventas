@@ -1,0 +1,87 @@
+#include "dkli.dkh"
+#!
+module "list.dk"
+{
+    #include "functions.dkh"
+    #include "serialize.dkh"
+    #include "uielements.v12.dkl"
+    #include "../_lib/config.dk"
+    #include "../_lib/lib.dk"
+
+    do @context.begin(@crud_context)
+
+    ref @_GET = ifnull(@("&parameters"),record.create())
+    ref data = ifnull(@("&./data"),list.create())
+
+    new table_definition
+    {
+        @"datatable*": data
+        @"tableheight": "96%"
+        member @"columns"
+        {
+            member @"codigo" { @"caption": "Código" }
+            member @"nombre" { @"caption": "Nombre" }
+            member @"prioridad" { @"caption": "Prioridad" }
+            member @"tipo" { @"caption": "Tipo" }
+            member @"modo" { @"caption": "Modo" }
+            member @"str_activo" { @"caption": "Activo" }
+            member @"str_fecha_inicio" { @"caption": "Inicio" }
+            member @"str_fecha_fin" { @"caption": "Fin" }
+            member @"_actions"
+            {
+                @"template":'
+                <div style="display:flex;gap:8px;justify-content: center;width:100%">
+                    <a href="./${DataRow.sys_pk}/" style="cursor:pointer; border:none; text-decoration:none; outline:none; padding: 0 8px; background-color:#F5F5F5; color:#000; font-size:0.8rem">Editar</a>
+                    <button onclick="InduxsoftCrudlModel.Delete(${DataRow.sys_pk})" style="cursor:pointer; border:none; outline:none; padding: 0px 8px; background-color:#F5F5F5; color:#000; font-size:0.8rem">Eliminar</button>
+                </div>'
+            }
+        }
+        @"table_footer": "Mostrando los primeros # registros"
+        @"control_styles": '
+            @media print {
+                table {
+                    table-layout:auto;
+                    width:100%;
+                }
+                th {
+                    font-size:.9rem;
+                }
+                td {
+                    font-size:.8rem;
+                }
+            }
+        '
+    }
+
+    buttons::
+    {
+        #$
+        a(class="btn btn-sm border-secondary induxsoft-corners btn-main-action no-print v12-context-act-0 list-action" href="./_new/"){"Agregar"}
+        #!
+    }
+    point buttons to buttons
+    new nav_config
+    {
+        @"title": "Promociones"
+        @"buttons*":buttons
+        @"urlexit": "/"
+        @"jscurrentcontext": "getCurrentContext"
+    }
+
+    #$ div(class="container-fluid v12-list-view" id="view")
+    {
+        section(class="" id="top_area")
+        {
+            #!
+            do uie.printV12FormBar(nav_config)
+            #$
+        }
+        section(class="" id="work_area")
+        {
+            #!
+            do uie.dbeditable(table_definition,"table_promos")
+            #$
+        }
+    }
+
+}

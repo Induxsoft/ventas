@@ -1,0 +1,237 @@
+
+// =================================================================================
+// dotnet.datetime.dk
+// ---------------------------------------------------------------------------------
+// Envoltorio sobre System.DateTime de .Net, pensado para reemplazar las
+// funciones ndatetime.* (y date_str/str2dt) de DKL cuando no se comportan de
+// forma confiable. Usa el mecanismo de interoperabilidad .Net documentado:
+//
+//   - Métodos de INSTANCIA: se mapean con _map_function(...) y se invocan
+//     con _invoke(referencia, "nombreMapeado", args...).
+//   - Métodos ESTÁTICOS: se mapean con _map_function(...) y se llaman
+//     directamente como función DKL: nombreMapeado(args...).
+//   - PROPIEDADES de instancia: no requieren _map_function — se leen
+//     directamente con _get(referencia, "Propiedad").
+//   - PROPIEDADES/MÉTODOS ESTÁTICOS de una clase (ej. DateTime.Now,
+//     CultureInfo.InvariantCulture): se obtiene primero una referencia al
+//     tipo con _gettype(ensamblado, "Namespace.Clase") y se usa esa
+//     referencia como "objeto" en _get(tipo, "Propiedad").
+//
+// Incluir con: #include "dotnet.datetime.dk" dentro del nodo raíz del
+// programa o biblioteca que lo necesite. Las funciones quedan en el
+// namespace "dotnet.datetime" — se llaman calificadas
+// (dotnet.datetime.now(), dotnet.datetime.compareTo(a,b), ...) para evitar
+// choques de nombres con el código que las usa.
+// =================================================================================
+
+#include "dkli.dkh"
+#!
+module "Envoltorio System.DateTime (.Net):datetime"
+{
+    // =============================================================================
+    // Mapeo de métodos de INSTANCIA de System.DateTime
+    // =============================================================================
+    do _map_function(-1, "System.DateTime", "AddMinutes", "dtaddmin", "System.Double", "*")
+    do _map_function(-1, "System.DateTime", "AddDays", "dtaddays", "System.Double", "*")
+    do _map_function(-1, "System.DateTime", "AddMonths", "dtadmonths", "System.Int32", "*")
+    do _map_function(-1, "System.DateTime", "AddSeconds", "addsec", "System.Double", "*")
+    do _map_function(-1, "System.DateTime", "AddHours", "dtaddhour", "System.Double", "*")
+    do _map_function(-1, "System.DateTime", "CompareTo", "dtCompare", "*System.DateTime", "#")
+    do _map_function(-1, "System.TimeSpan", "Parse", "tmParse", "System.String", "*")
+    do _map_function(-1, "System.TimeSpan", "CompareTo", "tmCompare", "*System.TimeSpan", "#")
+    do _map_function(-1, "System.DateTime", "Subtract", "Subtract", "*System.DateTime", "*")
+    do _map_function(-1, "System.DateTime", "ToString", "toStr", "System.String", "$")
+
+    // =============================================================================
+    // Mapeo de métodos ESTÁTICOS de System.DateTime
+    // =============================================================================
+    do _map_function(-1, "System.DateTime", "DaysInMonth", "diasEnMes", "System.Int32,System.Int32", "#")
+    do _map_function(-1, "System.DateTime", "ParseExact", "dtParseExact", "System.String,System.String,System.IFormatProvider", "*")
+    do _map_function(-1, "System.DateTime", "Parse", "dtParseSimple", "System.String", "*")
+
+    // =============================================================================
+    // Envoltorios de métodos de instancia (idénticos a los provistos)
+    // =============================================================================
+    tmCompareTo::&hora1,&hora2
+    {
+        return _invoke(hora1,"tmCompare",hora2)
+    }
+    timeParse::hora
+    {
+        return tmParse(hora)
+    }
+
+    /** Representación en cadena, según el formato .Net indicado (ej. "HH:mm:ss"). */
+    toString :: &datetime, formato
+    {
+        nf = _invoke(datetime, "toStr", formato)
+        return nf
+    }
+
+    addSeconds :: &datetime, s
+    {
+        ref ns = _invoke(datetime, "addsec", s)
+        return ns
+    }
+
+    addMinutes :: &datetime, m
+    {
+        ref nf = _invoke(datetime, "dtaddmin", m)
+        return nf
+    }
+
+    addHours :: &datetime, h
+    {
+        ref nh = _invoke(datetime, "dtaddhour", h)
+        return nh
+    }
+
+    addDays :: &datetime, d
+    {
+        ref nd = _invoke(datetime, "dtaddays", d)
+        return nd
+    }
+
+    addMonths :: &datetime, m
+    {
+        ref nm = _invoke(datetime, "dtadmonths", m)
+        return nm
+    }
+
+    /**
+    * Indica si datetime1 es anterior (-1), igual (0) o posterior (1) a
+    * datetime2.
+    * @return int
+    */
+    compareTo :: &datetime1, datetime2
+    {
+        n = _invoke(datetime1, "dtCompare", datetime2)
+        return n
+    }
+
+    // =============================================================================
+    // Propiedades de instancia — _get es genérico, no requiere _map_function
+    // =============================================================================
+
+    year :: &datetime { return _get(datetime, "Year") }
+    month :: &datetime { return _get(datetime, "Month") }
+    day :: &datetime { return _get(datetime, "Day") }
+    hour :: &datetime { return _get(datetime, "Hour") }
+    minute :: &datetime { return _get(datetime, "Minute") }
+    second :: &datetime { return _get(datetime, "Second") }
+
+    /**
+    * Día de la semana como número, IGUAL al enum System.DayOfWeek de .Net:
+    * 0=domingo, 1=lunes, 2=martes, 3=miércoles, 4=jueves, 5=viernes, 6=sábado.
+    */
+    dayOfWeek :: &datetime
+    {
+        return _get(datetime, "DayOfWeek")
+    }
+
+    // =============================================================================
+    // Miembros ESTÁTICOS (vía _gettype + _get, o función estática mapeada)
+    // =============================================================================
+
+    /** Fecha y hora actuales (System.DateTime.Now). */
+    now ::
+    {
+        ref tipo = _gettype(-1, "System.DateTime")
+        ref ahora = _get(tipo, "Now")
+        return ahora
+    }
+
+    /** Referencia reutilizable a System.Globalization.CultureInfo.InvariantCulture. */
+    _culturaInvariante ::
+    {
+        ref tipo = _gettype(-1, "System.Globalization.CultureInfo")
+        ref c = _get(tipo, "InvariantCulture")
+        return c
+    }
+
+    /**
+    * Convierte una cadena a DateTime usando un formato EXACTO (ej.
+    * "yyyy-MM-dd HH:mm:ss") y cultura invariante — no depende del idioma o
+    * configuración regional del servidor. Es la forma recomendada de
+    * convertir fechas que vienen como texto (JSON, formularios, etc.).
+    */
+    parseExact :: cadena, formato
+    {
+        ref invariante = _culturaInvariante()
+        ref dt = dtParseExact(cadena, formato, invariante)
+        return dt
+    }
+
+    /**
+    * Alternativa más simple (sin formato exacto, usa la cultura actual del
+    * servidor) — usar solo si parseExact da problemas de mapeo en el
+    * entorno destino.
+    */
+    parseSimple :: cadena
+    {
+        ref dt = dtParseSimple(cadena)
+        return dt
+    }
+
+    /** Cantidad de días que tiene un mes//año determinado. */
+    daysInMonth :: anio, mes
+    {
+        return diasEnMes(anio, mes)
+    }
+
+    /** ¿El día de `datetime` es el último día de su mes? */
+    isLastDayOfMonth :: datetime
+    {
+        anio = year(datetime)
+        mes = month(datetime)
+        return day(datetime) == daysInMonth(anio, mes)
+    }
+    function diff(fecha1, fecha2)
+    {
+        ref dt1 = str2dt(fecha1)
+        ref dt2 = str2dt(fecha2)
+
+        ref ts = _invoke(dt2, "Subtract", dt1)
+
+        return _get(ts, "Days")
+    }
+    function time(fecha,format)
+    {
+        ref dt1 = str2dt(fecha)
+
+        return date_str(dt1,format)
+    }
+    function fecha_expandir(valor, formato)
+    {
+        resultado = ""
+        pos = 0
+
+        for i = 0; i < length(formato); i = i + 1
+        {
+            c = substring(formato, i, 1)
+
+            if isany(c, "yMdHms")
+            {
+                resultado = resultado + substring(valor, pos, 1)
+                pos = pos + 1
+            }
+            else
+            {
+                resultado = resultado + c
+            }
+        }
+
+        return resultado
+    }
+    function fecha_compactar(fecha, formato)
+    {
+        r = fecha
+
+        r = replace(r, "-", "")
+        r = replace(r, "/", "")
+        r = replace(r, ":", "")
+        r = replace(r, " ", "")
+
+        return left(r, length(formato))
+    }
+}

@@ -24,6 +24,9 @@ program "instalador"
         "ctiposcategorias.csv",
         "categoria.csv",
         "divisa.csv",
+        "ctipopromocion.csv",
+        "cmodocombinacion.csv",
+        "ctipoaplicacionpromocion.csv"
     ]')
 
     // Lista de privilegios iniciales (arreglo de id de privilegios)

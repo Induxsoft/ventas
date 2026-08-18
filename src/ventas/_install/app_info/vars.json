@@ -245,6 +245,47 @@
                 {
                     "control": "string"
                 }
+            },
+            {
+                "varname": "ventas_promo_referencia_temporal",
+                "vardefault": "captura",
+                "varvalue": "captura",
+                "varcaption": "Ubicación imagen de logotipo",
+                "varhelp": "captura:  usa fecha_captura de cada línea — correcto para promociones por horario, venta: usa una sola fecha para toda la venta (si no hay timestamp por línea), actual: usa la hora real del sistema (simulación)",
+                "vartype": "text",
+                "varinput": {
+                    "control": "select",
+                    "source":{
+                        "type":"list",
+                        "values":[
+                            {"val":"captura", "txt":"Captura"},
+                            {"val":"venta", "txt":"Venta"},
+                            {"val":"actual", "txt":"Actual"}
+                        ],
+                        "showfield":"txt",
+                        "keyfield":"val"
+                    }
+                }
+            },
+            {
+                "varname": "ventas_slot_promocional",
+                "vardefault": "descuento2",
+                "varvalue": "descuento2",
+                "varcaption": "Slot promocional",
+                "varhelp": "Cmpo de descuento a utilizar para aplicar la promoción",
+                "vartype": "text",
+                "varinput": {
+                    "control": "select",
+                    "source":{
+                        "type":"list",
+                        "values":[
+                            {"val":"descuento1", "txt":"Descuento 1"},
+                            {"val":"descuento2", "txt":"Descuento 2"}
+                        ],
+                        "showfield":"txt",
+                        "keyfield":"val"
+                    }
+                }
             }
         ]
     }

@@ -1,0 +1,2383 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuración de Promoción</title>
+
+    <!-- Bootstrap 5 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- Choices.js (multi-select) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js@10.2.0/public/assets/styles/choices.min.css">
+
+    <style>
+        /* ── Layout general ───────────────────────────────────── */
+        body {
+            background: #f1f4f8;
+            font-size: 0.9rem;
+        }
+        .page-header {
+            background: #fff;
+            border-bottom: 1px solid #dee2e6;
+            padding: 1rem 1.5rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .main-content {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 1.5rem 1rem 4rem;
+        }
+
+        /* ── Tarjetas de sección ──────────────────────────────── */
+        .section-card {
+            background: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+            margin-bottom: 1.25rem;
+            overflow: hidden;
+        }
+        .section-card .card-header {
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #495057;
+            padding: 0.6rem 1rem;
+        }
+        .section-card .card-body {
+            padding: 1rem;
+        }
+
+        /* ── Sub-secciones / anidamiento ─────────────────────── */
+        .subsection {
+            padding-left: 1.75rem;
+            margin-top: 0.5rem;
+            border-left: 3px solid #e9ecef;
+        }
+        .subsection-inner {
+            padding-left: 1.5rem;
+            margin-top: 0.4rem;
+            border-left: 2px solid #dee2e6;
+        }
+
+        /* ── Días de la semana ───────────────────────────────── */
+        .day-toggle label {
+            width: 2rem;
+            text-align: center;
+            padding: 0.25rem 0;
+            border-radius: 50%;
+            cursor: pointer;
+            user-select: none;
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+        .day-toggle input[type="checkbox"] { display: none; }
+        .day-toggle input:checked + label {
+            background: #0d6efd;
+            color: #fff;
+        }
+        .day-toggle input:not(:checked) + label {
+            background: #e9ecef;
+            color: #6c757d;
+        }
+
+        /* ── Bloques de horario por día ──────────────────────── */
+        .horario-block {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            padding: 0.6rem 0.8rem;
+        }
+        .horario-block .dia-nombre {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #0d6efd;
+            margin-bottom: 0.4rem;
+        }
+
+        /* ── Resumen de filtros aplicados ────────────────────── */
+        .filtro-resumen {
+            font-size: 0.78rem;
+            color: #6c757d;
+            font-style: italic;
+        }
+        .filtro-resumen.aplicado {
+            color: #198754;
+            font-style: normal;
+            font-weight: 500;
+        }
+
+        /* ── Choices.js ajuste visual ────────────────────────── */
+        .choices { margin-bottom: 0; }
+        .choices__inner {
+            min-height: 38px;
+            font-size: 0.875rem;
+        }
+
+        /* ── input-key como bloque ───────────────────────────── */
+        input-key {
+            display: block;
+        }
+
+        /* ── edit-table dentro del modal ─────────────────────── */
+        #dlgArmarPaquete .modal-body {
+            min-height: 280px;
+        }
+
+        /* ── JSON viewer ─────────────────────────────────────── */
+        #preJSON {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            font-size: 0.78rem;
+            border-radius: 0.375rem;
+            padding: 1rem;
+            max-height: 72vh;
+            overflow: auto;
+        }
+
+        /* ── Pills de tipo de promoción (nivel superior) ──────── */
+        .tipo-promocion-option {
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            transition: border-color .15s, background .15s;
+        }
+        .tipo-promocion-option:hover { background: #f8f9fa; }
+        .tipo-promocion-option.activa {
+            border-color: #0d6efd;
+            background: #eef5ff;
+        }
+        .tipo-promocion-option input[type="radio"] { margin-right: .5rem; }
+    </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════
+     MODAL ① – FILTRO DE SELECCIÓN
+     Reutilizable: se abre mediante abrirFiltro(contexto, titulo).
+     El resultado se devuelve al mapa `filtros[ctx]`.
+═══════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="dlgFiltroSeleccion" tabindex="-1"
+     aria-labelledby="dlgFiltroTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 class="modal-title" id="dlgFiltroTitulo">Filtro de Selección</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+                <p class="text-muted small mb-3">
+                    Active cada criterio que desee incluir en el filtro.
+                </p>
+
+                <!-- ── Criterio: Línea ─────────────────── -->
+                <div class="row align-items-center mb-3 g-2">
+                    <div class="col-auto" style="min-width:120px;">
+                        <div class="form-check mb-0">
+                            <input class="form-check-input filtro-chk" type="checkbox"
+                                   id="chkFiltroLinea" data-ik="ikLinea">
+                            <label class="form-check-label fw-semibold" for="chkFiltroLinea">
+                                Línea
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <input-key id="ikLinea"
+                            data-key="id"
+                            data-search="codigo"
+                            data-text="nombre"
+                            data-source="./search/?entity=linea&search=@search"
+                            columns="codigo,nombre"
+                            colcaptions="Código,Nombre"
+                            box-title-text="Seleccione una Línea"
+                            disabled="true">
+                        </input-key>
+                    </div>
+                </div>
+
+                <!-- ── Criterio: Marca ─────────────────── -->
+                <div class="row align-items-center mb-3 g-2">
+                    <div class="col-auto" style="min-width:120px;">
+                        <div class="form-check mb-0">
+                            <input class="form-check-input filtro-chk" type="checkbox"
+                                   id="chkFiltroMarca" data-ik="ikMarca">
+                            <label class="form-check-label fw-semibold" for="chkFiltroMarca">
+                                Marca
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <input-key id="ikMarca"
+                            data-key="id"
+                            data-search="codigo"
+                            data-text="nombre"
+                            data-source="./search/?entity=marca&search=@search"
+                            columns="codigo,nombre"
+                            colcaptions="Código,Nombre"
+                            box-title-text="Seleccione una Marca"
+                            disabled="true">
+                        </input-key>
+                    </div>
+                </div>
+
+                <!-- ── Criterio: Departamento ──────────── -->
+                <div class="row align-items-center mb-3 g-2">
+                    <div class="col-auto" style="min-width:120px;">
+                        <div class="form-check mb-0">
+                            <input class="form-check-input filtro-chk" type="checkbox"
+                                   id="chkFiltroDepto" data-ik="ikDepto">
+                            <label class="form-check-label fw-semibold" for="chkFiltroDepto">
+                                Depto
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <input-key id="ikDepto"
+                            data-key="id"
+                            data-search="codigo"
+                            data-text="nombre"
+                            data-source="./search/?entity=depto&search=@search"
+                            columns="codigo,nombre"
+                            colcaptions="Código,Nombre"
+                            box-title-text="Seleccione un Departamento"
+                            disabled="true">
+                        </input-key>
+                    </div>
+                </div>
+
+                <!-- ── Criterio: Grupo ─────────────────── -->
+                <div class="row align-items-center mb-3 g-2">
+                    <div class="col-auto" style="min-width:120px;">
+                        <div class="form-check mb-0">
+                            <input class="form-check-input filtro-chk" type="checkbox"
+                                   id="chkFiltroGrupo" data-ik="ikGrupo">
+                            <label class="form-check-label fw-semibold" for="chkFiltroGrupo">
+                                Grupo
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <input-key id="ikGrupo"
+                            data-key="id"
+                            data-search="codigo"
+                            data-text="nombre"
+                            data-source="./search/?entity=grupo&search=@search"
+                            columns="codigo,nombre"
+                            colcaptions="Código,Nombre"
+                            box-title-text="Seleccione un Grupo"
+                            disabled="true">
+                        </input-key>
+                    </div>
+                </div>
+
+                <!-- ── Criterio: Producto ──────────────── -->
+                <div class="row align-items-center g-2">
+                    <div class="col-auto" style="min-width:120px;">
+                        <div class="form-check mb-0">
+                            <input class="form-check-input filtro-chk" type="checkbox"
+                                   id="chkFiltroProducto" data-ik="ikProducto">
+                            <label class="form-check-label fw-semibold" for="chkFiltroProducto">
+                                Producto
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <input-key id="ikProducto"
+                            data-key="id"
+                            data-search="codigo"
+                            data-text="nombre"
+                            data-source="./search/?entity=producto&search=@search"
+                            columns="codigo,nombre"
+                            colcaptions="Código,Nombre"
+                            box-title-text="Seleccione un Producto"
+                            disabled="true">
+                        </input-key>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-link text-secondary me-auto"
+                        id="btnLimpiarFiltro">
+                    Limpiar filtro
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" id="btnAceptarFiltro">
+                    <i class="bi bi-check-lg me-1"></i> Aceptar
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     MODAL ①B – FILTRO DE CLIENTES
+     Reutilizable: se abre mediante abrirFiltroCliente(contexto, titulo).
+     Contextos: "restriccion" (a quién aplica) y "excepcion" (a quién no).
+     El resultado se devuelve al mapa `filtrosClientes[ctx]`.
+═══════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="dlgFiltroClientes" tabindex="-1"
+     aria-labelledby="dlgFiltroClientesTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 class="modal-title" id="dlgFiltroClientesTitulo">Filtro de Clientes</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+                <p class="text-muted small mb-3">
+                    Active cada criterio que desee incluir en el filtro.
+                    Si no activa ninguno, equivale a "todos los clientes"
+                    (restricción) o "ninguna excepción" (excepción).
+                </p>
+
+                <!-- ── Criterio: Tipo de cliente ───────── -->
+                <div class="row align-items-center mb-3 g-2">
+                    <div class="col-auto" style="min-width:150px;">
+                        <div class="form-check mb-0">
+                            <input class="form-check-input filtro-cliente-chk" type="checkbox"
+                                   id="chkFiltroTipoCliente" data-ik="ikTipoCliente">
+                            <label class="form-check-label fw-semibold" for="chkFiltroTipoCliente">
+                                Tipo de cliente
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <input-key id="ikTipoCliente"
+                            data-key="id"
+                            data-search="codigo"
+                            data-text="nombre"
+                            data-source="./search/?entity=tipo-cliente&search=@search"
+                            columns="codigo,nombre"
+                            colcaptions="Código,Nombre"
+                            box-title-text="Seleccione un Tipo de cliente"
+                            disabled="true">
+                        </input-key>
+                    </div>
+                </div>
+
+                <!-- ── Criterio: Grupo de clientes ─────── -->
+                <div class="row align-items-center mb-3 g-2">
+                    <div class="col-auto" style="min-width:150px;">
+                        <div class="form-check mb-0">
+                            <input class="form-check-input filtro-cliente-chk" type="checkbox"
+                                   id="chkFiltroGrupoCliente" data-ik="ikGrupoCliente">
+                            <label class="form-check-label fw-semibold" for="chkFiltroGrupoCliente">
+                                Grupo de clientes
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <input-key id="ikGrupoCliente"
+                            data-key="id"
+                            data-search="codigo"
+                            data-text="nombre"
+                            data-source="./search/?entity=grupo-cliente&search=@search"
+                            columns="codigo,nombre"
+                            colcaptions="Código,Nombre"
+                            box-title-text="Seleccione un Grupo de clientes"
+                            disabled="true">
+                        </input-key>
+                    </div>
+                </div>
+
+                <!-- ── Criterio: Cliente ───────────────── -->
+                <div class="row align-items-center g-2">
+                    <div class="col-auto" style="min-width:150px;">
+                        <div class="form-check mb-0">
+                            <input class="form-check-input filtro-cliente-chk" type="checkbox"
+                                   id="chkFiltroCliente" data-ik="ikCliente">
+                            <label class="form-check-label fw-semibold" for="chkFiltroCliente">
+                                Cliente
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <input-key id="ikCliente"
+                            data-key="id"
+                            data-search="codigo"
+                            data-text="nombre"
+                            data-source="./search/?entity=cliente&search=@search"
+                            columns="codigo,nombre"
+                            colcaptions="Código,Nombre"
+                            box-title-text="Seleccione un Cliente"
+                            disabled="true">
+                        </input-key>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-link text-secondary me-auto"
+                        id="btnLimpiarFiltroCliente">
+                    Limpiar filtro
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" id="btnAceptarFiltroCliente">
+                    <i class="bi bi-check-lg me-1"></i> Aceptar
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     MODAL ② – ARMAR PAQUETE
+     Tabla editable de productos que forman un combo/paquete.
+═══════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="dlgArmarPaquete" tabindex="-1"
+     aria-labelledby="dlgPaqueteTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 class="modal-title" id="dlgPaqueteTitulo">Armar Paquete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+                <p class="text-muted small mb-2">
+                    <kbd>↓</kbd> Agregar fila &nbsp;&middot;&nbsp;
+                    <kbd>Ctrl</kbd>+<kbd>Supr</kbd> Eliminar fila seleccionada
+                </p>
+
+                <input-key id="ik_producto" 
+                    data-key="id" 
+                    data-search="codigo" 
+                    data-text="nombre" 
+                    data-source="./search/?entity=producto&search=@search" 
+                    columns="codigo,nombre,divisa,codbar1,codbar2,codbar3" 
+                    colcaptions="Código,Descripción,Divisa,CodBar1,CodBar2,CodBar3" 
+                    box-title-text="Seleccione un producto de la lista" 
+                    hidden-input="false" 
+                    control-styles="#container{display:none !important;}">
+                </input-key>
+                <!-- edit-table: columnas Producto y Cantidad -->
+                <edit-table id="tblPaquete" style="width:100%;" data="[]">
+                    <edit-thead>
+                        <edit-tr>
+                            <edit-th type="Text"   field="producto"  maxlength="120" button="true">Producto</edit-th>
+                            <edit-th type="Number" field="cantidad"  width="130px"
+                                     textalign="end" default="1" decs="0">Cantidad</edit-th>
+                        </edit-tr>
+                    </edit-thead>
+                </edit-table>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-sm"
+                        id="btnAgregarFilaPaquete">
+                    <i class="bi bi-plus"></i> Agregar fila
+                </button>
+                <div class="ms-auto d-flex gap-2">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn btn-primary" id="btnAceptarPaquete">
+                        <i class="bi bi-check-lg me-1"></i> Aceptar
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     MODAL ③ – VER JSON (utilidad de desarrollo)
+═══════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="dlgVerJSON" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-braces me-2"></i>Estructura JSON — Promoción
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <pre id="preJSON"></pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     ENCABEZADO DE PÁGINA
+═══════════════════════════════════════════════════════════════════ -->
+<div class="page-header d-flex align-items-center gap-3">
+    <div>
+        <h4 class="mb-0 fw-bold">Configuración de Promoción</h4>
+        <p class="mb-0 text-muted" style="font-size:0.78rem;">
+            Define las condiciones, descuentos y vigencia de la promoción.
+        </p>
+    </div>
+    <div class="ms-auto d-flex gap-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary"
+                onclick="verJSON()">
+            <i class="bi bi-braces"></i> Ver JSON
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-info d-none"
+                title="Serializa el formulario a JSON y lo vuelve a cargar (prueba de round-trip)"
+                onclick="probarRoundTrip()">
+            <i class="bi bi-arrow-repeat"></i> Probar carga
+        </button>
+        <button type="button" class="btn btn-sm btn-primary"
+                onclick="guardarPromocion()">
+            <i class="bi bi-save me-1"></i> Guardar
+        </button>
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     FORMULARIO PRINCIPAL
+═══════════════════════════════════════════════════════════════════ -->
+<div class="main-content">
+<form id="frmPromocion" action="." novalidate>
+
+
+    <!-- ─── 1. DATOS GENERALES ────────────────────────────── -->
+    <div class="section-card">
+        <div class="card-header">Datos generales</div>
+        <div class="card-body">
+            <div class="row g-3">
+
+                <div class="col-sm-3">
+                    <label for="txtCodigo" class="form-label">
+                        Código <span class="text-danger">*</span>
+                    </label>
+                    <input type="text" class="form-control form-control-sm"
+                           id="txtCodigo" maxlength="20"
+                           placeholder="Ej: DESC2024">
+                    <div class="form-text">Identificador único de la promoción.</div>
+                </div>
+
+                <div class="col-sm-9">
+                    <label for="txtNombre" class="form-label">Nombre de la Promoción</label>
+                    <input type="text" class="form-control form-control-sm"
+                           id="txtNombre" maxlength="120">
+                </div>
+
+                <div class="col-md-6">
+                    <label for="txtTerminos" class="form-label">Términos y Condiciones</label>
+                    <textarea class="form-control form-control-sm" id="txtTerminos"
+                              rows="3" placeholder="Texto que aparecerá en el comprobante o ticket..."></textarea>
+                </div>
+
+                <div class="col-md-6">
+                    <label for="txtNotas" class="form-label">Notas internas</label>
+                    <textarea class="form-control form-control-sm" id="txtNotas"
+                              rows="3" placeholder="Notas para uso interno, no visibles al cliente..."></textarea>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ─── 2. TIPO DE PROMOCIÓN ──────────────────────────── -->
+    <div class="section-card">
+        <div class="card-header">Tipo de promoción</div>
+        <div class="card-body">
+
+            <!-- ►► Selector de tipo (3 opciones de alto nivel) ──── -->
+            <div class="row g-2 mb-3">
+                <div class="col-md-4">
+                    <label class="tipo-promocion-option d-block mb-0">
+                        <input type="radio" name="rdTipoPromocion" id="rdTipoProductos"
+                               value="productos" checked>
+                        <strong>Productos</strong>
+                        <div class="text-muted small">Todos o solo algunos productos</div>
+                    </label>
+                </div>
+                <div class="col-md-4">
+                    <label class="tipo-promocion-option d-block mb-0">
+                        <input type="radio" name="rdTipoPromocion" id="rdTipoCombo"
+                               value="combo">
+                        <strong>Combo</strong>
+                        <div class="text-muted small">Paquete a precio fijo</div>
+                    </label>
+                </div>
+                <div class="col-md-4">
+                    <label class="tipo-promocion-option d-block mb-0">
+                        <input type="radio" name="rdTipoPromocion" id="rdTipoTotalVenta"
+                               value="totalVenta">
+                        <strong>Total de la venta</strong>
+                        <div class="text-muted small">Descuento o regalo por monto mínimo</div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- ════════════════ PRODUCTOS ════════════════ -->
+            <div id="secProductos">
+
+                <!-- Alcance: todos o solo algunos -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold d-block mb-1">Alcance</label>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio"
+                               name="rdAlcance" id="rdAlcanceTodos" value="todos">
+                        <label class="form-check-label" for="rdAlcanceTodos">
+                            Todos los productos
+                        </label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio"
+                               name="rdAlcance" id="rdAlcanceSoloAlgunos" value="soloAlgunos" checked>
+                        <label class="form-check-label" for="rdAlcanceSoloAlgunos">
+                            Solo algunos productos
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Filtro — solo visible si alcance = soloAlgunos -->
+                <div id="secAlcanceFiltro" class="subsection mb-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                id="btnFiltroParticipantes"
+                                data-ctx="participantes"
+                                data-titulo="Filtro — Productos participantes">
+                            <i class="bi bi-funnel me-1"></i> Seleccionar productos participantes
+                        </button>
+                        <span id="resumenParticipantes" class="filtro-resumen">Sin filtro aplicado.</span>
+                    </div>
+                </div>
+
+                <!-- Tipo de descuento — aplica igual para "todos" y "solo algunos" -->
+                <label class="form-label fw-semibold d-block mb-1">Tipo de descuento</label>
+
+                <div class="form-check mb-1">
+                    <input class="form-check-input" type="radio"
+                           name="rdTipoDesc" id="rdRebaja" value="rebaja" checked>
+                    <label class="form-check-label" for="rdRebaja">Rebaja</label>
+                </div>
+                <div id="secRebaja" class="subsection-inner mb-2">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-auto">
+                            <div class="input-group input-group-sm">
+                                <input type="number" class="form-control" id="txtPctRebaja"
+                                       min="0" max="100" step="0.01" style="width:80px;"
+                                       placeholder="0">
+                                <span class="input-group-text">% de descuento</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-check mb-1">
+                    <input class="form-check-input" type="radio"
+                           name="rdTipoDesc" id="rdAxB" value="aXb">
+                    <label class="form-check-label" for="rdAxB">A × B</label>
+                </div>
+                <div id="secAxB" class="subsection-inner mb-2" hidden>
+                    <div class="row g-2 align-items-center">
+                        <label class="col-auto col-form-label col-form-label-sm">
+                            En la compra de (A):
+                        </label>
+                        <div class="col-auto">
+                            <input type="number" class="form-control form-control-sm"
+                                   id="txtCantA" min="1" step="1" style="width:75px;">
+                        </div>
+                        <label class="col-auto col-form-label col-form-label-sm">
+                            Obtiene (B):
+                        </label>
+                        <div class="col-auto">
+                            <input type="number" class="form-control form-control-sm"
+                                   id="txtCantB" min="1" step="1" style="width:75px;">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-check mb-1">
+                    <input class="form-check-input" type="radio"
+                           name="rdTipoDesc" id="rdProgresivo" value="progresivo">
+                    <label class="form-check-label" for="rdProgresivo">
+                        Descuento progresivo
+                    </label>
+                </div>
+                <div id="secProgresivo" class="subsection-inner mb-2" hidden>
+                    <!-- Límite 1 -->
+                    <div class="row g-2 align-items-center mb-1">
+                        <label class="col-auto col-form-label col-form-label-sm">Límite 1:</label>
+                        <div class="col-auto">
+                            <input type="number" class="form-control form-control-sm"
+                                   id="txtLim1" min="0" style="width:80px;">
+                        </div>
+                        <label class="col-auto col-form-label col-form-label-sm">% descuento:</label>
+                        <div class="col-auto">
+                            <input type="number" class="form-control form-control-sm"
+                                   id="txtDesc1" min="0" max="100" style="width:70px;">
+                        </div>
+                    </div>
+                    <!-- Límite 2 -->
+                    <div class="row g-2 align-items-center mb-1">
+                        <label class="col-auto col-form-label col-form-label-sm">Límite 2:</label>
+                        <div class="col-auto">
+                            <input type="number" class="form-control form-control-sm"
+                                   id="txtLim2" min="0" style="width:80px;">
+                        </div>
+                        <label class="col-auto col-form-label col-form-label-sm">% descuento:</label>
+                        <div class="col-auto">
+                            <input type="number" class="form-control form-control-sm"
+                                   id="txtDesc2" min="0" max="100" style="width:70px;">
+                        </div>
+                    </div>
+                    <!-- Límite 3 -->
+                    <div class="row g-2 align-items-center mb-2">
+                        <label class="col-auto col-form-label col-form-label-sm">Límite 3:</label>
+                        <div class="col-auto">
+                            <input type="number" class="form-control form-control-sm"
+                                   id="txtLim3" min="0" style="width:80px;">
+                        </div>
+                        <label class="col-auto col-form-label col-form-label-sm">% descuento:</label>
+                        <div class="col-auto">
+                            <input type="number" class="form-control form-control-sm"
+                                   id="txtDesc3" min="0" max="100" style="width:70px;">
+                        </div>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="chkSoloExcedente">
+                        <label class="form-check-label small" for="chkSoloExcedente">
+                            Solo sobre el excedente
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-check mb-1">
+                    <input class="form-check-input" type="radio"
+                           name="rdTipoDesc" id="rdVentaCruzada" value="ventaCruzada">
+                    <label class="form-check-label" for="rdVentaCruzada">
+                        Venta cruzada
+                    </label>
+                </div>
+                <div id="secVentaCruzada" class="subsection-inner mb-2" hidden>
+                    <div class="row g-2 align-items-center mb-2">
+                        <label class="col-auto col-form-label col-form-label-sm">
+                            Por cada (umbral):
+                        </label>
+                        <div class="col-auto">
+                            <input type="number" class="form-control form-control-sm"
+                                   id="txtVCCantidad" min="1" step="1" style="width:80px;">
+                        </div>
+                        <div class="col-auto text-muted small align-self-center">
+                            unidades compradas (del alcance de arriba)
+                        </div>
+                    </div>
+                    <div class="row g-2 align-items-center mb-2">
+                        <label class="col-auto col-form-label col-form-label-sm">
+                            Descuento del:
+                        </label>
+                        <div class="col-auto">
+                            <div class="input-group input-group-sm">
+                                <input type="number" class="form-control"
+                                       id="txtVCDescuento" min="0" max="100" style="width:70px;">
+                                <span class="input-group-text">% en 1 unidad de:</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                id="btnFiltroVCObjetivo"
+                                data-ctx="vcObjetivo"
+                                data-titulo="Filtro — Productos con descuento (Venta cruzada)">
+                            <i class="bi bi-funnel me-1"></i> Seleccionar productos con descuento
+                        </button>
+                        <span id="resumenVCObjetivo" class="filtro-resumen">Sin filtro aplicado.</span>
+                    </div>
+                    <div class="form-text">
+                        El descuento se repite por cada vez que se alcanza el umbral
+                        (ej. umbral=2 y el cliente compra 6 → se activa 3 veces).
+                    </div>
+                </div><!-- /secVentaCruzada -->
+
+                <div class="form-check mb-1">
+                    <input class="form-check-input" type="radio"
+                           name="rdTipoDesc" id="rdPorMonto" value="porMonto">
+                    <label class="form-check-label" for="rdPorMonto">
+                        Por monto
+                    </label>
+                </div>
+                <div id="secPorMonto" class="subsection-inner mb-2" hidden>
+                    <div class="row g-2 align-items-center mb-2">
+                        <label class="col-auto col-form-label col-form-label-sm">
+                            Si el monto comprado (del alcance de arriba) alcanza:
+                        </label>
+                        <div class="col-auto">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text">$</span>
+                                <input type="number" class="form-control" id="txtPMMonto"
+                                       min="0" step="0.01" style="width:120px;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <label class="form-label fw-semibold d-block mb-1">Beneficio</label>
+                    <div class="form-check form-check-inline mb-2">
+                        <input class="form-check-input" type="radio"
+                               name="rdPMBeneficio" id="rdPMDescuento" value="descuento" checked>
+                        <label class="form-check-label" for="rdPMDescuento">Descuento</label>
+                    </div>
+                    <div class="form-check form-check-inline mb-2">
+                        <input class="form-check-input" type="radio"
+                               name="rdPMBeneficio" id="rdPMRegalo" value="regalo">
+                        <label class="form-check-label" for="rdPMRegalo">Regalo de producto</label>
+                    </div>
+
+                    <!-- Beneficio: descuento -->
+                    <div id="secPMDescuento" class="subsection-inner mb-1">
+                        <div class="input-group input-group-sm" style="max-width:160px;">
+                            <input type="number" class="form-control" id="txtPMDescuento"
+                                   min="0" max="100" step="0.01" placeholder="0">
+                            <span class="input-group-text">% descuento</span>
+                        </div>
+                    </div>
+
+                    <!-- Beneficio: regalo -->
+                    <div id="secPMRegalo" class="subsection-inner mb-1" hidden>
+                        <div class="row g-2 align-items-center mb-2">
+                            <label class="col-auto col-form-label col-form-label-sm">
+                                Cantidad a regalar:
+                            </label>
+                            <div class="col-auto">
+                                <input type="number" class="form-control form-control-sm"
+                                       id="txtPMCantidad" min="1" step="1" style="width:75px;">
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <button type="button" class="btn btn-outline-secondary btn-sm"
+                                    id="btnFiltroPMRegalo"
+                                    data-ctx="pmRegalo"
+                                    data-titulo="Filtro — Producto a regalar (Por monto)">
+                                <i class="bi bi-funnel me-1"></i> Seleccionar producto a regalar
+                            </button>
+                            <span id="resumenPMRegalo" class="filtro-resumen">Sin filtro aplicado.</span>
+                        </div>
+                    </div>
+                </div><!-- /secPorMonto -->
+
+            </div><!-- /secProductos -->
+
+            <!-- ════════════════ COMBO ════════════════ -->
+            <div id="secCombo" class="subsection" hidden>
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <button type="button" class="btn btn-outline-primary btn-sm"
+                            id="btnAbrirPaquete">
+                        <i class="bi bi-grid me-1"></i> Armar paquete
+                    </button>
+                    <span id="resumenPaquete" class="filtro-resumen">Sin productos definidos.</span>
+                </div>
+                <div class="row g-2 align-items-center">
+                    <label for="txtPrecioFijo" class="col-auto col-form-label col-form-label-sm">
+                        Precio fijo:
+                    </label>
+                    <div class="col-auto">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">$</span>
+                            <input type="number" class="form-control" id="txtPrecioFijo"
+                                   min="0" step="0.01" style="width:120px;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ════════════════ TOTAL DE LA VENTA ════════════════ -->
+            <div id="secTotalVenta" class="subsection" hidden>
+
+                <div class="row g-2 align-items-center mb-2">
+                    <label class="col-auto col-form-label col-form-label-sm">
+                        Si la venta es mayor a:
+                    </label>
+                    <div class="col-auto">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">$</span>
+                            <input type="number" class="form-control" id="txtTVMonto"
+                                   min="0" step="0.01" style="width:120px;">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-2 align-items-center mb-2">
+                    <label class="col-auto col-form-label col-form-label-sm">
+                        Descuento general:
+                    </label>
+                    <div class="col-auto">
+                        <div class="input-group input-group-sm">
+                            <input type="number" class="form-control" id="txtTVDescuento"
+                                   min="0" max="100" step="0.01" style="width:80px;">
+                            <span class="input-group-text">%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span class="text-muted small">Regalo de uno de estos productos:</span>
+                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                            id="btnFiltroTVRegalo"
+                            data-ctx="tvRegalo"
+                            data-titulo="Filtro — Productos de regalo (Total de venta)">
+                        <i class="bi bi-funnel me-1"></i> Seleccionar
+                    </button>
+                    <span id="resumenTVRegalo" class="filtro-resumen">Sin filtro aplicado.</span>
+                </div>
+
+            </div><!-- /secTotalVenta -->
+
+        </div><!-- /card-body Tipo de promoción -->
+    </div><!-- /section-card Tipo de promoción -->
+
+
+    <!-- ─── 3. REGLAS DE PRIORIDAD Y COMBINACIÓN ──────────── -->
+    <div class="section-card">
+        <div class="card-header">Prioridad y combinación con otras promociones</div>
+        <div class="card-body">
+
+            <div class="row g-3 mb-3">
+                <div class="col-sm-4">
+                    <label for="txtPrioridad" class="form-label">Prioridad</label>
+                    <input type="number" class="form-control form-control-sm"
+                           id="txtPrioridad" min="1" step="1" value="10">
+                    <div class="form-text">Menor número = mayor prioridad (se evalúa primero).</div>
+                </div>
+            </div>
+
+            <label class="form-label fw-semibold d-block mb-1">
+                Combinación con otras promociones
+            </label>
+
+            <div class="form-check mb-1">
+                <input class="form-check-input" type="radio"
+                       name="rdModoCombinacion" id="rdModoExclusiva" value="exclusiva" checked>
+                <label class="form-check-label" for="rdModoExclusiva">
+                    Exclusiva — anula cualquier otra promoción en conflicto
+                </label>
+            </div>
+            <div class="form-check mb-1">
+                <input class="form-check-input" type="radio"
+                       name="rdModoCombinacion" id="rdModoCombinable" value="combinable">
+                <label class="form-check-label" for="rdModoCombinable">
+                    Combinable libremente
+                </label>
+            </div>
+            <div class="form-check mb-2">
+                <input class="form-check-input" type="radio"
+                       name="rdModoCombinacion" id="rdModoGrupo" value="grupo">
+                <label class="form-check-label" for="rdModoGrupo">
+                    Solo dentro de su grupo de exclusión
+                </label>
+            </div>
+
+            <!-- Grupo de exclusión — solo si modo = grupo -->
+            <div id="secGrupoExclusion" class="subsection-inner mb-3" hidden>
+                <label for="txtGrupoExclusion" class="form-label">Grupo de exclusión</label>
+                <input type="text" class="form-control form-control-sm" id="txtGrupoExclusion"
+                       maxlength="60" placeholder="Ej: DESCUENTOS_BEBIDAS" style="max-width:320px;">
+                <div class="form-text">
+                    Solo gana una promoción del mismo grupo (la de mayor prioridad).
+                </div>
+            </div>
+
+            <!-- Cálculo combinado — solo si modo != exclusiva -->
+            <div id="secCalculoCombinado" class="subsection-inner">
+                <label class="form-label fw-semibold d-block mb-1">
+                    Base de cálculo al combinarse con otras
+                </label>
+                <div class="form-check mb-1">
+                    <input class="form-check-input" type="radio"
+                           name="rdCalculoCombinado" id="rdCalculoAditivo" value="aditivo" checked>
+                    <label class="form-check-label" for="rdCalculoAditivo">
+                        Aditivo — calcula sobre el subtotal original de la línea
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio"
+                           name="rdCalculoCombinado" id="rdCalculoCompuesto" value="compuesto">
+                    <label class="form-check-label" for="rdCalculoCompuesto">
+                        Compuesto — calcula sobre lo que ya dejaron otras promociones
+                    </label>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+
+    <!-- ─── 4. CLIENTES (RESTRICCIÓN / EXCEPCIÓN) ─────────── -->
+    <div class="section-card">
+        <div class="card-header">Clientes</div>
+        <div class="card-body">
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold d-block mb-1">Restricción</label>
+                <div class="text-muted small mb-2">
+                    A quién aplica la promoción. Sin criterios = todos los clientes.
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                            id="btnFiltroRestriccion"
+                            data-ctx="restriccion"
+                            data-titulo="Restricción — A quién aplica la promoción">
+                        <i class="bi bi-people me-1"></i> Seleccionar clientes restringidos
+                    </button>
+                    <span id="resumenRestriccion" class="filtro-resumen">Sin restricción (aplica a todos los clientes).</span>
+                </div>
+            </div>
+
+            <div>
+                <label class="form-label fw-semibold d-block mb-1">Excepción</label>
+                <div class="text-muted small mb-2">
+                    A quién NO aplica, dentro del universo ya restringido arriba.
+                    Sin criterios = ninguna excepción.
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                            id="btnFiltroExcepcion"
+                            data-ctx="excepcion"
+                            data-titulo="Excepción — A quién NO aplica la promoción">
+                        <i class="bi bi-person-dash me-1"></i> Seleccionar excepciones
+                    </button>
+                    <span id="resumenExcepcion" class="filtro-resumen">Sin excepción.</span>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+
+    <!-- ─── 5. DURACIÓN ───────────────────────────────────── -->
+    <div class="section-card">
+        <div class="card-header">Duración y vigencia</div>
+        <div class="card-body">
+
+            <!-- Fechas de inicio y fin -->
+            <div class="row g-3 mb-4">
+                <div class="col-sm-6 col-md-4">
+                    <label for="dtInicio" class="form-label">Inicio</label>
+                    <input type="datetime-local" class="form-control form-control-sm" id="dtInicio">
+                </div>
+                <div class="col-sm-6 col-md-4">
+                    <label for="dtFin" class="form-label">Fin</label>
+                    <input type="datetime-local" class="form-control form-control-sm" id="dtFin">
+                </div>
+            </div>
+
+            <!-- Días de la semana -->
+            <div class="mb-3">
+                <label class="form-label fw-semibold d-block">Días de la semana</label>
+                <div class="d-flex gap-1 flex-wrap">
+                    <!--
+                        Estructura: <label> contiene el input + span visual.
+                        JS escucha cambios en .dia-semana para renderizar horarios.
+                    -->
+                    <div class="day-toggle">
+                        <input type="checkbox" id="dL" class="dia-semana"
+                               value="lunes" data-label="Lunes" checked>
+                        <label for="dL">L</label>
+                    </div>
+                    <div class="day-toggle">
+                        <input type="checkbox" id="dM" class="dia-semana"
+                               value="martes" data-label="Martes" checked>
+                        <label for="dM">M</label>
+                    </div>
+                    <div class="day-toggle">
+                        <input type="checkbox" id="dX" class="dia-semana"
+                               value="miercoles" data-label="Miércoles" checked>
+                        <label for="dX">X</label>
+                    </div>
+                    <div class="day-toggle">
+                        <input type="checkbox" id="dJ" class="dia-semana"
+                               value="jueves" data-label="Jueves" checked>
+                        <label for="dJ">J</label>
+                    </div>
+                    <div class="day-toggle">
+                        <input type="checkbox" id="dV" class="dia-semana"
+                               value="viernes" data-label="Viernes" checked>
+                        <label for="dV">V</label>
+                    </div>
+                    <div class="day-toggle">
+                        <input type="checkbox" id="dS" class="dia-semana"
+                               value="sabado" data-label="Sábado" checked>
+                        <label for="dS">S</label>
+                    </div>
+                    <div class="day-toggle">
+                        <input type="checkbox" id="dD" class="dia-semana"
+                               value="domingo" data-label="Domingo" checked>
+                        <label for="dD">D</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Horario por día — bloques generados dinámicamente -->
+            <div class="mb-4">
+                <label class="form-label fw-semibold">Horario por día</label>
+                <div id="contenedorHorarios" class="row g-2">
+                    <!-- Generado por renderHorarios() -->
+                </div>
+            </div>
+
+            <!-- Días del mes -->
+            <div class="mb-3">
+                <label for="txtDiasMes" class="form-label fw-semibold">
+                    Limitar solo a los días del mes
+                </label>
+                <input type="text" class="form-control form-control-sm" id="txtDiasMes"
+                       placeholder="Ej: 1,5,15,X">
+                <div class="form-text">
+                    Deje vacío para todos los días. Separe con comas.
+                    Use <code>X</code> para indicar el último día del mes.
+                </div>
+            </div>
+
+            <!-- Meses habilitados con Choices.js -->
+            <div class="mb-1">
+                <label for="selectMeses" class="form-label fw-semibold">
+                    Meses habilitados
+                </label>
+                <!-- Choices.js inicializa este <select> -->
+                <select id="selectMeses" multiple>
+                    <option value="1"  selected>Enero</option>
+                    <option value="2"  selected>Febrero</option>
+                    <option value="3"  selected>Marzo</option>
+                    <option value="4"  selected>Abril</option>
+                    <option value="5"  selected>Mayo</option>
+                    <option value="6"  selected>Junio</option>
+                    <option value="7"  selected>Julio</option>
+                    <option value="8"  selected>Agosto</option>
+                    <option value="9"  selected>Septiembre</option>
+                    <option value="10" selected>Octubre</option>
+                    <option value="11" selected>Noviembre</option>
+                    <option value="12" selected>Diciembre</option>
+                </select>
+            </div>
+
+        </div>
+    </div>
+
+
+    <!-- ─── 6. ACCIONES FINALES ───────────────────────────── -->
+    <div class="d-flex align-items-center gap-2">
+        <!-- Activar / Desactivar -->
+        <button type="button" class="btn btn-success" id="btnActivar"
+                onclick="setActiva(true)">
+            <i class="bi bi-toggle-on me-1"></i> Activar
+        </button>
+        <button type="button" class="btn btn-warning" id="btnDesactivar"
+                onclick="setActiva(false)" hidden>
+            <i class="bi bi-toggle-off me-1"></i> Desactivar
+        </button>
+
+        <div class="ms-auto d-flex gap-2">
+            <button type="button" class="btn btn-outline-secondary"
+                    onclick="verJSON()">
+                <i class="bi bi-braces me-1"></i> Ver JSON
+            </button>
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-save me-1"></i> Guardar
+            </button>
+        </div>
+    </div>
+
+
+</form>
+</div><!-- /main-content -->
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     SCRIPTS
+═══════════════════════════════════════════════════════════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/choices.js@10.2.0/public/assets/scripts/choices.min.js"></script>
+<!-- Controles induxsoft -->
+<script src="https://epifania.induxsoft.net/js/induxsoft.controls.js"></script>
+<script src="https://epifania.induxsoft.net/js/induxsoft.controls.editable.js"></script>
+
+<script>
+/*
+ * ════════════════════════════════════════════════════════════════
+ *  PROPUESTA DE ESTRUCTURA JSON — CONFIGURACIÓN DE PROMOCIÓN
+ * ════════════════════════════════════════════════════════════════
+ *
+ * Solo se incluyen los miembros relevantes a la selección actual
+ * (ver compactarFiltro() y la construcción condicional en
+ * obtenerConfiguracion()). Esta es la forma completa, mostrando
+ * todas las ramas posibles:
+ *
+ * {
+ *   "codigo":              "string",   // Identificador único
+ *   "nombre":              "string",
+ *   "terminosCondiciones": "string",   // se omite si está vacío
+ *   "notas":               "string",   // se omite si está vacío
+ *   "activa":              false,
+ *
+ *   "reglas": {
+ *     "prioridad":         10,          // menor número = mayor prioridad
+ *     "modoCombinacion":   "exclusiva", // "exclusiva" | "combinable" | "grupo"
+ *     "grupoExclusion":    "string",    // solo si modoCombinacion === "grupo"
+ *     "calculoCombinado":  "aditivo"    // "aditivo"|"compuesto" — solo si modoCombinacion !== "exclusiva"
+ *   },
+ *
+ *   "tipoPromocion": {
+ *     // "productos" | "combo" | "totalVenta"
+ *     "tipo": "productos",
+ *
+ *     // ── Si tipo === "productos"
+ *     "productos": {
+ *       "alcance": "todos" | "soloAlgunos",
+ *       "filtro": { ... },             // solo si alcance === "soloAlgunos" y hay criterios
+ *       "tipoDescuento": "rebaja",      // "rebaja"|"aXb"|"progresivo"|"ventaCruzada"|"porMonto"
+ *       "rebaja":     { "porcentaje": 0 },
+ *       "aXb":        { "cantidadA": 2, "cantidadB": 1 },
+ *       "progresivo": {
+ *         "limites": [
+ *           { "limite": 5,  "descuento": 5  },
+ *           { "limite": 10, "descuento": 10 },
+ *           { "limite": 20, "descuento": 15 }
+ *         ],
+ *         "soloExcedente": false
+ *       },
+ *       "ventaCruzada": {
+ *         "cantidadCompra":      2,
+ *         "porcentajeDescuento": 30,
+ *         "filtroObjetivo":      { ... }   // solo si hay criterios
+ *       },
+ *       "porMonto": {
+ *         "montoMinimo":   500.00,         // del subtotal del alcance/filtro de arriba
+ *         "tipoBeneficio": "descuento",    // "descuento" | "regalo"
+ *         "descuento":     { "porcentaje": 15 },               // solo si tipoBeneficio === "descuento"
+ *         "regalo":        { "cantidad": 2, "filtroRegalo": { ... } } // solo si tipoBeneficio === "regalo"
+ *       }
+ *     },
+ *
+ *     // ── Si tipo === "combo"
+ *     "combo": {
+ *       "paquete":    [{ "producto": "string", "cantidad": 1 }],
+ *       "precioFijo": 0.00
+ *     },
+ *
+ *     // ── Si tipo === "totalVenta"
+ *     "totalVenta": {
+ *       "montoMinimo":      500.00,
+ *       "descuentoGeneral": 10,
+ *       "filtroRegalo":     { ... }      // solo si hay criterios — regalo genuino (100%)
+ *       // Nota: este módulo es de Promociones Comerciales (precio).
+ *       // Puntos y monedero/cashback son responsabilidad de un módulo
+ *       // separado de Promociones de Lealtad (pendiente de diseño).
+ *     }
+ *   },
+ *
+ *   // Se omite el miembro completo si no hay restricción ni excepción
+ *   // (caso más común: aplica a todos los clientes, sin excepciones).
+ *   "clientes": {
+ *     "restriccion": { "tipoCliente": { ... }, "grupoCliente": { ... }, "cliente": { ... } },
+ *     "excepcion":   { "tipoCliente": { ... }, "grupoCliente": { ... }, "cliente": { ... } }
+ *   },
+ *
+ *   "duracion": {
+ *     "inicio": "2024-01-01T00:00:00",
+ *     "fin":    "2024-12-31T23:59:59",
+ *     "diasSemana": {
+ *       "lunes": true, "martes": true, "miercoles": true,
+ *       "jueves": true, "viernes": true, "sabado": true, "domingo": true
+ *     },
+ *     "horarioPorDia": {
+ *       "lunes":  { "inicio": "08:00:00", "fin": "22:00:00" }
+ *       // ... un objeto por cada día activo
+ *     },
+ *     "diasDelMes":       "1,15,X",      // se omite si vacío (= todos los días)
+ *     "mesesHabilitados": [1,2,3,4,5,6,7,8,9,10,11,12]
+ *   }
+ * }
+ *
+ * NOTA: el cálculo de cómo se aplican estas reglas a una venta real
+ * (slots de dventa, trazabilidad, FIFO, vigencia por línea, etc.)
+ * vive en el motor de aplicación — ver especificaciones-proyecto.md
+ * y promociones-ejemplos.md. Esta pantalla solo captura la
+ * configuración estática de la promoción.
+ */
+
+
+// ────────────────────────────────────────────────────────────────
+// ESTADO DE LA APLICACIÓN
+// ────────────────────────────────────────────────────────────────
+
+let promoActiva = false;
+
+// Datos del paquete actual (combo)
+let paqueteActual = [];
+
+// Mapa de filtros por contexto
+// Clave: identificador del botón que lo abrió
+// Valor: objeto filtro { linea, marca, depto, grupo, producto }
+const filtros = {
+    participantes: null,   // alcance de "Productos: solo algunos"
+    vcObjetivo:    null,   // productos con descuento en Venta cruzada
+    pmRegalo:      null,   // producto a regalar en "Productos: Por monto"
+    tvRegalo:      null    // productos de regalo en Total de venta
+};
+
+// Mapa de filtros de clientes por contexto
+// Clave: "restriccion" | "excepcion"
+// Valor: objeto filtro { tipoCliente, grupoCliente, cliente }
+const filtrosClientes = {
+    restriccion: null,
+    excepcion:   null
+};
+
+// Contexto actual del modal de filtro (productos)
+let filtroCtxActivo = null;
+
+// Contexto actual del modal de filtro de clientes
+let filtroClienteCtxActivo = null;
+
+// Instancia de Choices.js para meses
+let choicesMeses = null;
+
+
+// ────────────────────────────────────────────────────────────────
+// INICIALIZACIÓN
+// ────────────────────────────────────────────────────────────────
+
+document.addEventListener("DOMContentLoaded", () => {
+    initChoicesMeses();
+    initTipoPromocionRadios();
+    initAlcanceRadios();
+    initTipoDescuentoRadios();
+    initPMBeneficioRadios();
+    initModoCombinacionRadios();
+    initDiasSemana();
+    initModalFiltro();
+    initModalFiltroClientes();
+    initModalPaquete();
+    initBotonesFiltro();
+    initBotonesFiltroCliente();
+    renderHorarios();
+});
+
+
+// ────────────────────────────────────────────────────────────────
+// CHOICES.JS — Meses habilitados
+// ────────────────────────────────────────────────────────────────
+
+function initChoicesMeses() {
+    choicesMeses = new Choices("#selectMeses", {
+        removeItemButton: true,
+        placeholder:      true,
+        placeholderValue: "Seleccione meses...",
+        shouldSort:       false
+    });
+}
+
+
+// ────────────────────────────────────────────────────────────────
+// TIPO DE PROMOCIÓN — visibilidad de Productos / Combo / Total venta
+// ────────────────────────────────────────────────────────────────
+
+function initTipoPromocionRadios() {
+    document.querySelectorAll('input[name="rdTipoPromocion"]').forEach(r => {
+        r.addEventListener("change", onTipoPromocionChange);
+        r.closest(".tipo-promocion-option")
+            ?.addEventListener("click", () => { r.checked = true; onTipoPromocionChange(); });
+    });
+    onTipoPromocionChange();
+}
+
+function onTipoPromocionChange() {
+    const val = document.querySelector('input[name="rdTipoPromocion"]:checked')?.value;
+
+    toggleHidden("secProductos",  val !== "productos");
+    toggleHidden("secCombo",      val !== "combo");
+    toggleHidden("secTotalVenta", val !== "totalVenta");
+
+    document.querySelectorAll(".tipo-promocion-option").forEach(el => {
+        const radio = el.querySelector('input[name="rdTipoPromocion"]');
+        el.classList.toggle("activa", radio?.checked);
+    });
+}
+
+
+// ────────────────────────────────────────────────────────────────
+// ALCANCE (dentro de Productos) — todos / solo algunos
+// ────────────────────────────────────────────────────────────────
+
+function initAlcanceRadios() {
+    document.querySelectorAll('input[name="rdAlcance"]')
+        .forEach(r => r.addEventListener("change", onAlcanceChange));
+    onAlcanceChange();
+}
+
+function onAlcanceChange() {
+    const val = document.querySelector('input[name="rdAlcance"]:checked')?.value;
+    toggleHidden("secAlcanceFiltro", val !== "soloAlgunos");
+}
+
+
+// ────────────────────────────────────────────────────────────────
+// TIPO DE DESCUENTO — visibilidad de sub-secciones
+// ────────────────────────────────────────────────────────────────
+
+function initTipoDescuentoRadios() {
+    document.querySelectorAll('input[name="rdTipoDesc"]')
+        .forEach(r => r.addEventListener("change", onTipoDescChange));
+    onTipoDescChange();
+}
+
+function onTipoDescChange() {
+    const val = document.querySelector('input[name="rdTipoDesc"]:checked')?.value;
+    toggleHidden("secRebaja",       val !== "rebaja");
+    toggleHidden("secAxB",          val !== "aXb");
+    toggleHidden("secProgresivo",   val !== "progresivo");
+    toggleHidden("secVentaCruzada", val !== "ventaCruzada");
+    toggleHidden("secPorMonto",     val !== "porMonto");
+}
+
+
+// ────────────────────────────────────────────────────────────────
+// POR MONTO — beneficio: descuento / regalo
+// ────────────────────────────────────────────────────────────────
+
+function initPMBeneficioRadios() {
+    document.querySelectorAll('input[name="rdPMBeneficio"]')
+        .forEach(r => r.addEventListener("change", onPMBeneficioChange));
+    onPMBeneficioChange();
+}
+
+function onPMBeneficioChange() {
+    const val = document.querySelector('input[name="rdPMBeneficio"]:checked')?.value;
+    toggleHidden("secPMDescuento", val !== "descuento");
+    toggleHidden("secPMRegalo",    val !== "regalo");
+}
+
+
+// ────────────────────────────────────────────────────────────────
+// MODO DE COMBINACIÓN — grupo de exclusión / cálculo combinado
+// ────────────────────────────────────────────────────────────────
+
+function initModoCombinacionRadios() {
+    document.querySelectorAll('input[name="rdModoCombinacion"]')
+        .forEach(r => r.addEventListener("change", onModoCombinacionChange));
+    onModoCombinacionChange();
+}
+
+function onModoCombinacionChange() {
+    const val = document.querySelector('input[name="rdModoCombinacion"]:checked')?.value;
+    toggleHidden("secGrupoExclusion",   val !== "grupo");
+    toggleHidden("secCalculoCombinado", val === "exclusiva");
+}
+
+
+// ────────────────────────────────────────────────────────────────
+// DÍAS DE LA SEMANA — genera bloques de horario
+// ────────────────────────────────────────────────────────────────
+
+function initDiasSemana() {
+    document.querySelectorAll(".dia-semana")
+        .forEach(chk => chk.addEventListener("change", renderHorarios));
+}
+
+/**
+ * Genera o actualiza los bloques de horario para los días marcados.
+ * Preserva los valores ya ingresados al re-renderizar.
+ */
+function renderHorarios() {
+    const contenedor = document.getElementById("contenedorHorarios");
+
+    // Guardar valores existentes antes de limpiar
+    const valoresPrevios = {};
+    contenedor.querySelectorAll(".horario-block").forEach(blk => {
+        const d = blk.dataset.dia;
+        valoresPrevios[d] = {
+            inicio: blk.querySelector(".hInicio")?.value ?? "00:00:00",
+            fin:    blk.querySelector(".hFin")?.value   ?? "23:59:59"
+        };
+    });
+
+    contenedor.innerHTML = "";
+
+    const diasActivos = [...document.querySelectorAll(".dia-semana:checked")];
+
+    if (diasActivos.length === 0) {
+        contenedor.innerHTML =
+            '<div class="col text-muted small">No hay días seleccionados.</div>';
+        return;
+    }
+
+    diasActivos.forEach(chk => {
+        const dia   = chk.value;
+        const label = chk.dataset.label;
+        const prev  = valoresPrevios[dia] ?? { inicio: "00:00:00", fin: "23:59:59" };
+
+        const col = document.createElement("div");
+        col.className = "col-sm-6 col-md-4 col-lg-3";
+        col.innerHTML = `
+            <div class="horario-block" data-dia="${dia}">
+                <div class="dia-nombre">${label}</div>
+                <div class="mb-1">
+                    <label class="form-label mb-0" style="font-size:0.75rem;">
+                        Hora inicio
+                    </label>
+                    <input type="time" class="form-control form-control-sm hInicio"
+                           step="1" value="${prev.inicio}">
+                </div>
+                <div>
+                    <label class="form-label mb-0" style="font-size:0.75rem;">
+                        Hora finalización
+                    </label>
+                    <input type="time" class="form-control form-control-sm hFin"
+                           step="1" value="${prev.fin}">
+                </div>
+            </div>
+        `;
+        contenedor.appendChild(col);
+    });
+}
+
+
+// ────────────────────────────────────────────────────────────────
+// MODAL — Filtro de Selección
+// ────────────────────────────────────────────────────────────────
+
+function initModalFiltro() {
+
+    // Checkboxes habilitan / deshabilitan cada input-key
+    document.querySelectorAll(".filtro-chk").forEach(chk => {
+        chk.addEventListener("change", function () {
+            const ik = document.getElementById(this.dataset.ik);
+            if (!ik) return;
+            if (this.checked) {
+                ik.removeAttribute("disabled");
+            } else {
+                ik.setAttribute("disabled", "true");
+                if (typeof ik.clear === "function") ik.clear();
+            }
+        });
+    });
+
+    // Aceptar: guarda el filtro en el mapa y actualiza el resumen
+    document.getElementById("btnAceptarFiltro").addEventListener("click", () => {
+        if (!filtroCtxActivo) return;
+        filtros[filtroCtxActivo] = leerFiltroDelModal();
+        actualizarResumenFiltro(filtroCtxActivo);
+        cerrarModal("dlgFiltroSeleccion");
+    });
+
+    // Limpiar filtro
+    document.getElementById("btnLimpiarFiltro").addEventListener("click", () => {
+        limpiarModalFiltro();
+    });
+}
+
+/**
+ * Abre el modal de filtro para el contexto indicado.
+ * @param {string} ctx    - Clave en el mapa `filtros`
+ * @param {string} titulo - Título a mostrar en el modal
+ */
+function abrirFiltro(ctx, titulo) {
+    filtroCtxActivo = ctx;
+    document.getElementById("dlgFiltroTitulo").textContent = titulo;
+    cargarFiltroEnModal(filtros[ctx]);
+    new bootstrap.Modal(document.getElementById("dlgFiltroSeleccion")).show();
+}
+
+/**
+ * Carga un objeto filtro guardado en los controles del modal.
+ * @param {object|null} filtro
+ */
+function cargarFiltroEnModal(filtro) {
+    const campos = [
+        { chk: "chkFiltroLinea",    ik: "ikLinea",    key: "linea"    },
+        { chk: "chkFiltroMarca",    ik: "ikMarca",    key: "marca"    },
+        { chk: "chkFiltroDepto",    ik: "ikDepto",    key: "depto"    },
+        { chk: "chkFiltroGrupo",    ik: "ikGrupo",    key: "grupo"    },
+        { chk: "chkFiltroProducto", ik: "ikProducto", key: "producto" }
+    ];
+    campos.forEach(({ chk, ik, key }) => {
+        const chkEl = document.getElementById(chk);
+        const ikEl  = document.getElementById(ik);
+        const val   = filtro?.[key] ?? null;
+
+        chkEl.checked = !!val;
+        if (val) {
+            ikEl.removeAttribute("disabled");
+            if (typeof ikEl.setValue === "function") ikEl.setValue(val);
+        } else {
+            ikEl.setAttribute("disabled", "true");
+            if (typeof ikEl.clear === "function") ikEl.clear();
+        }
+    });
+}
+
+/**
+ * Limpia todos los controles del modal de filtro.
+ */
+function limpiarModalFiltro() {
+    document.querySelectorAll(".filtro-chk").forEach(chk => {
+        chk.checked = false;
+        chk.dispatchEvent(new Event("change"));
+    });
+}
+
+/**
+ * Lee los valores actuales del modal y devuelve un objeto filtro.
+ * @returns {object}
+ */
+function leerFiltroDelModal() {
+    const campos = [
+        { chk: "chkFiltroLinea",    ik: "ikLinea",    key: "linea"    },
+        { chk: "chkFiltroMarca",    ik: "ikMarca",    key: "marca"    },
+        { chk: "chkFiltroDepto",    ik: "ikDepto",    key: "depto"    },
+        { chk: "chkFiltroGrupo",    ik: "ikGrupo",    key: "grupo"    },
+        { chk: "chkFiltroProducto", ik: "ikProducto", key: "producto" }
+    ];
+    const filtro = {};
+    campos.forEach(({ chk, ik, key }) => {
+        const chkEl = document.getElementById(chk);
+        const ikEl  = document.getElementById(ik);
+        filtro[key] = (chkEl.checked && typeof ikEl.getValue === "function")
+            ? ikEl.getValue()
+            : null;
+    });
+    return filtro;
+}
+
+/**
+ * Actualiza el texto resumen del filtro en el formulario principal.
+ * @param {string} ctx - Clave del contexto
+ */
+function actualizarResumenFiltro(ctx) {
+    // Mapa: ctx -> id del span resumen
+    const resumenIds = {
+        participantes: "resumenParticipantes",
+        vcObjetivo:    "resumenVCObjetivo",
+        pmRegalo:      "resumenPMRegalo",
+        tvRegalo:      "resumenTVRegalo"
+    };
+    const el = document.getElementById(resumenIds[ctx]);
+    if (!el) return;
+
+    const filtro = filtros[ctx];
+    const partes = [];
+    if (filtro?.linea?.nombre)    partes.push("Línea: "    + filtro.linea.nombre);
+    if (filtro?.marca?.nombre)    partes.push("Marca: "    + filtro.marca.nombre);
+    if (filtro?.depto?.nombre)    partes.push("Depto: "    + filtro.depto.nombre);
+    if (filtro?.grupo?.nombre)    partes.push("Grupo: "    + filtro.grupo.nombre);
+    if (filtro?.producto?.nombre) partes.push("Producto: " + filtro.producto.nombre);
+
+    if (partes.length) {
+        el.textContent = partes.join("  ·  ");
+        el.classList.add("aplicado");
+    } else {
+        el.textContent = "Sin filtro aplicado.";
+        el.classList.remove("aplicado");
+    }
+}
+
+/**
+ * Conecta los botones de filtro del formulario al modal.
+ * Estructura esperada en el botón:
+ *   data-ctx="<clave>"  data-titulo="<texto>"
+ */
+function initBotonesFiltro() {
+    const ids = ["btnFiltroParticipantes", "btnFiltroVCObjetivo", "btnFiltroPMRegalo", "btnFiltroTVRegalo"];
+    ids.forEach(id => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.addEventListener("click", () => {
+            abrirFiltro(btn.dataset.ctx, btn.dataset.titulo);
+        });
+    });
+}
+
+
+// ────────────────────────────────────────────────────────────────
+// MODAL — Filtro de Clientes (Restricción / Excepción)
+// Mismo patrón que el Filtro de Selección de productos, pero sobre
+// criterios de cliente (tipoCliente, grupoCliente, cliente). Se
+// mantiene como un sistema paralelo, no genérico, para que cada
+// función siga siendo simple de leer de principio a fin.
+// ────────────────────────────────────────────────────────────────
+
+function initModalFiltroClientes() {
+
+    document.querySelectorAll(".filtro-cliente-chk").forEach(chk => {
+        chk.addEventListener("change", function () {
+            const ik = document.getElementById(this.dataset.ik);
+            if (!ik) return;
+            if (this.checked) {
+                ik.removeAttribute("disabled");
+            } else {
+                ik.setAttribute("disabled", "true");
+                if (typeof ik.clear === "function") ik.clear();
+            }
+        });
+    });
+
+    document.getElementById("btnAceptarFiltroCliente").addEventListener("click", () => {
+        if (!filtroClienteCtxActivo) return;
+        filtrosClientes[filtroClienteCtxActivo] = leerFiltroClienteDelModal();
+        actualizarResumenFiltroCliente(filtroClienteCtxActivo);
+        cerrarModal("dlgFiltroClientes");
+    });
+
+    document.getElementById("btnLimpiarFiltroCliente").addEventListener("click", () => {
+        limpiarModalFiltroCliente();
+    });
+}
+
+/**
+ * Abre el modal de filtro de clientes para el contexto indicado.
+ * @param {string} ctx    - "restriccion" | "excepcion"
+ * @param {string} titulo - Título a mostrar en el modal
+ */
+function abrirFiltroCliente(ctx, titulo) {
+    filtroClienteCtxActivo = ctx;
+    document.getElementById("dlgFiltroClientesTitulo").textContent = titulo;
+    cargarFiltroClienteEnModal(filtrosClientes[ctx]);
+    new bootstrap.Modal(document.getElementById("dlgFiltroClientes")).show();
+}
+
+/**
+ * Carga un objeto filtro de cliente guardado en los controles del modal.
+ * @param {object|null} filtro
+ */
+function cargarFiltroClienteEnModal(filtro) {
+    const campos = [
+        { chk: "chkFiltroTipoCliente",  ik: "ikTipoCliente",  key: "tipoCliente"  },
+        { chk: "chkFiltroGrupoCliente", ik: "ikGrupoCliente", key: "grupoCliente" },
+        { chk: "chkFiltroCliente",      ik: "ikCliente",      key: "cliente"      }
+    ];
+    campos.forEach(({ chk, ik, key }) => {
+        const chkEl = document.getElementById(chk);
+        const ikEl  = document.getElementById(ik);
+        const val   = filtro?.[key] ?? null;
+
+        chkEl.checked = !!val;
+        if (val) {
+            ikEl.removeAttribute("disabled");
+            if (typeof ikEl.setValue === "function") ikEl.setValue(val);
+        } else {
+            ikEl.setAttribute("disabled", "true");
+            if (typeof ikEl.clear === "function") ikEl.clear();
+        }
+    });
+}
+
+/**
+ * Limpia todos los controles del modal de filtro de clientes.
+ */
+function limpiarModalFiltroCliente() {
+    document.querySelectorAll(".filtro-cliente-chk").forEach(chk => {
+        chk.checked = false;
+        chk.dispatchEvent(new Event("change"));
+    });
+}
+
+/**
+ * Lee los valores actuales del modal y devuelve un objeto filtro de cliente.
+ * @returns {object}
+ */
+function leerFiltroClienteDelModal() {
+    const campos = [
+        { chk: "chkFiltroTipoCliente",  ik: "ikTipoCliente",  key: "tipoCliente"  },
+        { chk: "chkFiltroGrupoCliente", ik: "ikGrupoCliente", key: "grupoCliente" },
+        { chk: "chkFiltroCliente",      ik: "ikCliente",      key: "cliente"      }
+    ];
+    const filtro = {};
+    campos.forEach(({ chk, ik, key }) => {
+        const chkEl = document.getElementById(chk);
+        const ikEl  = document.getElementById(ik);
+        filtro[key] = (chkEl.checked && typeof ikEl.getValue === "function")
+            ? ikEl.getValue()
+            : null;
+    });
+    return filtro;
+}
+
+/**
+ * Actualiza el texto resumen del filtro de cliente en el formulario.
+ * @param {string} ctx - "restriccion" | "excepcion"
+ */
+function actualizarResumenFiltroCliente(ctx) {
+    const resumenIds = {
+        restriccion: "resumenRestriccion",
+        excepcion:   "resumenExcepcion"
+    };
+    const textoVacio = {
+        restriccion: "Sin restricción (aplica a todos los clientes).",
+        excepcion:   "Sin excepción."
+    };
+    const el = document.getElementById(resumenIds[ctx]);
+    if (!el) return;
+
+    const filtro = filtrosClientes[ctx];
+    const partes = [];
+    if (filtro?.tipoCliente?.nombre)  partes.push("Tipo: "  + filtro.tipoCliente.nombre);
+    if (filtro?.grupoCliente?.nombre) partes.push("Grupo: " + filtro.grupoCliente.nombre);
+    if (filtro?.cliente?.nombre)      partes.push("Cliente: " + filtro.cliente.nombre);
+
+    if (partes.length) {
+        el.textContent = partes.join("  ·  ");
+        el.classList.add("aplicado");
+    } else {
+        el.textContent = textoVacio[ctx];
+        el.classList.remove("aplicado");
+    }
+}
+
+/**
+ * Conecta los botones de Restricción/Excepción al modal de clientes.
+ */
+function initBotonesFiltroCliente() {
+    const ids = ["btnFiltroRestriccion", "btnFiltroExcepcion"];
+    ids.forEach(id => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.addEventListener("click", () => {
+            abrirFiltroCliente(btn.dataset.ctx, btn.dataset.titulo);
+        });
+    });
+}
+
+
+// ────────────────────────────────────────────────────────────────
+// MODAL — Armar Paquete
+// ────────────────────────────────────────────────────────────────
+
+function initModalPaquete() {
+    const tbl = document.getElementById("tblPaquete");
+
+    // Abrir: carga los datos actuales del paquete en la tabla
+    document.getElementById("btnAbrirPaquete").addEventListener("click", () => {
+        tbl.DataArray = paqueteActual.length
+            ? structuredClone(paqueteActual)
+            : [];
+        if (typeof tbl._printRows === "function") tbl._printRows();
+        new bootstrap.Modal(document.getElementById("dlgArmarPaquete")).show();
+    });
+
+    // Botón "Agregar fila" del modal
+    document.getElementById("btnAgregarFilaPaquete").addEventListener("click", () => {
+        if (typeof tbl.AddRow === "function") tbl.AddRow();
+    });
+
+    // Aceptar: persiste los datos
+    document.getElementById("btnAceptarPaquete").addEventListener("click", () => {
+        if (typeof tbl.UpdateData === "function") tbl.UpdateData();
+        paqueteActual = tbl.DataArray ? structuredClone(tbl.DataArray) : [];
+        actualizarResumenPaquete();
+        cerrarModal("dlgArmarPaquete");
+    });
+
+    const ik_producto = document.getElementById("ik_producto");
+    ik_producto.change_event = (data) => addProduct(tbl,data);
+
+    tbl.setInputKey("producto",ik_producto);
+}
+
+function addProduct(table,p)
+{
+    if (!p) return;
+    let dtarray = table?.DataArray ?? [];
+    let _productos = filterData(table);
+    let available_row = (_productos.length > 0) ? _productos.length : 0;
+    
+    if (dtarray.length === _productos.length) table.AddRow();
+    
+    dtarray[available_row] = p;
+    // this.table.UpdateRow(available_row);
+    table._printRows();
+    table.NavTo(available_row,0);
+}
+function filterData(table) 
+{
+    return (table?.DataArray??[]).filter((row) => { return Object.keys(row??{}).length >= table.Columns.length });
+}
+function actualizarResumenPaquete() {
+    const el = document.getElementById("resumenPaquete");
+    el.textContent = paqueteActual.length
+        ? `${paqueteActual.length} producto(s) definido(s).`
+        : "Sin productos definidos.";
+    el.classList.toggle("aplicado", paqueteActual.length > 0);
+}
+
+
+// ────────────────────────────────────────────────────────────────
+// ACTIVAR / DESACTIVAR PROMOCIÓN
+// ────────────────────────────────────────────────────────────────
+
+function setActiva(activa) {
+    promoActiva = activa;
+    toggleHidden("btnActivar",    activa);
+    toggleHidden("btnDesactivar", !activa);
+}
+
+
+// ────────────────────────────────────────────────────────────────
+// GUARDAR (stub — conectar al backend)
+// ────────────────────────────────────────────────────────────────
+
+document.getElementById("frmPromocion").addEventListener("submit", e => {
+    e.preventDefault();
+    const config = obtenerConfiguracion();
+    console.log("[Guardar]", config);
+    //alert("Configuración lista para enviar al servidor.\nRevisa la consola para ver el JSON.");
+    let details={detalle:config}
+
+    InduxsoftCrudlModel.Submit("frmPromocion",details);
+});
+
+function guardarPromocion() {
+    document.getElementById("frmPromocion").requestSubmit();
+}
+
+
+// ────────────────────────────────────────────────────────────────
+// VER JSON — modal de desarrollo
+// ────────────────────────────────────────────────────────────────
+
+function verJSON() {
+    document.getElementById("preJSON").textContent =
+        JSON.stringify(obtenerConfiguracion(), null, 2);
+    new bootstrap.Modal(document.getElementById("dlgVerJSON")).show();
+}
+
+
+// ────────────────────────────────────────────────────────────────
+// CARGAR CONFIGURACIÓN — puebla el formulario desde un objeto JSON
+// Función inversa de obtenerConfiguracion().
+// ────────────────────────────────────────────────────────────────
+
+/**
+ * Recibe el objeto JSON de una promoción y llena todos los controles
+ * del formulario. Es la operación inversa de obtenerConfiguracion().
+ * @param {object} json
+ */
+function cargarConfiguracion(json) {
+    if (!json) return;
+
+    // ── 1. Datos generales ─────────────────────────────────────
+    set("txtCodigo",   json.codigo              ?? "");
+    set("txtNombre",   json.nombre              ?? "");
+    set("txtTerminos", json.terminosCondiciones ?? "");
+    set("txtNotas",    json.notas               ?? "");
+
+    // ── 2. Estado activo ───────────────────────────────────────
+    setActiva(json.activa === true);
+
+    // ── 3. Reglas de prioridad y combinación ──────────────────
+    const reglas = json.reglas ?? {};
+    set("txtPrioridad", reglas.prioridad ?? 10);
+    setRadio("rdModoCombinacion", reglas.modoCombinacion ?? "exclusiva");
+    set("txtGrupoExclusion", reglas.grupoExclusion ?? "");
+    setRadio("rdCalculoCombinado", reglas.calculoCombinado ?? "aditivo");
+
+    // ── 4. Tipo de promoción ──────────────────────────────────
+    const tp = json.tipoPromocion ?? {};
+    setRadio("rdTipoPromocion", tp.tipo ?? "productos");
+
+    // Productos
+    const prod = tp.productos ?? {};
+    setRadio("rdAlcance", prod.alcance ?? "soloAlgunos");
+
+    filtros.participantes = prod.filtro ?? null;
+    actualizarResumenFiltro("participantes");
+
+    setRadio("rdTipoDesc", prod.tipoDescuento ?? "rebaja");
+
+    set("txtPctRebaja", prod.rebaja?.porcentaje ?? "");
+    set("txtCantA", prod.aXb?.cantidadA ?? "");
+    set("txtCantB", prod.aXb?.cantidadB ?? "");
+
+    const lims = prod.progresivo?.limites ?? [{}, {}, {}];
+    set("txtLim1",  lims[0]?.limite    ?? "");
+    set("txtDesc1", lims[0]?.descuento ?? "");
+    set("txtLim2",  lims[1]?.limite    ?? "");
+    set("txtDesc2", lims[1]?.descuento ?? "");
+    set("txtLim3",  lims[2]?.limite    ?? "");
+    set("txtDesc3", lims[2]?.descuento ?? "");
+    const chkExc = document.getElementById("chkSoloExcedente");
+    if (chkExc) chkExc.checked = prod.progresivo?.soloExcedente === true;
+
+    set("txtVCCantidad",  prod.ventaCruzada?.cantidadCompra      ?? "");
+    set("txtVCDescuento", prod.ventaCruzada?.porcentajeDescuento ?? "");
+    filtros.vcObjetivo = prod.ventaCruzada?.filtroObjetivo ?? null;
+    actualizarResumenFiltro("vcObjetivo");
+
+    set("txtPMMonto", prod.porMonto?.montoMinimo ?? "");
+    setRadio("rdPMBeneficio", prod.porMonto?.tipoBeneficio ?? "descuento");
+    set("txtPMDescuento", prod.porMonto?.descuento?.porcentaje ?? "");
+    set("txtPMCantidad",  prod.porMonto?.regalo?.cantidad      ?? "");
+    filtros.pmRegalo = prod.porMonto?.regalo?.filtroRegalo ?? null;
+    actualizarResumenFiltro("pmRegalo");
+
+    // Combo
+    const combo = tp.combo ?? {};
+    paqueteActual = Array.isArray(combo.paquete)
+        ? structuredClone(combo.paquete)
+        : [];
+    actualizarResumenPaquete();
+    set("txtPrecioFijo", combo.precioFijo ?? "");
+
+    // Total de venta
+    const tv = tp.totalVenta ?? {};
+    set("txtTVMonto",     tv.montoMinimo      ?? "");
+    set("txtTVDescuento", tv.descuentoGeneral ?? "");
+    filtros.tvRegalo = tv.filtroRegalo ?? null;
+    actualizarResumenFiltro("tvRegalo");
+
+    // ── 5. Duración ────────────────────────────────────────────
+    const dur = json.duracion ?? {};
+
+    set("dtInicio", isoToDatetimeLocal(dur.inicio));
+    set("dtFin",    isoToDatetimeLocal(dur.fin));
+
+    // Días de la semana
+    const diasSemana = dur.diasSemana ?? {};
+    document.querySelectorAll(".dia-semana").forEach(chk => {
+        if (Object.prototype.hasOwnProperty.call(diasSemana, chk.value)) {
+            chk.checked = diasSemana[chk.value] === true;
+        }
+    });
+
+    // Renderizar bloques de horario *antes* de llenarlos
+    renderHorarios();
+
+    // Llenar horario de cada día activo
+    const horarioPorDia = dur.horarioPorDia ?? {};
+    document.querySelectorAll(".horario-block").forEach(blk => {
+        const h = horarioPorDia[blk.dataset.dia];
+        if (!h) return;
+        const inpI = blk.querySelector(".hInicio");
+        const inpF = blk.querySelector(".hFin");
+        if (inpI) inpI.value = h.inicio ?? "00:00:00";
+        if (inpF) inpF.value = h.fin    ?? "23:59:59";
+    });
+
+    // Días del mes
+    set("txtDiasMes", dur.diasDelMes ?? "");
+
+    // Meses habilitados (Choices.js)
+    if (choicesMeses && Array.isArray(dur.mesesHabilitados)) {
+        choicesMeses.removeActiveItems();
+        dur.mesesHabilitados.forEach(m =>
+            choicesMeses.setChoiceByValue(String(m))
+        );
+    }
+
+    // ── 6. Clientes: restricción / excepción ───────────────────
+    const clientes = json.clientes ?? {};
+    filtrosClientes.restriccion = clientes.restriccion ?? null;
+    filtrosClientes.excepcion   = clientes.excepcion   ?? null;
+    actualizarResumenFiltroCliente("restriccion");
+    actualizarResumenFiltroCliente("excepcion");
+}
+
+/**
+ * Carga la configuración desde una cadena JSON.
+ * Útil para recibir la respuesta de una API y volcarla al formulario.
+ * @param {string} jsonTexto
+ */
+function cargarDesdeTexto(jsonTexto) {
+    try {
+        cargarConfiguracion(JSON.parse(jsonTexto));
+    } catch (e) {
+        console.error("[cargarDesdeTexto] JSON inválido:", e);
+        alert("El texto recibido no es un JSON válido.\n" + e.message);
+    }
+}
+
+/**
+ * Prueba de round-trip: serializa el formulario y lo recarga.
+ * Útil durante el desarrollo para verificar que guardar y cargar
+ * producen el mismo resultado.
+ */
+function probarRoundTrip() {
+    const json = obtenerConfiguracion();
+    console.log("[Round-trip] JSON obtenido:", json);
+    cargarConfiguracion(json);
+    console.log("[Round-trip] Formulario recargado correctamente.");
+}
+
+
+// ────────────────────────────────────────────────────────────────
+// OBTENER CONFIGURACIÓN — construye el objeto JSON completo
+// Solo incluye los miembros relevantes a la selección actual.
+// ────────────────────────────────────────────────────────────────
+
+function obtenerConfiguracion() {
+    const tipoPromo    = document.querySelector('input[name="rdTipoPromocion"]:checked')?.value   ?? "productos";
+    const alcance      = document.querySelector('input[name="rdAlcance"]:checked')?.value          ?? "soloAlgunos";
+    const tipoDesc     = document.querySelector('input[name="rdTipoDesc"]:checked')?.value         ?? "rebaja";
+    const modoComb     = document.querySelector('input[name="rdModoCombinacion"]:checked')?.value  ?? "exclusiva";
+    const calculoComb  = document.querySelector('input[name="rdCalculoCombinado"]:checked')?.value ?? "aditivo";
+    const tipoPMBenef  = document.querySelector('input[name="rdPMBeneficio"]:checked')?.value      ?? "descuento";
+
+    // ── Días de la semana ──────────────────────────────────────
+    const diasSemana = {};
+    document.querySelectorAll(".dia-semana").forEach(chk => {
+        diasSemana[chk.value] = chk.checked;
+    });
+
+    // ── Horarios (solo días activos, reflejados en el DOM) ─────
+    const horarioPorDia = {};
+    document.querySelectorAll(".horario-block").forEach(blk => {
+        horarioPorDia[blk.dataset.dia] = {
+            inicio: blk.querySelector(".hInicio")?.value ?? "00:00:00",
+            fin:    blk.querySelector(".hFin")?.value   ?? "23:59:59"
+        };
+    });
+
+    // ── Reglas de prioridad y combinación ──────────────────────
+    const reglas = {
+        prioridad:       int("txtPrioridad") || 10,
+        modoCombinacion: modoComb
+    };
+    if (modoComb === "grupo") {
+        reglas.grupoExclusion = v("txtGrupoExclusion");
+    }
+    if (modoComb !== "exclusiva") {
+        reglas.calculoCombinado = calculoComb;
+    }
+
+    // ── Construir tipoPromocion: solo el sub-objeto seleccionado ─
+    const tipoPromocion = { tipo: tipoPromo };
+
+    if (tipoPromo === "productos") {
+        const prod = { alcance, tipoDescuento: tipoDesc };
+
+        if (alcance === "soloAlgunos") {
+            const filtroP = compactarFiltro(filtros.participantes);
+            if (filtroP) prod.filtro = filtroP;
+        }
+
+        if (tipoDesc === "rebaja") {
+            prod.rebaja = { porcentaje: num("txtPctRebaja") };
+
+        } else if (tipoDesc === "aXb") {
+            prod.aXb = {
+                cantidadA: int("txtCantA"),
+                cantidadB: int("txtCantB")
+            };
+
+        } else if (tipoDesc === "progresivo") {
+            prod.progresivo = {
+                limites: [
+                    { limite: num("txtLim1"), descuento: num("txtDesc1") },
+                    { limite: num("txtLim2"), descuento: num("txtDesc2") },
+                    { limite: num("txtLim3"), descuento: num("txtDesc3") }
+                ],
+                soloExcedente: document.getElementById("chkSoloExcedente").checked
+            };
+
+        } else if (tipoDesc === "ventaCruzada") {
+            prod.ventaCruzada = {
+                cantidadCompra:      int("txtVCCantidad"),
+                porcentajeDescuento: num("txtVCDescuento")
+            };
+            const filtroObj = compactarFiltro(filtros.vcObjetivo);
+            if (filtroObj) prod.ventaCruzada.filtroObjetivo = filtroObj;
+
+        } else if (tipoDesc === "porMonto") {
+            const pm = {
+                montoMinimo:   num("txtPMMonto"),
+                tipoBeneficio: tipoPMBenef
+            };
+            if (tipoPMBenef === "descuento") {
+                pm.descuento = { porcentaje: num("txtPMDescuento") };
+            } else if (tipoPMBenef === "regalo") {
+                pm.regalo = { cantidad: int("txtPMCantidad") };
+                const filtroPM = compactarFiltro(filtros.pmRegalo);
+                if (filtroPM) pm.regalo.filtroRegalo = filtroPM;
+            }
+            prod.porMonto = pm;
+        }
+
+        tipoPromocion.productos = prod;
+    }
+
+    if (tipoPromo === "combo") {
+        tipoPromocion.combo = {
+            paquete:    structuredClone(paqueteActual),
+            precioFijo: num("txtPrecioFijo") || null
+        };
+    }
+
+    if (tipoPromo === "totalVenta") {
+        const tv = {
+            montoMinimo:      num("txtTVMonto"),
+            descuentoGeneral: num("txtTVDescuento")
+        };
+
+        const filtroR = compactarFiltro(filtros.tvRegalo);
+        if (filtroR) tv.filtroRegalo = filtroR;
+
+        tipoPromocion.totalVenta = tv;
+    }
+
+    // ── Duración ───────────────────────────────────────────────
+    const duracion = {
+        inicio:          v("dtInicio") || null,
+        fin:             v("dtFin")    || null,
+        diasSemana,
+        horarioPorDia,
+        mesesHabilitados: choicesMeses
+            ? choicesMeses.getValue(true).map(Number)
+            : []
+    };
+
+    // diasDelMes: omitir si vacío (vacío = todos los días)
+    const diasDelMes = v("txtDiasMes").trim();
+    if (diasDelMes) duracion.diasDelMes = diasDelMes;
+
+    // ── Clientes: restricción / excepción ───────────────────────
+    // Se omite el miembro "clientes" por completo si no hay ningún
+    // criterio activo en ninguno de los dos (caso más común: aplica
+    // a todos los clientes, sin excepciones).
+    const clientes = {};
+    const restriccion = compactarFiltro(filtrosClientes.restriccion);
+    const excepcion    = compactarFiltro(filtrosClientes.excepcion);
+    if (restriccion) clientes.restriccion = restriccion;
+    if (excepcion)    clientes.excepcion  = excepcion;
+
+    // ── Objeto raíz ────────────────────────────────────────────
+    const config = {
+        codigo: v("txtCodigo"),
+        nombre: v("txtNombre"),
+        activa: promoActiva,
+        reglas,
+        tipoPromocion,
+        duracion
+    };
+
+    if (Object.keys(clientes).length > 0) config.clientes = clientes;
+
+    // Campos de texto largo: omitir si vacíos
+    const terminos = v("txtTerminos");
+    const notas    = v("txtNotas");
+    if (terminos) config.terminosCondiciones = terminos;
+    if (notas)    config.notas = notas;
+
+    return config;
+}
+
+
+// ────────────────────────────────────────────────────────────────
+// UTILIDADES
+// ────────────────────────────────────────────────────────────────
+
+/** Muestra u oculta un elemento por id usando el atributo `hidden`. */
+function toggleHidden(id, ocultar) {
+    const el = document.getElementById(id);
+    if (el) el.hidden = ocultar;
+}
+
+/** Cierra un modal Bootstrap por id. */
+function cerrarModal(id) {
+    const inst = bootstrap.Modal.getInstance(document.getElementById(id));
+    if (inst) inst.hide();
+}
+
+// ── Filtros ───────────────────────────────────────────────────
+
+/**
+ * Devuelve un objeto con solo los campos no nulos de un filtro.
+ * Si todos son nulos, devuelve null (= sin restricción de filtro).
+ * Así el JSON no incluye un filtro vacío.
+ * @param {object|null} filtro
+ * @returns {object|null}
+ */
+function compactarFiltro(filtro) {
+    if (!filtro) return null;
+    const compact = {};
+    Object.entries(filtro).forEach(([k, val]) => {
+        if (val !== null && val !== undefined) compact[k] = val;
+    });
+    return Object.keys(compact).length > 0 ? compact : null;
+}
+
+// ── Lectura de controles ──────────────────────────────────────
+
+/** Shorthand: valor de un input/textarea/select. */
+function v(id) {
+    return document.getElementById(id)?.value ?? "";
+}
+
+/** Shorthand: valor numérico (float). */
+function num(id) {
+    return parseFloat(document.getElementById(id)?.value) || 0;
+}
+
+/** Shorthand: valor entero. */
+function int(id) {
+    return parseInt(document.getElementById(id)?.value) || 0;
+}
+
+// ── Escritura de controles ────────────────────────────────────
+
+/**
+ * Establece el value de un input/textarea/select por id.
+ * No hace nada si el elemento no existe o el valor es null/undefined.
+ * @param {string} id
+ * @param {*} value
+ */
+function set(id, value) {
+    const el = document.getElementById(id);
+    if (el !== null && value !== undefined && value !== null) {
+        el.value = value;
+    }
+}
+
+/**
+ * Selecciona un radio button por name + value y dispara el evento change.
+ * Los handlers de visibilidad (onTipoPromocionChange, onAlcanceChange,
+ * onTipoDescChange, onModoCombinacionChange…) están enlazados a ese
+ * evento, por lo que se ejecutan automáticamente.
+ * @param {string} name   - Valor del atributo name del grupo de radios
+ * @param {string} value  - Valor a seleccionar
+ */
+function setRadio(name, value) {
+    const radio = document.querySelector(
+        `input[name="${name}"][value="${value}"]`
+    );
+    if (radio) {
+        radio.checked = true;
+        radio.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+}
+
+// ── Conversión de fechas ──────────────────────────────────────
+
+/**
+ * Convierte una cadena ISO ("2024-01-15T08:00:00") al formato
+ * que acepta input[type=datetime-local] ("2024-01-15T08:00").
+ * Devuelve "" si el valor es null, undefined o vacío.
+ * @param {string|null} iso
+ * @returns {string}
+ */
+function isoToDatetimeLocal(iso) {
+    if (!iso) return "";
+    return String(iso).slice(0, 16); // "YYYY-MM-DDTHH:MM"
+}
+</script>
+</body>
+</html>

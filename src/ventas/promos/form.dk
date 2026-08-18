@@ -1,0 +1,55 @@
+#include "dkli.dkh"
+#!
+module "form.dk"
+{
+    #include "functions.dkh"
+    #include "serialize.dkh"
+    #include "uielements.v12.dkl"
+    #include "dbr.vars.dkl"
+    #include "dbr.dkh"
+    #include "../_lib/config.dk"
+    #include "../_lib/lib.dk"
+	#include "../_lib/icons.dk"
+
+    do @context.begin(@crud_context)
+    _entity_id= @("$parameters/_entity_id")
+    @isnew = _entity_id == "_new"
+    ref entity = ifnull(@("&./entity"),record.create())
+    new nav_config
+    {
+        @"title": ifstr(@isnew,'Agregar',"Editar") + " promoción"
+        @"urlexit": ".."
+        @"jscurrentcontext": "getCurrentContext"
+    }
+
+    html_cfg=file.rtext(@path_html_promo_cfg)
+    json_config = @@(entity,"$json_config")
+
+    #$ div(class="container-lg" id="view")
+    {
+        link(href="#<@CSS_MAIN>" rel="stylesheet")
+        link(href="#<@CSS_VENTA>" rel="stylesheet")
+
+        section(id="top_area")
+        {
+            #!
+            do uie.printV12FormBar(nav_config)
+            #$
+        }
+        section(class="" id="work_area")
+        {
+            $"#<html_cfg>"
+        }
+
+        script(type="text/javascript")
+        {$'
+            document.addEventListener("DOMContentLoaded",()=>
+            {
+                if(#<not(@isnew)>)
+                {
+                    cargarConfiguracion(#<json_config>);
+                }
+            });
+        '}
+    }
+}
