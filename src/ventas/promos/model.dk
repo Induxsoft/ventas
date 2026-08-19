@@ -191,7 +191,7 @@ module ":promos"
                 FROM producto p
                 INNER JOIN divisa d on p.idivisa=d.sys_pk
                 WHERE IFNULL(p.sys_deleted,0)=0
-                AND CONCAT_WS(' ',sys_pk,p.codigo,p.descripcion) LIKE concat('%',@search,'%')"
+                AND CONCAT_WS(' ',p.sys_pk,p.codigo,p.descripcion) LIKE concat('%',@search,'%')"
                 return dbr.list(db,sql,params)
             }
             case "tipo-cliente"
