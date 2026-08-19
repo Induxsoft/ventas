@@ -266,7 +266,7 @@ module "Motor de aplicación de promociones:promociones.motor"
         ref mes_actual=str2dt(ndt)
         ref siguienteDia=datetime.addDays(mes_actual,1)
         // return ndatetime.month(siguienteDia) != ndatetime.month(ndt)
-        return datetime.compareTo(siguienteDia,mes_actual) != 0
+        return datetime.month(siguienteDia) != datetime.month(mes_actual)
     }
 
     /**
@@ -1035,7 +1035,7 @@ module "Motor de aplicación de promociones:promociones.motor"
             if unidadesFaltantes > 0
             {
                 montoFaltante = round(unidadesFaltantes * precioPromedio, decimales)
-                do list.add(notificaciones, "Faltan $" + str(montoFaltante) + " para alcanzar el siguiente nivel de descuento progresivo de " + field.dstr(promo, "codigo", "") + ".")
+                do list.add(notificaciones, "Faltan "+str(trun(unidadesFaltantes))+" ($" + str(montoFaltante) + ") para alcanzar el siguiente nivel de descuento progresivo de " + field.dstr(promo, "codigo", "") + ".")
             }
         }
 
@@ -1069,9 +1069,9 @@ module "Motor de aplicación de promociones:promociones.motor"
         if vecesActivada <= 0 { return 0 }
         
         ref idxObjetivo = _lineas_candidatas(venta, lineas, promo, configs, referenciaTemporal, "tipoPromocion/productos/ventaCruzada/filtroObjetivo", reclamoExclusivo, reclamoGrupo)
-    
-        ref consumo = _consumir_unidades_objetivo(lineas, idxObjetivo, vecesActivada, pct, acumulado, metodo, decimales, promo, traza, "descuento", reclamoExclusivo, reclamoGrupo)
 
+        ref consumo = _consumir_unidades_objetivo(lineas, idxObjetivo, vecesActivada, pct, acumulado, metodo, decimales, promo, traza, "descuento", reclamoExclusivo, reclamoGrupo)
+        
         unidadesConsumidas = field.dnum(consumo, "unidadesConsumidas", 0)
         if unidadesConsumidas < vecesActivada
         {
@@ -1533,7 +1533,7 @@ module "Motor de aplicación de promociones:promociones.motor"
     * mayor precio entre los presentes que cumplan filtroRegalo. Si ninguno
     * está presente, se reporta en obsequios (nunca se crea una fila nueva).
     */
-    _aplicar_total_venta_regalo :: &lineas, &promo, &configs, &reclamoExclusivo, &reclamoGrupo, &acumulado, decimales, traza, &obsequios
+    _aplicar_total_venta_regalo :: &lineas, &promo, &configs, &reclamoExclusivo, &reclamoGrupo, &acumulado, decimales, &traza, &obsequios
     {
         ref filtro = field.dobj(promo, "tipoPromocion/totalVenta/filtroRegalo", _null())
 
