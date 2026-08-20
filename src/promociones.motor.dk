@@ -851,8 +851,10 @@ module "Motor de aplicación de promociones:promociones.motor"
             ref linea = list.obj(lineas, idx)
             cantidadTotal = cantidadTotal + field.dnum(linea, "cantidad", 0)
         }
-        
-        gruposCompletos = trun(round(cantidadTotal / tamGrupo,0))
+        // Modelo 1 — actual (necesita A+B en carrito)
+        gruposCompletos = trun(cantidadTotal / tamGrupo)
+        // Modelo 2 — el que describes (solo necesita A en carrito)
+        // gruposCompletos = trun(cantidadTotal / cantA)
         unidadesGratis = gruposCompletos * cantB
         
         if unidadesGratis <= 0 { return 0 }
@@ -1065,9 +1067,9 @@ module "Motor de aplicación de promociones:promociones.motor"
         }
         if cantidadCompra <= 0 { return 0 }
 
-        vecesActivada = trun(round(cantidadDisparadora / cantidadCompra,0))
+        vecesActivada = trun(cantidadDisparadora / cantidadCompra)
         if vecesActivada <= 0 { return 0 }
-        
+        // do rise_error(0,vecesActivada)
         ref idxObjetivo = _lineas_candidatas(venta, lineas, promo, configs, referenciaTemporal, "tipoPromocion/productos/ventaCruzada/filtroObjetivo", reclamoExclusivo, reclamoGrupo)
 
         ref consumo = _consumir_unidades_objetivo(lineas, idxObjetivo, vecesActivada, pct, acumulado, metodo, decimales, promo, traza, "descuento", reclamoExclusivo, reclamoGrupo)
