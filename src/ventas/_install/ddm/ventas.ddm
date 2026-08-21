@@ -94,6 +94,17 @@ model "erp.ventas"
             field "fk_dventa"
         }
     }
+    entity "detailpromocion" : "TableModel"
+    {
+        @"fk_venta" ref:"venta" required
+        @"data_promocion" memo // datos capturados despues de las promociones ,traza,obsequios, notificaciones, ventas, configuraciones
+        @"promociones" memo // promociones activadas en el momento de la aplicación
+
+        index "idx_traza_venta" unique
+        {
+            field "fk_venta"
+        }
+    }
     /* 
     Ventas
     =======================================================================

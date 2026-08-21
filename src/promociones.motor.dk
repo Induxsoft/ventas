@@ -839,8 +839,101 @@ module "Motor de aplicación de promociones:promociones.motor"
     {
         cantA = field.dnum(promo, "tipoPromocion/productos/aXb/cantidadA", 1)
         cantB = field.dnum(promo, "tipoPromocion/productos/aXb/cantidadB", 1)
+
+        if cantA < cantB { return 0 }
+        if cantA <= 0    { return 0 }
+
+        ref ordenadas = _ordenar_indices_por_captura(lineas, idxCandidatas)
+        totalMonto    = 0
+
+        // --- Agrupar índices por id_producto ---
+        ref porProducto = record.create()
+
+        for i = 0; i < list.count(ordenadas); i + 1
+        {
+            idx       = list.num(ordenadas, i)
+            ref linea = list.obj(lineas, idx)
+            idProd    = str(trun(field.dnum(linea, "producto/id", 0)))
+
+            if not(field.exist(porProducto, idProd))
+            {
+                ref grp = list.create()
+                porProducto<idProd+"*">: grp
+            }
+            ref grp = field.obj(porProducto, idProd)
+            do list.addnum(grp, idx)
+        }
+        
+        // --- Por cada producto, calcular independientemente ---
+        go foreach.fobj(key:idProd, value:idxsGrp) with(porProducto)
+        {
+            // Sumar cantidad total de ese producto
+            cantidadTotal = 0
+            for j = 0; j < list.count(idxsGrp); j + 1
+            {
+                idx       = list.num(idxsGrp, j)
+                ref linea = list.obj(lineas, idx)
+                cantidadTotal = cantidadTotal + field.dnum(linea, "cantidad", 0)
+            }
+
+            gruposCompletos = trun(cantidadTotal / cantA)
+            unidadesGratis  = gruposCompletos * (cantA - cantB)
+
+            if unidadesGratis <= 0 { break }  // siguiente producto
+
+            // Repartir FIFO entre líneas del mismo producto
+            restantes = unidadesGratis
+            for j = 0; j < list.count(idxsGrp); j + 1
+            {
+                if restantes <= 0 { break }
+                idx           = list.num(idxsGrp, j)
+                ref linea     = list.obj(lineas, idx)
+                cantidadLinea = field.dnum(linea, "cantidad", 0)
+                precio        = field.dnum(linea, "precio", 0)
+
+                tomar = restantes
+                if tomar > cantidadLinea { tomar = cantidadLinea }
+
+                monto = round(tomar * precio, decimales)
+                if monto != 0
+                {
+                    nuevo = list.num(acumulado, idx) + monto
+                    do list.setnum(acumulado, idx, nuevo)
+                    totalMonto = totalMonto + monto
+
+                    ref param = record.create()
+                    param<"unidadesGratisEnLinea">: tomar
+                    param<"cantidadA">: cantA
+                    param<"cantidadB">: cantB
+                    do _traza_add(traza, idx, promo, "descuento", monto, param)
+                }
+                restantes = restantes - tomar
+            }
+        }
+
+        return totalMonto
+    }
+    //aplica a toda la venta 
+    /* venta: 2x1
+     * Summary:
+     * ejemplo
+     * 2 kg de azucar $20 cu
+     * 8 de balón de basquetball $50 cu
+     * gruposCompletos = trun(10 // 2) = 5
+    * unidadesGratis  = 5 × (2-1)   = 5
+     Reparto FIFO:
+        Línea 0 (Azúcar)  → tomar=2, monto=2×$20 = $40   restantes=3
+        Línea 1 (Balón)   → tomar=3, monto=3×$50 = $150   restantes=0
+
+        Total descuento = $190
+    */
+    _aplicar_axb_fifo :: &lineas, &promo, &idxCandidatas, &acumulado, decimales, &traza
+    {
+        cantA = field.dnum(promo, "tipoPromocion/productos/aXb/cantidadA", 1)
+        cantB = field.dnum(promo, "tipoPromocion/productos/aXb/cantidadB", 1)
         tamGrupo = cantA + cantB
-        if tamGrupo <= 0 { return 0 }
+        // configuración inválida — no aplica descuento
+        if tamGrupo <= 0 || cantA < cantB { return 0 }
         
         ref ordenadas = _ordenar_indices_por_captura(lineas, idxCandidatas)
         
@@ -852,10 +945,12 @@ module "Motor de aplicación de promociones:promociones.motor"
             cantidadTotal = cantidadTotal + field.dnum(linea, "cantidad", 0)
         }
         // Modelo 1 — actual (necesita A+B en carrito)
-        gruposCompletos = trun(cantidadTotal / tamGrupo)
+        // gruposCompletos = trun(cantidadTotal / tamGrupo)
+
         // Modelo 2 — el que describes (solo necesita A en carrito)
-        // gruposCompletos = trun(cantidadTotal / cantA)
-        unidadesGratis = gruposCompletos * cantB
+        gruposCompletos = trun(cantidadTotal / cantA)
+        // unidadesGratis = gruposCompletos * cantB
+        unidadesGratis = gruposCompletos * (cantA - cantB)
         
         if unidadesGratis <= 0 { return 0 }
 
@@ -1324,7 +1419,11 @@ module "Motor de aplicación de promociones:promociones.motor"
     {
         tipoDescuento = field.dstr(promo, "tipoPromocion/productos/tipoDescuento", "")
         calculoCombinado = field.dstr(promo, "reglas/calculoCombinado", "aditivo")
+        alcance = field.dstr(promo,"tipoPromocion/productos/alcance","")
+        ref filtro = field.dobj(promo,"tipoPromocion/productos/filtro", _null())
         
+        if alcance == "soloAlgunos" && isnull(filtro){return 0}
+
         ref idxCandidatas = _lineas_candidatas(venta, lineas, promo, configs, referenciaTemporal, "tipoPromocion/productos/filtro", reclamoExclusivo, reclamoGrupo)
         
         montoAplicado = 0
