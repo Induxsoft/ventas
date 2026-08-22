@@ -573,7 +573,7 @@ module "Motor de aplicación de promociones:promociones.motor"
         ref filtro = field.dobj(promo, filtroPath, _null())
         ref candidatos = list.create()
         ref idsAgregados = list.create()
-
+        
         for i = 0; i < list.count(idxPresentes); i + 1
         {
             idx = list.num(idxPresentes, i)
@@ -702,14 +702,14 @@ module "Motor de aplicación de promociones:promociones.motor"
             
             precio = field.dnum(linea, "precio", 0)
             encontrado = @false
-            for j = 0; j < list.count(productosId); j = j + 1
+            for j = 0; j < list.count(productosId); j + 1
             {
                 if list.num(productosId, j) == pid { encontrado = @true }
             }
             if not(encontrado)
             {
                 do list.addnum(productosId, pid)
-                do list.add(productosPrecio, precio)
+                do list.addnum(productosPrecio, precio)
             }
         }
 
@@ -1164,9 +1164,9 @@ module "Motor de aplicación de promociones:promociones.motor"
 
         vecesActivada = trun(cantidadDisparadora / cantidadCompra)
         if vecesActivada <= 0 { return 0 }
-        // do rise_error(0,vecesActivada)
+        
         ref idxObjetivo = _lineas_candidatas(venta, lineas, promo, configs, referenciaTemporal, "tipoPromocion/productos/ventaCruzada/filtroObjetivo", reclamoExclusivo, reclamoGrupo)
-
+        
         ref consumo = _consumir_unidades_objetivo(lineas, idxObjetivo, vecesActivada, pct, acumulado, metodo, decimales, promo, traza, "descuento", reclamoExclusivo, reclamoGrupo)
         
         unidadesConsumidas = field.dnum(consumo, "unidadesConsumidas", 0)
