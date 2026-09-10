@@ -145,8 +145,8 @@
             },
             {
                 "varname": "v12.ventas.01",
-                "vardefault": "1",
-                "varvalue": "1",
+                "vardefault": "0",
+                "varvalue": "0",
                 "varcaption": "Intentar desaplicar salidas al cancelar ventas",
                 "varhelp": "",
                 "vartype": "bool",
@@ -165,8 +165,8 @@
             },
             {
                 "varname": "v12.ventas.02",
-                "vardefault": "1",
-                "varvalue": "1",
+                "vardefault": "0",
+                "varvalue": "0",
                 "varcaption": "Eliminar movimiento desaplicado al cancelar",
                 "varhelp": "",
                 "vartype": "bool",
