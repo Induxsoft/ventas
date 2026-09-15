@@ -6,7 +6,7 @@ module ""
     @keyfield = "sys_pk"
     @sys_fields = "sys_pk,sys_guid,sys_dtcreated,sys_timestamp,sys_info,sys_user,sys_lastuser,sys_exported,sys_dtexported,sys_recver,sys_deleted,sys_lock"
 
-     @qry_dventa = "
+    @qry_dventa = "
     SELECT
         dt.sys_pk,
         dt.sys_recver,
@@ -83,17 +83,44 @@ module ""
     {
         do dbr.apps.action.grant("VD17")
 
-        selects=",sum(dv.xsalir)xsalir"
-        joins="INNER JOIN dventa dv on vnt.sys_pk=dv.fk_venta_detalle
-        INNER JOIN producto p on dv.iproducto=p.sys_pk"
+        selects=", sum(dv.xsalir) xsalir, 'No' AS entregar"
+        joins="
+        INNER JOIN dventa dv on vnt.sys_pk=dv.fk_venta_detalle
+        INNER JOIN producto p on dv.iproducto=p.sys_pk
+        "
         conditions=ftext("
         AND vnt.documento in(#<@cRemision>,#<@cCotizacion>,#<@cFactura>,#<@cTicket>,#<@cPedido>)
         AND vnt.statusentrega<>#<@stt_ent_entregado>
         AND vnt.statusadministrativo=#<@stt_adm_procesado>
         AND if(vnt.documento in(#<@cRemision>,#<@cTicket>),vnt.statusfacturacion not in(#<@stt_fac_parcialmente_facturado>,#<@stt_fac_facturado>),true )
         AND p.itipo=#<@tpo_prod_inventariable>
-        GROUP BY vnt.sys_pk HAVING xsalir > 0")
-        return dbr.list(db,ftext(@list_query),params)
+        ")
+
+        // Filtro: rango de fechas
+        if trim(@@(params,"$fecha_desde")) != "" { conditions=conditions+ftext(" AND vnt.fecha >= @fecha_desde") }
+        if trim(@@(params,"$fecha_hasta")) != "" { conditions=conditions+ftext(" AND vnt.fecha <= @fecha_hasta") }
+
+        // Filtro: centro de consumo
+        if @@(params,"#icconsumo") > 0 { conditions=conditions+ftext(" AND vnt.icconsumo = @icconsumo") }
+
+        // Filtro: tipo de documento (limitado a los tipos permitidos)
+        if isanyword(@@(params,"#documento"),str(@cRemision)+","+str(@cCotizacion)+","+str(@cFactura)+","+str(@cTicket)+","+str(@cPedido))
+        {
+            conditions=conditions+ftext(" AND vnt.documento = @documento")
+        }
+
+        conditions=conditions+ftext(" GROUP BY vnt.sys_pk HAVING xsalir > 0")
+
+        new data
+        {
+            @"data*": dbr.list(db,ftext(@list_query),params)
+            @"docs_venta*": dbr.list(db,ftext("
+                SELECT a.id, a.const FROM cdocumentos AS a
+                WHERE a.id IN (#<@cRemision>,#<@cCotizacion>,#<@cFactura>,#<@cTicket>,#<@cPedido>)
+                ORDER BY a.id ASC"),params)
+            @"list_cconsumo*": dbr.list(db,ftext(@qry_list_cconsumo),params)
+        }
+        return data
     }
     read::&db,&params
     {
@@ -119,6 +146,7 @@ module ""
 
         return entity
     }
+    
     procesar::&db,&params,&data
     {
         do dbr.apps.action.grant("VD18")
@@ -217,6 +245,38 @@ module ""
             if dbr.in_transaction(db){do dbr.rollback(db)}
             do rise_error(500,last_error())
         }
+    }
+
+    procesarSeleccionados::&db,&params,&data
+    {
+        if trim(@@(data,"$_ventas")) == "" { do rise_error(511,"No ha indicado datos para procesar") }
+        ref ventas = from.json(@@(data,"$_ventas"))
+        if @count(ventas) < 1 { do rise_error(511,"No ha indicado datos para procesar") }
+
+        ref procesadas=list.create()
+        ref con_error=list.create()
+
+        for i = 0; i < @count(ventas)
+        {
+            ref v = list.obj(ventas,i)
+            params<"_entity_id"> : @@(v,"#sys_pk")
+            
+            ref d = dbr.list(db,"SELECT sys_pk, xsalir AS cantidad_a_salir FROM dventa WHERE fk_venta_detalle = @_entity_id",params)
+            new fd { @"_detalle": to.json(d) }
+
+            do procesar(db,params,fd)
+            do list.add(procesadas,v)
+
+            exception
+            {
+                v<"message"> : last_error()
+                do list.add(con_error,v)
+                do pop_exception()
+            }
+        }
+
+        procesadas, con_error >> response
+        return response
     }
     
     point @list to list

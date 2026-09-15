@@ -11,5 +11,10 @@ module ""
             point @update to procesar
             break
         }
+        case "process-docs"
+        {
+            point @create to procesarSeleccionados
+            break
+        }
     }
 }

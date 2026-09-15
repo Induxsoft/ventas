@@ -11,13 +11,21 @@ module "list.dk"
     do @context.begin(@crud_context)
 
     ref @_GET = ifnull(@("&parameters"),record.create())
-    ref data = ifnull(@("&."),list.create())
+    ref data = ifnull(@("&./data"),list.create())
     ref titles = ifnull(@("&./titles"),record.create())
+
+    function printNavButtons()
+    {
+        #$
+        button(type="button" id="btn_procesar" class="btn btn-main-action btn-sm border-secondary induxsoft-corners" onclick="ventaxsalir.process()"){$"Procesar seleccionados"}
+        #!
+    }
+    point buttons to printNavButtons
 
     new nav_config
     {
         @"title": "Ventas por entregar"
-        @"buttons*": @null
+        @"buttons*": buttons
         @"urlexit": "/"
         @"jscurrentcontext": "getCurrentContext"
     }
@@ -25,9 +33,16 @@ module "list.dk"
     new table_definition
     {
         @"datatable*": data
-        @"tableheight": "96%"
+        @"tableheight": "95%"
         member @"columns"
         {
+            member @"_sel"
+            {
+                @"caption": "¿Procesar?"
+                @"align": "center"
+                @"no-print": @true
+                @"template": '<input type="checkbox" class="chk_venta" value="${DataRow.sys_pk}" onclick="ventaxsalir.toggleRow(this)">'
+            }
             member @"cdocumento" { @"caption": "Documento" }
             member @"referencia" { @"caption": "Referencia" }
             member @"fecha"
@@ -129,6 +144,47 @@ module "list.dk"
         '
     }
     table_id="ventas_x_salir"
+
+    new sel_documento
+    {
+        @"id": "documento"
+        @"value_field": "id"
+        @"text_field": "const"
+        @"first_value": "-1"
+        @"first_text": "Todos los documentos"
+        @"datatable*": ifnull(@("&./docs_venta"),list.create())
+        @"selected": @("$parameters/documento")
+        member "attributes"
+        {
+            @"class": "form-select rounded-0"
+            @"name": "documento"
+            @"onchange": "filter(this)"
+        }
+    }
+
+    new sel_cconsumo
+    {
+        @"id": "icconsumo"
+        @"value_field": "sys_pk"
+        @"text_field": "tcconsumo"
+        @"first_value": "-1"
+        @"first_text": "Todos los centros de consumo"
+        @"datatable*": ifnull(@("&./list_cconsumo"),list.create())
+        @"selected": @("$parameters/icconsumo")
+        member "attributes"
+        {
+            @"class": "form-select rounded-0"
+            @"name": "icconsumo"
+            @"onchange": "filter(this)"
+        }
+    }
+
+    new dr_init
+    {
+        @"start": @("$parameters/fecha_desde")
+        @"end": @("$parameters/fecha_hasta")
+    }
+
     #$ div(class="container-fluid v12-list-view" id="view")
     {
         section(class="" id="top_area")
@@ -136,12 +192,95 @@ module "list.dk"
             #!
             do uie.printV12FormBar(nav_config)
             #$
+
+            form(class="mb-1" action="./" method="GET" id="form-filter")
+            {
+                div(class="d-flex align-items-center gap-1 flex-wrap mb-1")
+                {
+                    // Filtro por centro de consumo
+                    div
+                    {
+                        #!
+                        do uie.dbSelect(sel_cconsumo)
+                        #$
+                    }
+                    // Filtro por tipo de documento
+                    div
+                    {
+                        #!
+                        do uie.dbSelect(sel_documento)
+                        #$
+                    }
+                    // Filtro por rango de fechas
+                    div
+                    {
+                        "date-range"(class="w-100" "hidden-input-name-start"="fecha_desde" "hidden-input-name-end"="fecha_hasta" data='#<to.json(dr_init)>' id="date_range"){""}
+                    }
+                }
+            }
         }
         section(class="" id="work_area")
         {
-            #!
-            do uie.dbeditable(table_definition,table_id)
-            #$
+            div(class="form-check")
+            {
+                input(class="form-check-input" type="checkbox" id="toggle-all" onclick="ventaxsalir.toggleAll(this.checked)")
+                label(lass="form-check-label" "for"="toggle-all"){"Todos"}
+            }
+            "edit-table"(
+                id="#<table_id>"
+                data='#<to.json(data)>'
+                "auto-confirm"="true"
+            )
+            {
+                "edit-thead"
+                {
+                    "edit-tr"
+                    {
+                        "edit-th"(type="Check" field="entregar" textalign="center" "default"="No"){$"¿Entregar?"}
+                        "edit-th"(type="NoEditable" field="cdocumento"){$"Documento"}
+                        "edit-th"(type="NoEditable" field="referencia"){$"Referencia"}
+                        "edit-th"(type="NoEditable" field="fecha" textalign="center"){$"Fecha"}
+                        "edit-th"(type="NoEditable" field="cliente"){$"Cliente"}
+                        "edit-th"(type="NoEditable" field="xsalir"){$"Por Salir"}
+                        "edit-th"(type="NoEditable" field="cdivisa" textalign="center"){$"Divisa"}
+                        "edit-th"(type="NoEditable" field="tipocambio" textalign="end" format="true" thousandssep="true" decs="#<@DECIMAL_PRECISION>"){$"T. Cambio"}
+                        "edit-th"(type="NoEditable" field="total" textalign="end" format="true" thousandssep="true" decs="#<@DECIMAL_PRECISION>"){$"Total"}
+                        "edit-th"(type="NoEditable" field="forma_pago"){$"F. Pago"}
+                        "edit-th"(type="NoEditable" field="stt_ent"){$"E. Entrega"}
+                        "edit-th"(type="NoEditable" field="stt_fin"){$"E. Financiero"}
+                        "edit-th"(type="NoEditable" field="stt_fac"){$"E. Facturación"}
+                        "edit-th"(type="NoEditable" field="stt_adm"){$"E. Administrativo"}
+                        "edit-th"(type="NoEditable" field="_action" textalign="center" template='<a class="btn-gray" href="./${DataRow.sys_pk}/">Detalle</a>'){$""}
+                    }
+                }
+            }
+        }
+        section(id="bottom_area")
+        {
+            script(src="/$/ventas/js/ventaxsalir.js"){$""}
+            script(type="text/javascript")
+            {$'
+                function filter(ff) { ff.form.submit(); }
+
+                function getCurrentContext() {
+                    const table = document.getElementById("#<table_id>");
+                    const id = (table?.DataArray[table.CurrentRowIndex()]?.sys_pk ?? "");
+                    return { item_id:id, context: {} }
+                }
+
+                ventaxsalir.es_lista = true;
+
+                document.addEventListener("DOMContentLoaded", () => {
+                    const date_range = document.querySelector("date-range");
+                    if (date_range) {
+                        date_range.onChanging = (oldData,newData) => { date_range.setData(newData) };
+                        date_range.onChange = (data) => {
+                            const ff = document.getElementById("form-filter").elements["fecha_desde"];
+                            filter(ff);
+                        };
+                    }
+                });
+            '}
         }
     }
 }
