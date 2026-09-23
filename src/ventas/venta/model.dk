@@ -1205,10 +1205,24 @@ module ":Venta"
 
             if @@(documento,"#aplicadoa") > 0 || docs_aplicados > 0{do rise_error(500,"No se puede eliminar el documento, ya fue aplicado.")} 
             if @@(documento,"#statusadministrativo") != 1{do rise_error(500,"No se puede eliminar el documento, el estado es diferente de abierto.")}
-        
+
+            /*
+             * Summary:
+             * - verificar folio
+            */
+            ref info_folio=dbr.rec(db,"SELECT f.sys_pk,f.folio,f.`block` FROM foliosdocumentos f
+                        WHERE f.sys_pk=@ifolio",documento)
+            max_folio=dbr.num(db,"SELECT MAX(folio) FROM foliosdocumentos f WHERE f.`block`=@block;",info_folio)
+
+            if @@(info_folio,"#folio") > 0 && max_folio > @@(info_folio,"#folio"){do rise_error(500,"No es posible eliminar la venta porque existen folios posteriores dentro de la misma serie del documento")}
+
             do dbr.execute(db,"delete from dventa where fk_venta_detalle=@_entity_id",params)
             do dbr.execute(db,"delete from venta where sys_pk=@_entity_id",params)
-        
+            do dbr.execute(db,"DELETE FROM foliosdocumentos where sys_pk=@ifolio",documento)
+
+            fultimo=dbr.num(db,"SELECT IFNULL(MAX(fd.Folio),0) AS MaxFolio FROM foliosdocumentos fd WHERE Block=@block",info_folio)
+            do dbr.execute(db,"UPDATE blockdocumentos bd SET bd.FUltimo = "+str(fultimo)+" WHERE bd.sys_pk=@block;",info_folio)
+
             do dbr.apps.action.pos(params)
         do dbr.commit(db)
             do dbr.apps.action.ext(params)
