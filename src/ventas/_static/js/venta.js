@@ -205,7 +205,53 @@ var venta =
 
         this.table._printRows();
     },
+    _index_last_row:-1,
+    show_modal_row()
+    {
+        let mdl_docs_notes=document.getElementById("mdl_docs_notes");
+        let row=this.get_table_row();
+        if(!row)
+        {
+            alert("Debe seleccionar una fila de la tabla");
+            return;
+        }
+        let row_notas=document.getElementById("row_notas");
+        if(!row_notas)return;
 
+        row_notas.value=row.notas??"";
+        this._index_last_row=row._index??-1;
+        const modal = new bootstrap.Modal(mdl_docs_notes);
+        modal.show();
+        
+        setTimeout(() => {
+            row_notas.focus();
+        }, 1000);
+    },
+    get_table_row()
+    {
+        let curr_row = this.table.CurrentRowIndex();
+        if(curr_row < 0)return null;
+        
+        let row=this.table.DataArray[curr_row];
+        row["_index"]=curr_row;
+
+        return row;
+    },
+    set_nota_row()
+    {
+        let curr_row = this.table.CurrentRowIndex();
+        if(curr_row < 0 && this._index_last_row > -1)curr_row=this._index_last_row;
+        
+        if(curr_row < 0)return;
+        let row_notas=document.getElementById("row_notas");
+        if(!row_notas)return;
+
+        this.table.DataArray[curr_row]["notas"]=row_notas?.value??"";
+        this.table._printRows();
+
+        const modal = bootstrap.Modal.getInstance(document.getElementById('mdl_docs_notes'));
+        modal.hide();
+    },
     convertirADivisa(value,tcp,tcd,mode)
     {
         if (mode === "doc") return Math.RoundTo(Math.div(Math.mul(value,tcp),tcd), this.decimals);
@@ -974,7 +1020,9 @@ var venta =
                 const ik_ser_prod = document.getElementById("ik_ser_prod");
                 this.launchIkLoteSerie(ik_ser_prod);
                 break;
-        
+            case "notas":
+                this.show_modal_row();
+                break;
             default:
             console.warn("Controlador de click no implementado");
                 break;

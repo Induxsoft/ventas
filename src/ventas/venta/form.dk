@@ -544,6 +544,15 @@ module "form.dk"
 
                     button(class="btn btn-sm rounded-0" type="button" id="btn_add_row" title="Agregar producto"){$"#<@ICON_BOX_4>"span(class="act_txt"){" Agregar"}}
                     button(class="btn btn-sm rounded-0" type="button" id="btn_del_row" title="Eliminar fila"){$"#<@ICON_REMOVE_ROW>"span(class="act_txt"){" Remover"}}
+
+                    button(class="btn btn-sm rounded-0" type="button" id="btn_note_row" title="Agregar nota a la fila" onclick="venta.show_modal_row()")
+                    {
+                        $'<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-journal-plus" viewBox="0 0 16 16">
+                        <path fill-rule="evenodd" d="M8 5.5a.5.5 0 0 1 .5.5v1.5H10a.5.5 0 0 1 0 1H8.5V10a.5.5 0 0 1-1 0V8.5H6a.5.5 0 0 1 0-1h1.5V6a.5.5 0 0 1 .5-.5"/>
+                        <path d="M3 0h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-1h1v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v1H1V2a2 2 0 0 1 2-2"/>
+                        <path d="M1 5v-.5a.5.5 0 0 1 1 0V5h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1zm0 3v-.5a.5.5 0 0 1 1 0V8h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1zm0 3v-.5a.5.5 0 0 1 1 0v.5h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1z"/>
+                        </svg>'
+                        span(class="act_txt"){" Nota"}}
                 }
             }
             div(class="alert alert-danger rounded-0 my-1 py-0 d-none" role="alert" id="tbl_alerts"){$""}
@@ -601,7 +610,35 @@ module "form.dk"
                                 #$
                                 "edit-th"(type="Text" field="serie" button="#<cell_button>" readonly="true"){$"Serie"}
                             }
-                            "edit-th"(type="Memo" field="notas"){$"Notas"}
+                            "edit-th"(type="Memo" field="notas" "min-width"="200px" button="#<cell_button>"){$"Notas"}
+                        }
+                    }
+                }
+            }
+
+            /*
+             * Summary:
+             * notas
+            */
+
+            div(class="modal fade" id="mdl_docs_notes" tabindex="-1" "aria-hidden"="true" "data-bs-backdrop"="true")
+            {
+                div(class="modal-dialog modal-lg modal-dialog-scrollable") // modal-dialog-centered
+                {
+                    div(class="modal-content rounded-0 p-0 border-0 shadow")
+                    {
+                        div(class="modal-header p-3")
+                        {
+                            h6(class="modal-title"){$"Nota"}
+                            button(type="button" class="btn-close btn-sm" "data-bs-dismiss"="modal" "aria-label"="Close"){$""}
+                        }
+                        div(class="modal-body row gx-2 p-4 bg-white")
+                        {
+                            textarea(class="induxsoft-form-control" id="row_notas" rows="10"){""}
+                        }
+                        div(class="modal-footer")
+                        {
+                            button(type="button" class="btn btn-sm btn-secondary rounded-0" onclick="venta.set_nota_row();"){$"Aceptar"}
                         }
                     }
                 }
