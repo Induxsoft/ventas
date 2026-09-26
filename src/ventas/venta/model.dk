@@ -1202,8 +1202,8 @@ module ":Venta"
         @use_transaction = @false
             do dbr.apps.action.pre("VDF2")
         do dbr.begin(db)
-
-            if @@(documento,"#aplicadoa") > 0 || docs_aplicados > 0{do rise_error(500,"No se puede eliminar el documento, ya fue aplicado.")} 
+        
+            if @@(documento,"#aplicadoa") > 0 || (@@(documento,"#statusadministrativo") == 2 && docs_aplicados > 0){do rise_error(500,"No se puede eliminar el documento, ya fue aplicado.")} 
             if @@(documento,"#statusadministrativo") != 1{do rise_error(500,"No se puede eliminar el documento, el estado es diferente de abierto.")}
 
             /*
@@ -1223,6 +1223,8 @@ module ":Venta"
             fultimo=dbr.num(db,"SELECT IFNULL(MAX(fd.Folio),0) AS MaxFolio FROM foliosdocumentos fd WHERE Block=@block",info_folio)
             do dbr.execute(db,"UPDATE blockdocumentos bd SET bd.FUltimo = "+str(fultimo)+" WHERE bd.sys_pk=@block;",info_folio)
 
+            do dbr.execute(db,"UPDATE venta set aplicadoa=null WHERE aplicadoa=@_entity_id",params)
+            
             do dbr.apps.action.pos(params)
         do dbr.commit(db)
             do dbr.apps.action.ext(params)
