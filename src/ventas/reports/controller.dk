@@ -13,34 +13,40 @@ module "ReportController"
         case "ventas-por-linea"
         {
             @form_view = "ventas.por.linea.dk"
-            point @read to Report.VentasPorLinea 
+            point @read to Report.VentasPorLinea
             break
         }
         case "ventas-por-cliente"
         {
-            @form_view = "ventas.por.cliente.dk" 
-            point @read to Report.VentasPorcliente 
+            @form_view = "ventas.por.cliente.dk"
+            point @read to Report.VentasPorCliente
             break
         }
         case "acumulado-de-ventas-por-cliente"
         {
-            @form_view = "acumulado.de.ventas.por.cliente.dk" 
-            point @read to Report.AcumuladoDeVentasPorCliente 
+            @form_view = "acumulado.de.ventas.por.cliente.dk"
+            point @read to Report.AcumuladoDeVentasPorCliente
             break
         }
         case "ventas-por-facturar"
         {
-            @form_view = "ventas.por.facturar.dk" 
-            point @read to Report.VentasPorFacturar 
+            @form_view = "ventas.por.facturar.dk"
+            point @read to Report.VentasPorFacturar
             break
         }
         /*
         case "ventas-brutas-por-cliente"
         {
-            @form_view = "ventas.brutas.por.cliente.dk" 
+            @form_view = "ventas.brutas.por.cliente.dk"
             point @read to Report.VentasBrutasPorcliente
             break
         }*/
+        case "ventas-xcliente-consolidado-xproducto"
+        {
+            @form_view = "ventas-xcliente-consolidado-xproducto.dk"
+            point @read to Report.VentasPorClienteConsolidadoPorProducto
+            break
+        }
         default
         {
             point @read to Report.NotImplemented
