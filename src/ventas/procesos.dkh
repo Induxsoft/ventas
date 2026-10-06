@@ -192,6 +192,7 @@ module ":erp.ventas.procesos"
         }
         pk_cardex = 0
 
+        sql_dcardex_values = ""
         for i = 0; i < list.count(dventa)
         {
             ref item = list.obj(dventa,i)
@@ -204,10 +205,10 @@ module ":erp.ventas.procesos"
 
             if not(@@(item,"#mov_aplicado"))
             {
-                if pk_cardex == 0 {
-                    do dbr.insert(db,"cardex",cardex)
-                    pk_cardex = dbr.num(db,"select last_insert_id();",@null)
-                }
+                // if pk_cardex == 0 {
+                //     do dbr.insert(db,"cardex",cardex)
+                //     pk_cardex = dbr.num(db,"select last_insert_id();",@null)
+                // }
 
                 if @@(item,"#tipoprod") != @tpo_prod_no_inventariable
                 {
@@ -218,26 +219,46 @@ module ":erp.ventas.procesos"
                     
                     new dcardex
                     {
-                        @"sys_pk": 0
-                        @"sys_guid": uuid()
-                        @"sys_dtcreated*": dbr.sql("now()")
-                        @"sys_timestamp*": dbr.sql("now()")
-                        @"sys_recver": 0
-                        @"ialmacen": @@(item,"#ialmacen")
-                        @"iproducto": @@(item,"#iproducto")
-                        @"salidas": salidas
-                        @"abonos": abonos
-                        @"cpromedio": div(abonos,salidas)
-                        @"tipocambio": @@(item,"#tipocambio")
-                        @"rventa": @@(item,"#sys_pk")
-                        @"fk_cardex_movimientos": pk_cardex
-                        @"entradas": 0
-                        @"cargos": 0
+                        // @"sys_pk": 0
+                        // @"sys_guid": uuid()
+                        // @"sys_dtcreated*": dbr.sql("now()")
+                        // @"sys_timestamp*": dbr.sql("now()")
+                        // @"sys_recver": 0
+                        // @"ialmacen": @@(item,"#ialmacen")
+                        // @"iproducto": @@(item,"#iproducto")
+                        // @"salidas": salidas
+                        // @"abonos": abonos
+                        // @"cpromedio": div(abonos,salidas)
+                        // @"tipocambio": @@(item,"#tipocambio")
+                        // @"rventa": @@(item,"#sys_pk")
+                        // @"fk_cardex_movimientos": pk_cardex
+                        // @"entradas": 0
+                        // @"cargos": 0
                     }
                     do asignarLoteSerie(db,item,dcardex)
-                    do dbr.insert(db,"dcardex",dcardex)
+                    // do dbr.insert(db,"dcardex",dcardex)
+
+                    ialmacen = @@(item,"#ialmacen")
+                    iproducto = @@(item,"#iproducto")
+                    cpromedio = div(abonos,salidas)
+                    tipocambio = @@(item,"#tipocambio")
+                    rventa = @@(item,"#sys_pk")
+                    ilote = @@(dcardex,"#ilote")
+                    iserie = @@(dcardex,"#iserie")
+
+                    sql_dcardex_values = sql_dcardex_values + ftext("(REPLACE(UPPER(UUID()),'-',''), NOW(), NOW(), 0, #<ialmacen>, #<iproducto>, 0, 0, #<salidas>, #<abonos>, #<cpromedio>, #<tipocambio>, #<rventa>, {cardex}, NULLIF(#<ilote>,0), NULLIF(#<iserie>,0)),")
                 }
             }
+        }
+
+        if sql_dcardex_values != ""
+        {
+            do dbr.insert(db,"cardex",cardex)
+            pk_cardex = dbr.num(db,"select last_insert_id();",@null)
+            
+            sql_dump_dcardex = "INSERT INTO dcardex (sys_guid,sys_dtcreated,sys_timestamp,sys_recver,ialmacen,iproducto,entradas,cargos,salidas,abonos,cpromedio,tipocambio,rventa,fk_cardex_movimientos,ilote,iserie) VALUES " + replace(rremove(sql_dcardex_values,1), "{cardex}", pk_cardex)
+            
+            do dbr.execute(db,sql_dump_dcardex,@null)
         }
 
         if start_transaction { do dbr.commit(db) }

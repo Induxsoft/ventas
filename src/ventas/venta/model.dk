@@ -1193,6 +1193,7 @@ module ":Venta"
 
     delete::&db,&params
     {
+        //#region delete()
         do errordet(@false)
 
         ref documento=record.caseinsensitive(dbr.rec(db,"select * from venta where sys_pk=@_entity_id",params))
