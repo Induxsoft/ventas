@@ -953,8 +953,12 @@ module ":Venta"
     {
         //#region list()
         do dbr.apps.action.grant("VD10")
+        max_rows = trun(parse.num(dbr.vars.get(db,"ventas.max_rows")))
 
+        if max_rows > 1 { @default_max_rows = max_rows }
+        
         do Venta.evaluateListFilters(params)
+        
         new data
         {
             @"data*": entity.list(db,params)

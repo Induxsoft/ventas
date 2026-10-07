@@ -288,5 +288,22 @@
                 }
             }
         ]
+    },
+    {
+        "id": "ventas.views",
+        "parent":"ventas",
+        "caption": "Interfaces / Vistas",
+        "help": "Ajustar el diseño de las vistas",
+        "vars": [
+            {
+                "varname": "ventas.max_rows",
+                "vardefault": "500",
+                "varvalue": "500",
+                "varcaption": "Mostrar los primeros N ventas",
+                "varhelp": "Máximo de filas a mostrar en: \"Ventas\"",
+                "vartype": "int",
+                "varinput": { "control": "number" }
+            }
+        ]
     }
 ]
