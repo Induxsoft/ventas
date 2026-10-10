@@ -1536,6 +1536,9 @@ module ":erp.ventas.procesos"
         // Intentar desaplicar salidas al cancelar ventas
         if parse.bool(dbr.vars.get(db,"v12.ventas.01"))
         {
+            // Punto de guardado.
+            do dbr.execute(db,"SAVEPOINT sp_cancelacion",@null)
+
             mov_sys_pk = dbr.num(db,"SELECT sys_pk FROM cardex WHERE docventa = @iventa",params)
             do erp.inventario.desaplicar_mov(db,mov_sys_pk)
 
@@ -1550,6 +1553,9 @@ module ":erp.ventas.procesos"
 
             exception
             {
+                // Revertir cambios solo hasta el punto de guardado.
+                do dbr.execute(db,"ROLLBACK TO SAVEPOINT sp_cancelacion",@null)
+
                 params<"cat_movinv"> : dbr.vars.get(db,"v12.ventas.devinv")
                 icategoria = dbr.num(db,"select sys_pk from categoria where codigo=@cat_movinv",params)
                 // Realizar la entrada de todos los productos que salieron por este documento al mismo costo de la salida.
