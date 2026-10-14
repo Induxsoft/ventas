@@ -205,6 +205,7 @@ var venta =
 
         this.table._printRows();
     },
+
     _index_last_row:-1,
     show_modal_row()
     {
@@ -252,12 +253,15 @@ var venta =
         const modal = bootstrap.Modal.getInstance(document.getElementById('mdl_docs_notes'));
         modal.hide();
     },
+
     convertirADivisa(value,tcp,tcd,mode)
     {
         if (mode === "doc") return Math.RoundTo(Math.div(Math.mul(value,tcp),tcd), this.decimals);
         if (mode === "prod") return Math.RoundTo(Math.div(Math.mul(value,tcd),tcp), this.decimals);
         return value;
     },
+    porcentajeDelImporte(parte,total){ return Math.RoundTo(Math.mul(Math.div(parte,total),100), this.decimals) },
+    importeDelPorcentaje(porc,total){ return Math.RoundTo(Math.mul(total,Math.div(porc,100)), this.decimals) },
 
     toggleButtonVisibility()
     {
@@ -826,13 +830,14 @@ var venta =
 
         let costo = this.convertirADivisa(precio,tcp,tcd,"doc");
         let cantidad = Number(prod.cantidad);
-        let descuentos = Number(prod.descuentos);
+        let subtotal = Math.mul(costo,cantidad);
+        let pdescuento = Number(prod.pdescuento);
+        let descuentos = this.importeDelPorcentaje(pdescuento,subtotal); //Number(prod.descuentos);
         let i1_tasa = Number(prod.i1_tasa);
         let i2_tasa = Number(prod.i2_tasa);
         let i3_tasa = Number(prod.i3_tasa);
         let i4_tasa = Number(prod.i4_tasa);
 
-        let subtotal = Math.mul(costo,cantidad);
         let sub_desc = Math.sub(subtotal,descuentos);
         let impuesto1 = Math.mul(sub_desc,i1_tasa);
         let impuesto2 = Math.mul(sub_desc,i2_tasa);
@@ -889,6 +894,7 @@ var venta =
             cotizado: (p.cotizado || ""),
             cantidad: i.cantidad,
             subtotal: i.subtotal,
+            pdescuento: this.porcentajeDelImporte(i.descuentos,i.subtotal),
             descuentos: i.descuentos,
             impuestos: i.impuestos,
             importe: i.total,
@@ -1223,7 +1229,7 @@ var venta =
         let producto = this.table?.DataArray[curr_row] ?? {};
 
         if (Object.keys(producto ?? {}).length < this.table.Columns.length) return;
-        if (!["unidad","precio","cantidad","descuentos"].includes(field)) return;
+        if (!["unidad","precio","cantidad","pdescuento","descuentos"].includes(field)) return;
 
         if (field === "unidad") {
             this.calculateAmountsXUnits(e);
@@ -1269,7 +1275,8 @@ var venta =
             producto["xfacturar"] = cantidad;
             producto["xsalir"] = cantidad;
         }
-        if (field === "descuentos") producto["descuentos"] = Number(e.text.trim());
+        if (field === "pdescuento") producto["pdescuento"] = Number(e.text);
+        if (field === "descuentos") producto["pdescuento"] = this.porcentajeDelImporte(Number(e.text), producto.subtotal);
         
         this.edtProduct(producto,curr_row);
     },

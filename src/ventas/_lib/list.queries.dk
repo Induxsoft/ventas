@@ -124,11 +124,11 @@ module "Lista de consultas MySQL"
         p.descripcion,
         dt.unidad,
         dt.precio,
-        CONCAT(ROUND(dt2.cantidad - IFNULL(dt2.xfacturar,dt2.cantidad),0), '/', ROUND(dt2.cantidad,0)) AS cotizado,
         dt.cantidad,
         (IFNULL(dt.precio,0) * IFNULL(dt.cantidad,0)) AS subtotal,
         (IFNULL(dt.descuento1,0) + IFNULL(dt.descuento2,0)) AS descuentos,
         (IFNULL(dt.impuesto1,0) + IFNULL(dt.impuesto2,0) + IFNULL(dt.impuesto3,0) + IFNULL(dt.impuesto4,0)) AS impuestos,
+        (((IFNULL(dt.descuento1,0) + IFNULL(dt.descuento2,0)) / (IFNULL(dt.precio,0) * IFNULL(dt.cantidad,0))) * 100) AS pdescuento,
         (((IFNULL(dt.precio,0) * IFNULL(dt.cantidad,0))
             - IFNULL(dt.descuento1,0)
             - IFNULL(dt.descuento2,0))
@@ -137,6 +137,7 @@ module "Lista de consultas MySQL"
             + IFNULL(dt.impuesto3,0)
             + IFNULL(dt.impuesto4,0)
         ) AS importe,
+        CONCAT(ROUND(dt2.cantidad - IFNULL(dt2.xfacturar,dt2.cantidad),0), '/', ROUND(dt2.cantidad,0)) AS cotizado,
         IFNULL(l.numero,'') AS `lote`,
         IFNULL(DATE_FORMAT(l.fcaducidad,'%Y-%m-%d'),'') AS fcad,
         IFNULL(s.numero,'') AS `serie`,
@@ -214,6 +215,7 @@ module "Lista de consultas MySQL"
         p.codbar3,
         p.precio1 AS precio,
         1 AS cantidad,
+        0 AS pdescuento,
         0 AS descuentos,
         IFNULL(p.existencia,0) AS existencia,
         TRIM(p.unidad) AS unidada,

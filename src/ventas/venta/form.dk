@@ -539,20 +539,12 @@ module "form.dk"
 
                     button(class="btn btn-sm rounded-0" type="button" id="btn_add_lote" title="Agregar lote al producto"){$"#<@ICON_123>"span(class="act_txt"){" Agregar lote"}}
                     button(class="btn btn-sm rounded-0" type="button" id="btn_add_serie" title="Agregar serie al producto"){$"#<@ICON_ABC>"span(class="act_txt"){" Agregar serie"}}
+                    button(class="btn btn-sm rounded-0" type="button" id="btn_note_row" title="Agregar nota a la fila" onclick="venta.show_modal_row()"){$"#<@ICON_JOURNAL_PLUS>"span(class="act_txt"){" Nota"}}
 
                     small(class="text-muted"){$"|"}
 
                     button(class="btn btn-sm rounded-0" type="button" id="btn_add_row" title="Agregar producto"){$"#<@ICON_BOX_4>"span(class="act_txt"){" Agregar"}}
                     button(class="btn btn-sm rounded-0" type="button" id="btn_del_row" title="Eliminar fila"){$"#<@ICON_REMOVE_ROW>"span(class="act_txt"){" Remover"}}
-
-                    button(class="btn btn-sm rounded-0" type="button" id="btn_note_row" title="Agregar nota a la fila" onclick="venta.show_modal_row()")
-                    {
-                        $'<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-journal-plus" viewBox="0 0 16 16">
-                        <path fill-rule="evenodd" d="M8 5.5a.5.5 0 0 1 .5.5v1.5H10a.5.5 0 0 1 0 1H8.5V10a.5.5 0 0 1-1 0V8.5H6a.5.5 0 0 1 0-1h1.5V6a.5.5 0 0 1 .5-.5"/>
-                        <path d="M3 0h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-1h1v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v1H1V2a2 2 0 0 1 2-2"/>
-                        <path d="M1 5v-.5a.5.5 0 0 1 1 0V5h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1zm0 3v-.5a.5.5 0 0 1 1 0V8h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1zm0 3v-.5a.5.5 0 0 1 1 0v.5h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1z"/>
-                        </svg>'
-                        span(class="act_txt"){" Nota"}}
                 }
             }
             div(class="alert alert-danger rounded-0 my-1 py-0 d-none" role="alert" id="tbl_alerts"){$""}
@@ -596,7 +588,8 @@ module "form.dk"
                             "edit-th"(type="NoEditable" field="cotizado" textalign="center"){$"Cotizado"}
                             "edit-th"(type="Number" field="cantidad" textalign="center" format="true" decs="#<@DECIMAL_PRECISION>"){$"Cantidad"}
                             "edit-th"(type="NoEditable" field="subtotal" textalign="end" format="true" thousandssep="true" decs="#<@DECIMAL_PRECISION>"){$"Subtotal"}
-                            "edit-th"(type="Number" field="descuentos" textalign="end" format="true" thousandssep="true" decs="#<@DECIMAL_PRECISION>"){$"Descuentos"}
+                            "edit-th"(type="Number" field="pdescuento" textalign="end" format="true" thousandssep="true" decs="#<@DECIMAL_PRECISION>"){"%Descuento"}
+                            "edit-th"(type="Number" field="descuentos" textalign="end" format="true" thousandssep="true" decs="#<@DECIMAL_PRECISION>"){"Descuentos"}
                             "edit-th"(type="NoEditable" field="impuestos" textalign="end" format="true" thousandssep="true" decs="#<@DECIMAL_PRECISION>"){$"Impuestos"}
                             "edit-th"(type="NoEditable" field="importe" textalign="end" format="true" thousandssep="true" decs="#<@DECIMAL_PRECISION>"){$"Importe"}
                             #! if @enable_lotes
