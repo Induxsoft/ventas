@@ -260,8 +260,28 @@ var venta =
         if (mode === "prod") return Math.RoundTo(Math.div(Math.mul(value,tcd),tcp), this.decimals);
         return value;
     },
-    porcentajeDelImporte(parte,total){ return Math.RoundTo(Math.mul(Math.div(parte,total),100), this.decimals) },
-    importeDelPorcentaje(porc,total){ return Math.RoundTo(Math.mul(total,Math.div(porc,100)), this.decimals) },
+    porcentajeDelImporte(parte,total)
+    {
+        try {
+            let porc = Math.RoundTo(Math.mul(Math.div(parte,total),100), this.decimals);
+            if (isNaN(porc)) return 0;
+            return Number(porc);
+        } catch (error) {
+            console.warn(error);
+            return 0;
+        }
+    },
+    importeDelPorcentaje(porc,total)
+    {
+        try {
+            let importe = Math.RoundTo(Math.mul(total,Math.div(porc,100)), this.decimals);
+            if (isNaN(importe)) return 0;
+            return Number(importe);
+        } catch (error) {
+            console.warn(error);
+            return 0;
+        }
+    },
 
     toggleButtonVisibility()
     {
