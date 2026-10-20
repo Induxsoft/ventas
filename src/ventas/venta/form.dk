@@ -543,6 +543,23 @@ module "form.dk"
 
                     small(class="text-muted"){$"|"}
 
+                    div(class="d-inline-flex align-items-center gap-1" id="div_desc_global" title="Reemplaza el descuento de todas las partidas. No modifica las promociones. Si agrega partidas después, vuelva a aplicarlo.")
+                    {
+                        small{$"Desc. global:"}
+                        div(class="input-group input-group-sm flex-nowrap" style="width:auto;")
+                        {
+                            input(class="form-control rounded-0" type="number" id="txt_desc_global" min="0" step="any" placeholder="0" style="width:7em;")
+                            select(class="form-select rounded-0" id="sel_desc_global_modo" style="width:auto;")
+                            {
+                                option(value="pct"){$"%"}
+                                option(value="imp"){$"Importe"}
+                            }
+                            button(class="btn btn-sm btn-outline-secondary rounded-0" type="button" id="btn_desc_global"){$"Aplicar"}
+                        }
+                    }
+
+                    small(class="text-muted"){$"|"}
+
                     button(class="btn btn-sm rounded-0" type="button" id="btn_add_row" title="Agregar producto"){$"#<@ICON_BOX_4>"span(class="act_txt"){" Agregar"}}
                     button(class="btn btn-sm rounded-0" type="button" id="btn_del_row" title="Eliminar fila"){$"#<@ICON_REMOVE_ROW>"span(class="act_txt"){" Remover"}}
                 }

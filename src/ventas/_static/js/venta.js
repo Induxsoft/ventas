@@ -168,6 +168,14 @@ var venta =
         btn_add_doc.addEventListener("click", () => this.launchIkLinkDocument(ik_link_doc));
         btn_del_doc.addEventListener("click", () => this.removeDVenta());
         btn_includes.addEventListener("click", () => this.launchModalDocsIncluded());
+
+        const btn_desc_global = document.getElementById("btn_desc_global");
+        if (btn_desc_global) btn_desc_global.addEventListener("click", () => {
+            const txt = document.getElementById("txt_desc_global");
+            const modo = document.getElementById("sel_desc_global_modo").value;
+            if (txt.value.trim() === "") { show_alert("#tbl_alerts","Capture el descuento global.",3); return; }
+            if (this.applyGlobalDiscount(modo, txt.value)) txt.value = "";
+        });
         
         this.table.setInputKey("codigo",ik_producto);
         this.table.setInputKey("descripcion",ik_producto);
@@ -976,6 +984,12 @@ var venta =
 
     edtProduct(producto, rowIndex) {
         let i = this.calculateTaxes(producto);
+        // descuentos = descuento1 + descuento2 (promoción); descuento1 es solo la parte manual.
+        let d2 = Number(producto.descuento2 ?? 0);
+        if (d2 > 0 && i.descuentos < d2) {
+            producto["pdescuento"] = Math.mul(Math.div(d2,Math.mul(i.costo,i.cantidad)),100);
+            i = this.calculateTaxes(producto);
+        }
 
         producto["precio"] = i.costo;
         producto["cantidad"] = i.cantidad;
@@ -984,7 +998,7 @@ var venta =
         producto["impuestos"] = i.impuestos;
         producto["importe"] = i.total;
         producto["costototal"] = i.costo;
-        producto["descuento1"] = i.descuentos;
+        producto["descuento1"] = Math.RoundTo(Math.sub(i.descuentos,d2),this.decimals);
         producto["impuesto1"] = i.impuesto1;
         producto["impuesto2"] = i.impuesto2;
         producto["impuesto3"] = i.impuesto3;
@@ -992,6 +1006,57 @@ var venta =
 
         this.table.UpdateRow(rowIndex);
         this.tableSummary();
+    },
+
+    // Descuento global: calculadora del lado del cliente. Reemplaza el descuento manual
+    // (descuento1) de cada partida; no toca descuento2 (promociones) ni guarda nada nuevo.
+    // modo "pct": el mismo porcentaje en cada partida. modo "imp": el importe se reparte en
+    // proporción al subtotal (cantidad x precio) y el centavo residual va a la partida mayor.
+    applyGlobalDiscount(modo, valor)
+    {
+        let dtarray = this.table?.DataArray ?? [];
+        let filas = [];
+        for (let r = 0; r < dtarray.length; r++) {
+            const p = dtarray[r];
+            if (Object.keys(p ?? {}).length < this.table.Columns.length) continue;
+            let i = this.calculateTaxes(p);
+            filas.push({ r: r, p: p, base: Math.mul(i.costo,i.cantidad), d1: Number(p.descuento1 ?? 0), d2: Number(p.descuento2 ?? 0) });
+        }
+
+        valor = Number(valor);
+        if (filas.length === 0) { show_alert("#tbl_alerts","No hay partidas a las cuales aplicar el descuento.",3); return false; }
+        if (isNaN(valor) || valor < 0) { show_alert("#tbl_alerts","El descuento global no puede ser menor que 0.",3); return false; }
+
+        let total_base = filas.reduce((t,f) => Math.add(t,f.base), 0);
+        if (modo === "pct") {
+            if (valor > 100) { show_alert("#tbl_alerts","El porcentaje no puede ser mayor que 100.",3); return false; }
+            filas.forEach(f => { f.desc = this.importeDelPorcentaje(valor,f.base) });
+        }
+        else {
+            valor = Math.RoundTo(valor,this.decimals);
+            if (valor > Math.RoundTo(total_base,this.decimals)) { show_alert("#tbl_alerts","El importe no puede ser mayor que el subtotal del documento.",3); return false; }
+            let suma = 0, mayor = filas[0];
+            filas.forEach(f => {
+                f.desc = (total_base > 0) ? Math.RoundTo(Math.div(Math.mul(valor,f.base),total_base),this.decimals) : 0;
+                suma = Math.add(suma,f.desc);
+                if (f.base > mayor.base) mayor = f;
+            });
+            mayor.desc = Math.RoundTo(Math.add(mayor.desc,Math.sub(valor,suma)),this.decimals);
+        }
+
+        const excede = filas.find(f => Math.add(f.desc,f.d2) > Math.RoundTo(f.base,this.decimals));
+        if (excede) { show_alert("#tbl_alerts","El descuento más la promoción excede el subtotal de: "+excede.p.descripcion,5); return false; }
+
+        const distintos = filas.filter(f => f.d1 > 0 && f.d1 !== f.desc).length;
+        if (distintos > 0 && !confirm(distintos+" partida(s) ya tienen un descuento distinto; el descuento global lo reemplaza. ¿Continuar?")) return false;
+
+        filas.forEach(f => {
+            let d = Math.add(f.desc,f.d2);
+            if (modo === "pct" && f.d2 === 0) f.p["pdescuento"] = valor;
+            else f.p["pdescuento"] = (f.base > 0) ? Math.mul(Math.div(d,f.base),100) : 0;
+            this.edtProduct(f.p,f.r);
+        });
+        return true;
     },
 
     delProduct()
